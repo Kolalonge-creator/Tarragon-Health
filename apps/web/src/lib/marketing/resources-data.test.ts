@@ -43,3 +43,53 @@ describe("marketing resources reads", () => {
     expect(errorSpy).not.toHaveBeenCalled();
   });
 });
+
+describe("marketing resources before the provenance migration has applied", () => {
+  let errorSpy: jest.SpyInstance;
+  beforeEach(() => {
+    errorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    errorSpy.mockRestore();
+    mockClient.mockReset();
+  });
+
+  const row = {
+    slug: "db-only-article",
+    title: "From the database",
+    description: "d",
+    category: "Blood pressure",
+    read_minutes: 4,
+    related_href: null,
+    related_label: null,
+    sections: [{ heading: "H", paragraphs: ["p"] }],
+    reviewed_by_name: null,
+    reviewed_at: null,
+    created_at: "2026-11-05T00:00:00Z",
+    updated_at: "2026-11-05T00:00:00Z",
+  };
+
+  it("retries with the old column list on 42703 instead of falling back to the static library", async () => {
+    const selects: string[] = [];
+    let call = 0;
+    const chain: Record<string, jest.Mock> = {};
+    chain.select = jest.fn((cols: string) => {
+      selects.push(cols);
+      return chain;
+    });
+    chain.eq = jest.fn(() => chain);
+    chain.order = jest.fn(() =>
+      Promise.resolve(call++ === 0 ? { data: null, error: { code: "42703", message: "column author_name does not exist" } } : { data: [row], error: null })
+    );
+    mockClient.mockReturnValue({ from: jest.fn(() => chain) });
+
+    const articles = await loadResourceArticles();
+    expect(selects).toHaveLength(2);
+    expect(selects[0]).toContain("author_name");
+    expect(selects[1]).not.toContain("author_name");
+    expect(articles.map((a) => a.slug)).toEqual(["db-only-article"]);
+    expect(articles[0]!.authorName).toBeNull();
+    expect(articles[0]!.references).toEqual([]);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+});

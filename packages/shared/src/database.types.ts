@@ -27651,13 +27651,46 @@ export type Database = {
           },
         ]
       }
+      marketing_resource_revisions: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: string
+          operation: string
+          resource_id: string
+          slug: string
+          snapshot: Json
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          operation: string
+          resource_id: string
+          slug: string
+          snapshot: Json
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          operation?: string
+          resource_id?: string
+          slug?: string
+          snapshot?: Json
+        }
+        Relationships: []
+      }
       marketing_resources: {
         Row: {
+          author_name: string | null
           category: string
           created_at: string
           description: string
           id: string
           is_published: boolean
+          next_review_at: string | null
+          publish_at: string | null
           read_minutes: number
           related_href: string | null
           related_label: string | null
@@ -27666,16 +27699,20 @@ export type Database = {
           sections: Json
           slug: string
           sort_order: number
+          source_references: Json
           title: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          author_name?: string | null
           category: string
           created_at?: string
           description: string
           id?: string
           is_published?: boolean
+          next_review_at?: string | null
+          publish_at?: string | null
           read_minutes?: number
           related_href?: string | null
           related_label?: string | null
@@ -27684,16 +27721,20 @@ export type Database = {
           sections?: Json
           slug: string
           sort_order?: number
+          source_references?: Json
           title: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          author_name?: string | null
           category?: string
           created_at?: string
           description?: string
           id?: string
           is_published?: boolean
+          next_review_at?: string | null
+          publish_at?: string | null
           read_minutes?: number
           related_href?: string | null
           related_label?: string | null
@@ -27702,6 +27743,7 @@ export type Database = {
           sections?: Json
           slug?: string
           sort_order?: number
+          source_references?: Json
           title?: string
           updated_at?: string
           updated_by?: string | null
