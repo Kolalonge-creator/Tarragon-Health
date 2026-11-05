@@ -23961,6 +23961,7 @@ export type Database = {
       imaging_studies: {
         Row: {
           code: string
+          concept_id: string | null
           created_at: string
           default_safety_questionnaire_key: string | null
           duration_minutes: number | null
@@ -23977,6 +23978,7 @@ export type Database = {
         }
         Insert: {
           code: string
+          concept_id?: string | null
           created_at?: string
           default_safety_questionnaire_key?: string | null
           duration_minutes?: number | null
@@ -23993,6 +23995,7 @@ export type Database = {
         }
         Update: {
           code?: string
+          concept_id?: string | null
           created_at?: string
           default_safety_questionnaire_key?: string | null
           duration_minutes?: number | null
@@ -24008,6 +24011,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "imaging_studies_concept_id_fkey"
+            columns: ["concept_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imaging_studies_provider_id_fkey"
             columns: ["provider_id"]
@@ -25290,6 +25300,8 @@ export type Database = {
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
+          request_verification_code: string
+          request_verification_token: string
           resulted_at: string | null
           sample_collected_at: string | null
           scheduled_date: string | null
@@ -25347,6 +25359,8 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          request_verification_code?: string
+          request_verification_token?: string
           resulted_at?: string | null
           sample_collected_at?: string | null
           scheduled_date?: string | null
@@ -25404,6 +25418,8 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          request_verification_code?: string
+          request_verification_token?: string
           resulted_at?: string | null
           sample_collected_at?: string | null
           scheduled_date?: string | null
@@ -40983,6 +40999,7 @@ export type Database = {
           id: string
           language: string
           term: string
+          term_kind: string
         }
         Insert: {
           concept_id: string
@@ -40990,6 +41007,7 @@ export type Database = {
           id?: string
           language?: string
           term: string
+          term_kind?: string
         }
         Update: {
           concept_id?: string
@@ -40997,6 +41015,7 @@ export type Database = {
           id?: string
           language?: string
           term?: string
+          term_kind?: string
         }
         Relationships: [
           {
@@ -41011,6 +41030,7 @@ export type Database = {
       reference_concepts: {
         Row: {
           attributes: Json
+          body_region: string | null
           code: string
           code_system_id: string
           created_at: string
@@ -41018,7 +41038,11 @@ export type Database = {
           display: string
           domain: Database["public"]["Enums"]["reference_concept_domain"]
           id: string
+          investigation_category: string | null
+          is_ambiguous: boolean
+          modality: Database["public"]["Enums"]["imaging_modality"] | null
           parent_id: string | null
+          patient_description: string | null
           status: Database["public"]["Enums"]["reference_concept_status"]
           updated_at: string
           valid_from: string | null
@@ -41026,6 +41050,7 @@ export type Database = {
         }
         Insert: {
           attributes?: Json
+          body_region?: string | null
           code: string
           code_system_id: string
           created_at?: string
@@ -41033,7 +41058,11 @@ export type Database = {
           display: string
           domain: Database["public"]["Enums"]["reference_concept_domain"]
           id?: string
+          investigation_category?: string | null
+          is_ambiguous?: boolean
+          modality?: Database["public"]["Enums"]["imaging_modality"] | null
           parent_id?: string | null
+          patient_description?: string | null
           status?: Database["public"]["Enums"]["reference_concept_status"]
           updated_at?: string
           valid_from?: string | null
@@ -41041,6 +41070,7 @@ export type Database = {
         }
         Update: {
           attributes?: Json
+          body_region?: string | null
           code?: string
           code_system_id?: string
           created_at?: string
@@ -41048,7 +41078,11 @@ export type Database = {
           display?: string
           domain?: Database["public"]["Enums"]["reference_concept_domain"]
           id?: string
+          investigation_category?: string | null
+          is_ambiguous?: boolean
+          modality?: Database["public"]["Enums"]["imaging_modality"] | null
           parent_id?: string | null
+          patient_description?: string | null
           status?: Database["public"]["Enums"]["reference_concept_status"]
           updated_at?: string
           valid_from?: string | null
@@ -42015,6 +42049,7 @@ export type Database = {
           clinical_basis: string | null
           code: string
           commission_rate: number | null
+          concept_id: string | null
           created_at: string
           frequency_months: number | null
           fulfilment_dormant: boolean
@@ -42052,6 +42087,7 @@ export type Database = {
           clinical_basis?: string | null
           code: string
           commission_rate?: number | null
+          concept_id?: string | null
           created_at?: string
           frequency_months?: number | null
           fulfilment_dormant?: boolean
@@ -42089,6 +42125,7 @@ export type Database = {
           clinical_basis?: string | null
           code?: string
           commission_rate?: number | null
+          concept_id?: string | null
           created_at?: string
           frequency_months?: number | null
           fulfilment_dormant?: boolean
@@ -42153,6 +42190,13 @@ export type Database = {
           screen_type_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "screen_types_concept_id_fkey"
+            columns: ["concept_id"]
+            isOneToOne: false
+            referencedRelation: "reference_concepts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "screening_completions_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -42656,6 +42700,11 @@ export type Database = {
           created_at: string
           declined_at: string | null
           declined_reason: string | null
+          defer_count: number
+          deferred_at: string | null
+          deferred_by: string | null
+          deferred_note: string | null
+          deferred_reason_code: string | null
           due_date: string
           id: string
           is_recall: boolean
@@ -42663,8 +42712,10 @@ export type Database = {
           not_applicable_at: string | null
           not_applicable_reason: string | null
           organisation_id: string
+          original_due_date: string | null
           patient_id: string
           recall_reason: string | null
+          reminder_last_offset: number | null
           reminder_sent_at: string | null
           reminder_stage: Database["public"]["Enums"]["reminder_stage"] | null
           rule_set_id: string | null
@@ -42677,6 +42728,11 @@ export type Database = {
           created_at?: string
           declined_at?: string | null
           declined_reason?: string | null
+          defer_count?: number
+          deferred_at?: string | null
+          deferred_by?: string | null
+          deferred_note?: string | null
+          deferred_reason_code?: string | null
           due_date: string
           id?: string
           is_recall?: boolean
@@ -42684,8 +42740,10 @@ export type Database = {
           not_applicable_at?: string | null
           not_applicable_reason?: string | null
           organisation_id: string
+          original_due_date?: string | null
           patient_id: string
           recall_reason?: string | null
+          reminder_last_offset?: number | null
           reminder_sent_at?: string | null
           reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           rule_set_id?: string | null
@@ -42698,6 +42756,11 @@ export type Database = {
           created_at?: string
           declined_at?: string | null
           declined_reason?: string | null
+          defer_count?: number
+          deferred_at?: string | null
+          deferred_by?: string | null
+          deferred_note?: string | null
+          deferred_reason_code?: string | null
           due_date?: string
           id?: string
           is_recall?: boolean
@@ -42705,8 +42768,10 @@ export type Database = {
           not_applicable_at?: string | null
           not_applicable_reason?: string | null
           organisation_id?: string
+          original_due_date?: string | null
           patient_id?: string
           recall_reason?: string | null
+          reminder_last_offset?: number | null
           reminder_sent_at?: string | null
           reminder_stage?: Database["public"]["Enums"]["reminder_stage"] | null
           rule_set_id?: string | null
@@ -42812,6 +42877,146 @@ export type Database = {
           version?: number
         }
         Relationships: []
+      }
+      screening_reminder_configs: {
+        Row: {
+          activated_at: string | null
+          activated_by: string | null
+          change_note: string
+          created_at: string
+          decided_by: string
+          effective_from: string
+          id: string
+          is_active: boolean
+          rules: Json
+          version: number
+        }
+        Insert: {
+          activated_at?: string | null
+          activated_by?: string | null
+          change_note: string
+          created_at?: string
+          decided_by: string
+          effective_from: string
+          id?: string
+          is_active?: boolean
+          rules: Json
+          version: number
+        }
+        Update: {
+          activated_at?: string | null
+          activated_by?: string | null
+          change_note?: string
+          created_at?: string
+          decided_by?: string
+          effective_from?: string
+          id?: string
+          is_active?: boolean
+          rules?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_reminder_configs_activated_by_fkey"
+            columns: ["activated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_baselines: {
+        Row: {
+          created_at: string
+          id: string
+          is_test: boolean
+          items: Json
+          membership_id: string | null
+          organisation_id: string
+          patient_id: string
+          plan_snapshot: Json
+          review_note: string | null
+          review_task_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scheduler_result: Json | null
+          state: string
+          submitted_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          items: Json
+          membership_id?: string | null
+          organisation_id: string
+          patient_id: string
+          plan_snapshot?: Json
+          review_note?: string | null
+          review_task_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduler_result?: Json | null
+          state?: string
+          submitted_at?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          items?: Json
+          membership_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          plan_snapshot?: Json
+          review_note?: string | null
+          review_task_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduler_result?: Json | null
+          state?: string
+          submitted_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_baselines_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "patient_memberships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_baselines_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_baselines_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_baselines_review_task_id_fkey"
+            columns: ["review_task_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_baselines_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       risk_instrument_versions: {
         Row: {
@@ -48058,6 +48263,42 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_consultation_host_links: {
+        Row: {
+          host_start_url: string
+          organisation_id: string
+          updated_at: string
+          video_consultation_id: string
+        }
+        Insert: {
+          host_start_url: string
+          organisation_id: string
+          updated_at?: string
+          video_consultation_id: string
+        }
+        Update: {
+          host_start_url?: string
+          organisation_id?: string
+          updated_at?: string
+          video_consultation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_consultation_host_links_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultation_host_links_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: true
+            referencedRelation: "video_consultations"
             referencedColumns: ["id"]
           },
         ]
@@ -58190,6 +58431,22 @@ export type Database = {
           title: string
         }[]
       }
+      search_investigations: {
+        Args: { p_limit?: number; p_min_score: number; p_text: string }
+        Returns: {
+          body_region: string
+          clarifies_concept_id: string
+          clarifies_display: string
+          code: string
+          concept_id: string
+          display: string
+          investigation_category: string
+          matched_on: string
+          modality: Database["public"]["Enums"]["imaging_modality"]
+          patient_description: string
+          score: number
+        }[]
+      }
       search_patient_record: {
         Args: { p_patient: string; p_query: string }
         Returns: {
@@ -58702,6 +58959,27 @@ export type Database = {
           version: number
         }[]
       }
+      verify_lab_request_public: {
+        Args: { p_ref: string }
+        Returns: {
+          issued_on: string
+          order_number: string
+          patient_initials: string
+          requested_by: string
+          requester_registration: string
+          status: string
+          tests: string[]
+        }[]
+      }
+      defer_screening: {
+        Args: { p_new_due: string; p_note?: string; p_reason_code: string; p_schedule: string }
+        Returns: string
+      }
+      activate_screening_reminder_config: { Args: { p_note: string; p_version: number }; Returns: string }
+      my_preventive_baseline: { Args: never; Returns: Json }
+      submit_my_preventive_baseline: { Args: never; Returns: Json }
+      clinician_preventive_baseline: { Args: { p_patient: string }; Returns: Json }
+      review_preventive_plan: { Args: { p_baseline: string; p_decision: string; p_note?: string }; Returns: string }
       desk_record_prescription_supply: {
         Args: {
           p_rx_number: string

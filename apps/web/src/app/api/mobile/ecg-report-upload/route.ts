@@ -1,5 +1,7 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { ECG_REPORT_BUCKET } from "@/lib/ecg-reports/documents";
@@ -43,6 +45,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   } = await supabase.auth.getUser(accessToken);
   if (authError || !user) {
     return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 });
+  }
+  // Security audit 2026-11-05 (M-8): bounded per user so a script cannot run up storage and AI costs.
+  const limited = await checkAbuseLimit("upload", user.id);
+  if (!limited.ok) {
+    return NextResponse.json({ error: ABUSE_LIMIT_MESSAGE }, { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } });
   }
 
   let formData: FormData;
@@ -104,7 +111,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     .from(ECG_REPORT_BUCKET)
     .upload(path, file, { contentType: file.type, upsert: false });
   if (uploadError) {
-    return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(uploadError, "mobile/ecg-report-upload") }, { status: 500 });
   }
 
   const { data: inserted, error: insertError } = await supabase
@@ -129,7 +136,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     await supabase.storage.from(ECG_REPORT_BUCKET).remove([path]);
     if (isDuplicateDocumentError(insertError)) return NextResponse.json({ error: DUPLICATE_DOCUMENT_MESSAGE }, { status: 409 });
     return NextResponse.json(
-      { error: insertError?.message ?? "Could not save that upload." },
+      { error: safeErrorMessage(insertError, "mobile/ecg-report-upload", "Could not save that upload.") },
       { status: 500 }
     );
   }
