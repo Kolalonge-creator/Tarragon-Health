@@ -7,6 +7,7 @@ import {
   AI_SYSTEMS,
   governedSystemPrompt,
   runGovernedAi,
+  governedModelId,
 } from "@/lib/ai-governance";
 import { findRelevantFacilities, type FacilityMatch } from "./search";
 
@@ -51,12 +52,13 @@ Rules, no exceptions:
 function buildChatModel(
   model: ChatAnthropic | undefined,
   maxTokens: number,
+  modelId: string,
 ): ChatAnthropic {
   return (
     model ??
     new ChatAnthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
-      model: MODEL_ID,
+      model: modelId,
       maxTokens,
       // Same claude-*-5-generation workaround as ai-coach/model.ts.
       invocationKwargs: {
@@ -96,7 +98,8 @@ export async function answerServiceNavigationQuestion(
     inputCategory: "facility_directory_question",
 
     run: async ({ config }) => {
-      const intentModel = buildChatModel(model, 200).withStructuredOutput(
+      const modelId = governedModelId(config, MODEL_ID);
+      const intentModel = buildChatModel(model, 200, modelId).withStructuredOutput(
         intentSchema,
       );
       const intent = await intentModel.invoke([
@@ -122,7 +125,7 @@ export async function answerServiceNavigationQuestion(
               .join("\n")
           : "(no matching facilities found)";
 
-      const answerModel = buildChatModel(model, 300).withStructuredOutput(
+      const answerModel = buildChatModel(model, 300, modelId).withStructuredOutput(
         answerSchema,
       );
       const result = await answerModel.invoke([
@@ -143,7 +146,7 @@ export async function answerServiceNavigationQuestion(
           answer: result.answer,
           facilities,
         },
-        modelIdentifier: MODEL_ID,
+        modelIdentifier: modelId,
         // A category and a count, never the patient's question or the answer:
         // a free-text directory question can carry health detail the audit
         // trail has no reason to hold.

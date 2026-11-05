@@ -13,6 +13,7 @@ import { LabOrderLocationPicker, RateLabLocation } from "@/app/(dashboard)/patie
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { listQueryState } from "@/lib/queries/list-query-state";
+import { SuggestedPlaceButton } from "@/components/diagnostic-directory/suggested-place-button";
 
 /** Self-arranged: the states that matter to a patient are "we've written it,
  * go when you can" and "the result is in". Payment states are retained in the
@@ -141,6 +142,8 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                     result lands), then locked once both a branch is set AND
                     the order is resulted — never shown alongside
                     RateLabLocation below, which takes over at that point. */}
+                {/* Diagnostic directory Phase 5: where the doctor suggests (opening it records that the patient saw it). */}
+                {AWAITING_RESULT.includes(order.status) && <SuggestedPlaceButton kind="lab" orderId={order.id} />}
                 {order.fulfilment === "self_arranged" &&
                   order.status !== "cancelled" &&
                   !(order.status === "resulted" && order.location_id) && (

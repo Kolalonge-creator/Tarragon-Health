@@ -22,11 +22,14 @@ export const LISTING_STATUSES = ["draft", "listed", "suspended", "deactivated"] 
 
 export const NOTICES = [
   "facility_created", "listing_started", "branch_added", "branch_added_to_directory", "location_verified", "status_set",
-  "service_saved", "credential_recorded", "credential_set", "incident_opened", "incident_closed",
+  "service_saved", "credential_recorded", "credential_set", "incident_opened", "incident_closed", "partner_set", "partner_ended",
+  "import_staged", "import_applied", "import_rejected", "import_bad_file", "import_duplicate",
   "denied", "invalid", "failed", "contracted_branch", "rule_refused", "not_found",
 ] as const;
 export type Notice = (typeof NOTICES)[number];
-export const BAD_NOTICES: ReadonlySet<Notice> = new Set(["denied", "invalid", "failed", "contracted_branch", "rule_refused", "not_found"]);
+export const BAD_NOTICES: ReadonlySet<Notice> = new Set([
+  "denied", "invalid", "failed", "contracted_branch", "rule_refused", "not_found", "import_bad_file", "import_duplicate",
+]);
 export const asNotice = (v: unknown): Notice | null => (NOTICES as readonly string[]).includes(String(v)) ? (v as Notice) : null;
 
 /** Database error code to a fixed notice. 42501 = not allowed, 22023 = bad input, 23514/23503/23505 = a rule refused it. */
@@ -107,6 +110,19 @@ export const closeIncidentSchema = z.object({
   listing_id: uuid, incident_id: uuid, decision: text(10, 1000), corrective_action: optText(1000), reinstate: z.enum(["yes", "no"]),
 });
 
+// Preferred Partner (Phase 4, DIR-1). Admin only in the database; a commission needs a legal review reference.
+const reqDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export const setPartnerSchema = z.object({
+  listing_id: uuid,
+  branch_listing_id: uuid,
+  starts_on: reqDate,
+  ends_on: optDate,
+  has_commission: z.enum(["yes", "no"]),
+  legal_review_reference: optText(200),
+  note: text(10, 1000),
+}).refine((v) => v.has_commission === "no" || (v.legal_review_reference ?? "").length >= 5, { path: ["legal_review_reference"] });
+export const endPartnerSchema = z.object({ listing_id: uuid, partnership_id: uuid, reason: text(10, 500) });
+
 // ---- what the screens read ----------------------------------------------------------------------------------------------
 const nullableString = z.string().nullable();
 const ref = z.object({ id: uuid, listing_id: uuid.nullable() });
@@ -170,3 +186,27 @@ export type DetailBranch = Detail["branches"][number];
 
 export const investigationOptionsSchema = z.array(z.object({ id: uuid, display: z.string(), investigation_category: z.string() }));
 export type InvestigationOption = z.infer<typeof investigationOptionsSchema>[number];
+
+export const partnershipsSchema = z.array(z.object({
+  // has_commission, legal_review_reference and note are null for a non-admin verifier (commercial terms are admin only).
+  id: uuid, branch_listing_id: uuid, starts_on: z.string(), ends_on: nullableString, has_commission: z.boolean().nullable(),
+  legal_review_reference: nullableString, note: nullableString, created_at: z.string(), created_by: nullableString,
+  ended_at: nullableString, ended_by: nullableString, end_reason: nullableString, in_force: z.boolean(), lapsed: z.boolean(),
+}));
+export type Partnership = z.infer<typeof partnershipsSchema>[number];
+
+// ---- import (Phase 7) ------------------------------------------------------------------------------------------------
+export const importBatchesSchema = z.array(z.object({
+  id: uuid, source: z.string(), note: nullableString, created_at: z.string(), created_by: nullableString,
+  rows: z.number(), staged: z.number(), invalid: z.number(), applied: z.number(), rejected: z.number(),
+}));
+export type ImportBatch = z.infer<typeof importBatchesSchema>[number];
+export const importRowsSchema = z.array(z.object({
+  id: uuid, row_number: z.number(), data: z.record(z.string(), z.unknown()), problems: z.array(z.string()),
+  status: z.enum(["staged", "invalid", "applied", "rejected"]), outcome: nullableString,
+  provider_listing_id: uuid.nullable(), branch_listing_id: uuid.nullable(), decided_at: nullableString, decided_by: nullableString,
+}));
+export type ImportRow = z.infer<typeof importRowsSchema>[number];
+export const stageImportSchema = z.object({ source: text(3, 200), note: optText(1000) });
+export const importRowSchema = z.object({ batch_id: uuid, row_id: uuid });
+export const rejectImportRowSchema = importRowSchema.extend({ reason: text(10, 500) });

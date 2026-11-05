@@ -4125,6 +4125,34 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "docs/plans/SCALE-READINESS-PLAN.md section 3; supabase/migrations/20261013005350_sr5_alert_rules_and_operations_wall.sql",
   },
   {
+    key: "ops.alert_rules",
+    // v2 adds ai_call_failures: the AI vendor was the one outside service with no rule. 3 calls, more than 25 percent failed,
+    // over 60 minutes: small on purpose at today's volume. sev3 (tell once, no incident) because a non-AI fallback always runs.
+    // The other 14 rules are unchanged from v1.
+    value: {
+      unacknowledged_page: { severity: "sev1", params: {} },
+      queue_starvation: { severity: "sev2", params: { grace_minutes: 0 } },
+      rota_gap_12h: { severity: "sev1", params: { hours: 12 } },
+      notification_failure_rate: { severity: "sev2", params: { window_minutes: 15, max_failure_percent: 2, min_volume: 20, stuck_pending_minutes: 10 } },
+      payment_webhooks_unprocessed: { severity: "sev2", params: { older_than_minutes: 5, errored_window_minutes: 60 } },
+      zoom_webhooks_unprocessed: { severity: "sev2", params: { older_than_minutes: 5, errored_window_minutes: 60 } },
+      db_connections: { severity: "sev2", params: { max_percent: 70 } },
+      db_disk: { severity: "sev2", params: { max_percent: 70, disk_limit_bytes: 8589934592 } },
+      stale_cron: { severity: "sev2", params: { lookback_hours: 72, factor: 2, min_slack_minutes: 2 } },
+      lab_result_unreviewed: { severity: "sev2", params: { review_target_hours: 24 } },
+      zoom_join_fallback: { severity: "sev2", params: { window_minutes: 60, min_volume: 20, max_failed_percent: 3, max_fallback_percent: 10 } },
+      edge_function_errors: { severity: "sev2", params: { signal: "edge_error_rate_percent", max_value: 1, max_age_minutes: 15 } },
+      edge_function_drift: { severity: "sev2", params: { signal: "edge_drift_count", max_value: 0, max_age_minutes: 480 } },
+      cost_projection: { severity: "sev3", params: { signal: "cost_projection_percent_of_budget", max_value: 100, max_age_minutes: 1440 } },
+      ai_call_failures: { severity: "sev3", params: { window_minutes: 60, min_volume: 3, max_failed_percent: 25 } },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-05",
+    source: "supabase/migrations/20261105103341_ops_alert_ai_call_failures.sql",
+  },
+  {
     key: "ops.security_alert_rules",
     // Security audit 2026-11-05, Phase 2 (H-7): four security rules on the SR5 alert framework. Live values are the rows of
     // `ops_alert_rules`; this entry mirrors the migration seed and security-alert-rules-mirror.test.ts fails if they drift. Every
@@ -11625,6 +11653,29 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     version: 1,
     effectiveFrom: "2026-11-04",
     source: "supabase/migrations/20261104230924_diag_p2_listings_services_credentials_eligibility.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §11",
+  },
+  {
+    key: "directory.diagnostic_search",
+    // Diagnostic directory Phase 3: the radius choices offered when searching for a branch that does a test (straight-line
+    // km, shown as "about N km"), the radius used when the person has not picked one, and how many branches one page shows.
+    // public.search_diagnostic_services has no default for either: every caller passes them from here.
+    value: { radii_km: [5, 10, 20, 50], default_radius_km: 10, page_size: 20 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-04",
+    source: "supabase/migrations/20261104234848_diag_p3_search_diagnostic_services.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §9",
+  },
+  {
+    key: "directory.diagnostic_search",
+    // v2 (Phase 4, DIR-1): partner_band_km. An eligible Preferred Partner is listed first only when it is within this many
+    // km of the nearest eligible branch; a farther partner is sorted by distance with everyone else.
+    value: { radii_km: [5, 10, 20, 50], default_radius_km: 10, page_size: 20, partner_band_km: 3 },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-05",
+    source: "supabase/migrations/20261105092110_diag_p4_preferred_partner_band.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §9, §10; DIR-1",
   },
   {
     key: "screening.reminder_cadence",

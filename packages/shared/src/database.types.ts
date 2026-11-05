@@ -48636,6 +48636,7 @@ export type Database = {
       video_consultations: {
         Row: {
           annual_review_id: string | null
+          clinician_id: string | null
           context: Database["public"]["Enums"]["video_consultation_context"]
           created_at: string
           ended_at: string | null
@@ -48661,6 +48662,7 @@ export type Database = {
         }
         Insert: {
           annual_review_id?: string | null
+          clinician_id?: string | null
           context: Database["public"]["Enums"]["video_consultation_context"]
           created_at?: string
           ended_at?: string | null
@@ -48686,6 +48688,7 @@ export type Database = {
         }
         Update: {
           annual_review_id?: string | null
+          clinician_id?: string | null
           context?: Database["public"]["Enums"]["video_consultation_context"]
           created_at?: string
           ended_at?: string | null
@@ -48715,6 +48718,13 @@ export type Database = {
             columns: ["annual_review_id"]
             isOneToOne: false
             referencedRelation: "annual_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -58882,6 +58892,45 @@ export type Database = {
           p_signed_payload: string
         }
         Returns: undefined
+      }
+      search_diagnostic_services: {
+        Args: {
+          p_concept_id: string
+          p_include_unconfirmed: boolean
+          p_lat: number
+          p_lga: string
+          p_limit: number
+          p_lng: number
+          p_offset?: number
+          p_partner_band_km: number
+          p_radius_km: number
+          p_state: string
+        }
+        Returns: {
+          address: string
+          appointment_required: boolean
+          availability: string
+          branch_listing_id: string
+          branch_name: string
+          credentials_on_file: string[]
+          distance_km: number
+          is_partner: boolean
+          kind: string
+          last_confirmed_at: string
+          latitude: number
+          lga: string
+          longitude: number
+          neighbourhood: string
+          performed_elsewhere: boolean
+          phone: string
+          preparation_note: string
+          provider_name: string
+          result_group: string
+          service_id: string
+          state: string
+          total_count: number
+          town: string
+        }[]
       }
       search_health_education_content_text: {
         Args: {

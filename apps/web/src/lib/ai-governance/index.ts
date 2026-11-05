@@ -19,6 +19,8 @@ export type {
   ReportAiIncidentParams,
 } from "./audit";
 export { runGovernedAi } from "./run-governed";
+export { governedModelId } from "./model-id";
+export { recordAiCredentialMissing } from "./not-configured";
 export type {
   RunGovernedAiParams,
   RunGovernedAiResult,

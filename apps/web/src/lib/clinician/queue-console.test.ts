@@ -138,6 +138,8 @@ describe("S16-S20 queue screen helpers", () => {
     expect(SYSTEM_CLOSED_TASK_TYPES["titration_signoff"]?.href("p1")).toBe("/clinician/patients/p1/care-plan-changes");
     expect(SYSTEM_CLOSED_TASK_TYPES["red_event_unacknowledged"]?.href("p1")).toBe("/clinician/on-call");
     expect(SYSTEM_CLOSED_TASK_TYPES["symptom_review"]?.href("p1")).toBe("/clinician/consultations");
+    // a consultation note task is closed by signing the note, never from the generic outcome form
+    expect(SYSTEM_CLOSED_TASK_TYPES["consultation_note"]?.href("p1")).toBe("/clinician/consultations");
   });
 
   it("Lagos time becomes a precise time; nonsense is refused", () => {

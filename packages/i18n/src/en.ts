@@ -4,6 +4,7 @@ import { circleToolsCopy } from "./care-circle-tools-copy";
 import { familyCircleCopy } from "./family-circle-copy";
 import { circleP4Copy } from "./care-circle-p4-copy";
 import { diagnosticDirectoryCopy } from "./diagnostic-directory-copy";
+import { diagnosticSearchCopy } from "./diagnostic-search-copy";
 import { circleP5Copy } from "./care-circle-p5-copy";
 import { maternalChild } from "./maternal-child";
 import { designPrinciplesCopy } from "./design-principles-copy";
@@ -2744,6 +2745,8 @@ export const en = {
   "task.system_closed.red_event_unacknowledged_link": "Open On call",
   "task.system_closed.symptom_review": "This task finishes when you sign your note for the review.",
   "task.system_closed.symptom_review_link": "Open consultations",
+  "task.system_closed.consultation_note": "This task finishes when you sign the note for this video consultation.",
+  "task.system_closed.consultation_note_link": "Open consultations",
   "task.system_closed.results_hint": "A result that is released from the results page closes its task by itself.",
   "scribe.review.empty_summary": "No patient summary was drafted. Write one, or confirm there is none.",
   "scribe.gate.checking": "Checking whether the patient has allowed AI note-taking...",
@@ -5032,6 +5035,8 @@ export const en = {
   ...circleP5Copy,
   // 2026-11-04: diagnostic directory admin screens (staff only, see diagnostic-directory-copy.ts)
   ...diagnosticDirectoryCopy,
+  // 2026-11-05: diagnostic directory search, partner badge and explainer (proposed copy, CMO and DPO review pending: see diagnostic-search-copy.ts)
+  ...diagnosticSearchCopy,
   "directory.title": "Find care near you",
   "directory.intro": "Hospitals, clinics, labs, pharmacies and specialists. Every listing shows when a person last checked it.",
   "directory.not_open": "The directory is not open yet. We will tell you when it is.",

@@ -16,7 +16,7 @@ import {
   type VaccinationCatalogueEntry,
 } from "./extract";
 import { confirmVaccinationCardExtractionSchema } from "@/lib/validation/vaccination";
-import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
+import { AI_SYSTEMS, governedModelId, decideAiGovernance, recordAiInteraction, recordAiCredentialMissing } from "@/lib/ai-governance";
 
 export type CardExtractionActionResult = { error?: string; success?: boolean; message?: string };
 
@@ -74,6 +74,9 @@ export async function runVaccinationCardExtraction(
     return { status: "failed", readyCount: 0, message: "That upload could not be found." };
   }
 
+  // The model actually sent: the governed model once governance allows the call, so every stored row and audit
+  // record names the same model the request used.
+  let sentModelId: string = EXTRACTION_MODEL_ID;
   const fail = async (message: string, errorMessage: string) => {
     await service
       .from("vaccination_card_extractions")
@@ -83,6 +86,13 @@ export async function runVaccinationCardExtraction(
   };
 
   if (!isVaccinationCardExtractionConfigured()) {
+    await recordAiCredentialMissing(service, {
+      systemCode: AI_SYSTEMS.vaccinationCardOcr.code,
+      inputCategory: "vaccination_card_document",
+      subjectProfileId: row.patient_id,
+      resultingEntityType: "vaccination_card_extractions",
+      resultingEntityId: extractionId,
+    });
     return fail(
       "Automatic reading is not configured on this environment.",
       "ANTHROPIC_API_KEY is not set."
@@ -151,10 +161,12 @@ export async function runVaccinationCardExtraction(
       `AI governance: ${governance.reason}`
     );
   }
+  sentModelId = governedModelId(governance.config, EXTRACTION_MODEL_ID);
 
   const startedAt = Date.now();
 
   const result = await extractVaccinationCard({
+    modelId: sentModelId,
     fileBase64,
     mediaType: visionMediaType,
     catalog: (catalog ?? []) as VaccinationCatalogueEntry[],
@@ -163,7 +175,7 @@ export async function runVaccinationCardExtraction(
   if (!result.ok) {
     await recordAiInteraction(service, {
       systemCode: AI_SYSTEMS.vaccinationCardOcr.code,
-      modelIdentifier: EXTRACTION_MODEL_ID,
+      modelIdentifier: sentModelId,
       inputCategory: "vaccination_card_document",
       status: "failed",
       subjectProfileId: row.patient_id,
@@ -190,7 +202,7 @@ export async function runVaccinationCardExtraction(
     .from("vaccination_card_extractions")
     .update({
       status: "extracted",
-      model_id: EXTRACTION_MODEL_ID,
+      model_id: sentModelId,
       rows: extraction.rows as unknown as Json,
       card_holder_name: extraction.cardHolderName,
       unreadable_reason: extraction.unreadableReason,
@@ -205,7 +217,7 @@ export async function runVaccinationCardExtraction(
   // vaccination_card_extractions under the patient's own RLS.
   await recordAiInteraction(service, {
     systemCode: AI_SYSTEMS.vaccinationCardOcr.code,
-    modelIdentifier: EXTRACTION_MODEL_ID,
+    modelIdentifier: sentModelId,
     inputCategory: "vaccination_card_document",
     status: "completed",
     subjectProfileId: row.patient_id,

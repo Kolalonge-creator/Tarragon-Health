@@ -37,7 +37,13 @@ export function isCuffVisionConfigured(): boolean {
 }
 
 /** Read a cuff display photo. Never throws. */
-export async function readCuffDisplay(input: { imageBase64: string; mediaType: string; model?: ChatAnthropic }): Promise<CuffVisionResult> {
+/** `modelId` is the governed model (governedModelId) the caller resolved; it defaults to the in-code constant. */
+export async function readCuffDisplay(input: {
+  imageBase64: string;
+  mediaType: string;
+  model?: ChatAnthropic;
+  modelId?: string;
+}): Promise<CuffVisionResult> {
   if (!input.model && !isCuffVisionConfigured()) return { ok: false, reason: "unavailable" };
 
   const controller = new AbortController();
@@ -47,7 +53,7 @@ export async function readCuffDisplay(input: { imageBase64: string; mediaType: s
       input.model ??
       new ChatAnthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
-        model: CUFF_VISION_MODEL_ID,
+        model: input.modelId ?? CUFF_VISION_MODEL_ID,
         maxTokens: 400,
         invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
       });
