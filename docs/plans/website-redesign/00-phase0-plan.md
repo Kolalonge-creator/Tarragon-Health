@@ -56,7 +56,7 @@ Supporting reports in this folder:
 
 ### 3.1 Primary navigation
 
-Desktop: **How it works · Services · Membership · For families · For employers · Resources · About** —
+Desktop: **How it works · Services · Membership · For families · For employers · Resources · About**,
 then `Log in` (text) and `Get started` (primary button). On mobile: a labelled "Menu" button opens a
 full-screen drawer with the same items, then the two actions full width. The current audience utility
 strip is removed (the audiences move into the main nav).
