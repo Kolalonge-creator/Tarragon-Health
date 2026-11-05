@@ -20,7 +20,7 @@ import {
   validateResultDocFile,
 } from "@/lib/validation/lab-result-documents";
 import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
-import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { screenUpload } from "@/lib/upload-scan/screen";
 import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 
 type DocumentSource = Database["public"]["Enums"]["lab_result_document_source"];
@@ -210,6 +210,9 @@ export async function uploadResultDocumentAsPatient(
   if (fileError) return { error: fileError };
   const signatureError = await verifyResultDocSignature(file);
   if (signatureError) return { error: signatureError };
+  // T2-08: scanned before it is stored. Infected: refused, never stored. Scanner down: stored, held as pending_scan.
+  const screened = await screenUpload(createServiceRoleClient(), file, { patientId: user.id, uploadedBy: user.id });
+  if (!screened.ok) return { error: screened.error };
 
   const parsed = patientResultUploadSchema.safeParse({
     lab_order_id: formData.get("lab_order_id") || undefined,
@@ -291,8 +294,8 @@ export async function uploadResultDocumentAsPatient(
     console.error("lab-results: could not claim a consult-fee credit (non-blocking)", error);
   }
 
-  // Computed here, never sent by the browser: the database refuses the same file twice in one record.
-  const contentSha256 = await fileSha256(file);
+  // Computed here (screenUpload), never sent by the browser: the database refuses the same file twice in one record.
+  const contentSha256 = screened.sha256;
 
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   // The leading folder MUST be the caller's uid: that is exactly what the
@@ -409,6 +412,9 @@ export async function replaceResultDocumentAsPatient(
   if (fileError) return { error: fileError };
   const signatureError = await verifyResultDocSignature(file);
   if (signatureError) return { error: signatureError };
+  // T2-08: scanned before it is stored. Infected: refused, never stored. Scanner down: stored, held as pending_scan.
+  const screened = await screenUpload(createServiceRoleClient(), file, { patientId: user.id, uploadedBy: user.id });
+  if (!screened.ok) return { error: screened.error };
 
   const parsed = replaceResultDocumentSchema.safeParse({
     document_id: formData.get("document_id"),
@@ -455,7 +461,7 @@ export async function replaceResultDocumentAsPatient(
     p_mime_type: file.type,
     p_file_size_bytes: file.size,
     ...(note ? { p_note: note } : {}),
-    p_content_sha256: await fileSha256(file),
+    p_content_sha256: screened.sha256,
   });
   if (isDuplicateDocumentError(replaceError)) {
     // The database refused before writing anything: this file is already in the record.

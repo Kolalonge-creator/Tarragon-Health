@@ -760,6 +760,79 @@ export type Database = {
           },
         ]
       }
+      upload_scan_verdicts: {
+        Row: {
+          channel: string
+          content_sha256: string
+          created_at: string
+          db_version: string | null
+          engine_version: string | null
+          id: string
+          is_test: boolean
+          mime_type: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          signature: string | null
+          size_bytes: number | null
+          uploaded_by: string | null
+          verdict: string
+        }
+        Insert: {
+          channel: string
+          content_sha256: string
+          created_at?: string
+          db_version?: string | null
+          engine_version?: string | null
+          id?: string
+          is_test?: boolean
+          mime_type?: string | null
+          organisation_id?: string | null
+          patient_id?: string | null
+          signature?: string | null
+          size_bytes?: number | null
+          uploaded_by?: string | null
+          verdict: string
+        }
+        Update: {
+          channel?: string
+          content_sha256?: string
+          created_at?: string
+          db_version?: string | null
+          engine_version?: string | null
+          id?: string
+          is_test?: boolean
+          mime_type?: string | null
+          organisation_id?: string | null
+          patient_id?: string | null
+          signature?: string | null
+          size_bytes?: number | null
+          uploaded_by?: string | null
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upload_scan_verdicts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_scan_verdicts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_scan_verdicts_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workout_plans: {
         Row: {
           audio_clip_ids: string[]
@@ -12453,6 +12526,11 @@ export type Database = {
           patient_note: string | null
           routed_id: string | null
           routed_table: string | null
+          scan_attempts: number
+          scan_checked_at: string | null
+          scan_next_attempt_at: string | null
+          scan_signature: string | null
+          scan_status: string
           source_facility_id: string | null
           source_facility_name: string | null
           status: string
@@ -12495,6 +12573,11 @@ export type Database = {
           patient_note?: string | null
           routed_id?: string | null
           routed_table?: string | null
+          scan_attempts?: number
+          scan_checked_at?: string | null
+          scan_next_attempt_at?: string | null
+          scan_signature?: string | null
+          scan_status?: string
           source_facility_id?: string | null
           source_facility_name?: string | null
           status: string
@@ -12537,6 +12620,11 @@ export type Database = {
           patient_note?: string | null
           routed_id?: string | null
           routed_table?: string | null
+          scan_attempts?: number
+          scan_checked_at?: string | null
+          scan_next_attempt_at?: string | null
+          scan_signature?: string | null
+          scan_status?: string
           source_facility_id?: string | null
           source_facility_name?: string | null
           status?: string
@@ -52823,6 +52911,17 @@ export type Database = {
       }
     }
     Functions: {
+      apply_upload_scan_verdict: {
+        Args: {
+          p_db_version: string
+          p_document: string
+          p_engine_version: string
+          p_error: string
+          p_signature: string
+          p_verdict: string
+        }
+        Returns: string
+      }
       care_operations_summary: {
         Args: { p_lookback_days?: number; p_target_hours?: number }
         Returns: Json
@@ -52851,6 +52950,20 @@ export type Database = {
       plus_collection_states: {
         Args: never
         Returns: { display_name: string; state: string }[]
+      }
+      record_upload_scan: {
+        Args: {
+          p_db_version: string
+          p_engine_version: string
+          p_mime_type: string
+          p_patient: string
+          p_sha256: string
+          p_signature: string
+          p_size_bytes: number
+          p_uploaded_by: string
+          p_verdict: string
+        }
+        Returns: undefined
       }
       start_annual_bundle: {
         Args: { p_location_id?: string; p_patient?: string }
@@ -53035,6 +53148,23 @@ export type Database = {
       complete_lowcarb_medicine_review: { Args: { p_enrolment: string; p_note: string }; Returns: undefined }
       lowcarb_programme_for_patient: { Args: { p_patient: string }; Returns: Json }
       my_lowcarb_gate: { Args: Record<PropertyKey, never>; Returns: Json }
+      upload_scan_backlog_check: { Args: never; Returns: number }
+      upload_scan_due: {
+        Args: { p_include_unscanned?: boolean; p_limit?: number }
+        Returns: {
+          bucket: string
+          document_id: string
+          file_path: string
+          mime_type: string
+          organisation_id: string
+          patient_id: string
+          routed_id: string
+          routed_table: string
+          scan_attempts: number
+          scan_status: string
+        }[]
+      }
+      upload_scan_held_paths: { Args: { p_paths: string[] }; Returns: string[] }
       withdraw_patient_allergy_correction: { Args: { p_request_id: string }; Returns: Json }
       // S27 (lab results and release rules): spliced by hand, see CLAUDE.md on why the generator is not used wholesale.
       bp_control_report: { Args: { p_from?: string; p_to?: string }; Returns: Json };

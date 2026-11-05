@@ -9,7 +9,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { ECG_REPORT_BUCKET } from "@/lib/ecg-reports/documents";
 import { runEcgReportExtraction } from "@/lib/ecg-reports/extraction-actions";
 import { patientEcgUploadSchema, validateEcgDocFile } from "@/lib/validation/ecg-report-documents";
-import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { screenUpload } from "@/lib/upload-scan/screen";
 import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 
 const EXT_BY_MIME: Record<string, string> = {
@@ -68,6 +68,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   const fileError = validateEcgDocFile(file);
   if (fileError) {
     return NextResponse.json({ error: fileError }, { status: 400 });
+  }
+  // T2-08: scanned before it is stored. Infected: refused (422), never stored. Scanner down: stored, held as pending_scan.
+  const screened = await screenUpload(createServiceRoleClient(), file, { patientId: user.id, uploadedBy: user.id });
+  if (!screened.ok) {
+    return NextResponse.json({ error: screened.error }, { status: 422 });
   }
 
   const parsed = patientEcgUploadSchema.safeParse({
@@ -130,7 +135,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       mime_type: file.type,
       file_size_bytes: file.size,
       // Computed on the server from the stored bytes: the intake record refuses a file already in this patient's record.
-      content_sha256: await fileSha256(file),
+      content_sha256: screened.sha256,
       source: "patient",
       uploaded_by: user.id,
       note: note ?? null,

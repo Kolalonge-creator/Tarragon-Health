@@ -67,7 +67,7 @@ beforeEach(() => {
 describe("uploadLabReportForPatient", () => {
   it("stores the file and sends the identity printed on the report to the database", async () => {
     await expect(uploadLabReportForPatient(undefined, form())).resolves.toEqual({ success: true });
-    expect(storeFile).toHaveBeenCalledWith(PATIENT, expect.any(File));
+    expect(storeFile).toHaveBeenCalledWith(PATIENT, expect.any(File), "coord-1");
     expect(rpc).toHaveBeenCalledWith("coordinator_submit_lab_report", {
       p_patient: PATIENT,
       p_file: STORED,

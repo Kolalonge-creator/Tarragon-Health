@@ -1567,6 +1567,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "security audit 2026-11-05 (M-8); apps/web/src/lib/security/abuse-limits.ts",
   },
   {
+    key: "security.staff_access_review",
+    // Security audit 2026-11-05, Phase 3: the quarterly staff access review (/admin/staff-access-review) and the dormant-account
+    // line on /admin/security. Live values are the two private functions in the migration's marked block; this entry mirrors them
+    // and staff-access-review-mirror.test.ts fails if they drift. PROPOSED, owner Founder: review every 90 days (quarterly), and a
+    // staff account with no sign-in for 90 days is shown as dormant so the review asks whether it is still needed.
+    value: { review_interval_days: 90, dormant_after_days: 90 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-05",
+    source: "supabase/migrations/20261105113829_security_dashboard_and_staff_access_review.sql; security audit 2026-11-05 Phase 3",
+  },
+  {
     key: "security.rules",
     // Security thresholds (S39). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
     // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named): how many failed lookups on a

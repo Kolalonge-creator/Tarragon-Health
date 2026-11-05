@@ -14,7 +14,7 @@ import {
   validateResultDocFile,
 } from "@/lib/validation/lab-result-documents";
 import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
-import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { screenUpload } from "@/lib/upload-scan/screen";
 import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 
 const EXT_BY_MIME: Record<string, string> = {
@@ -92,6 +92,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (signatureError) {
     return NextResponse.json({ error: signatureError }, { status: 400 });
   }
+  // T2-08: scanned before it is stored. Infected: refused (422), never stored. Scanner down: stored, held as pending_scan.
+  const screened = await screenUpload(createServiceRoleClient(), file, { patientId: user.id, uploadedBy: user.id });
+  if (!screened.ok) {
+    return NextResponse.json({ error: screened.error }, { status: 422 });
+  }
 
   const parsed = patientResultUploadSchema.safeParse({
     lab_order_id: formData.get("lab_order_id") || undefined,
@@ -159,7 +164,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   // Computed on the server, never sent by the app: the database refuses the same file twice in one record.
-  const contentSha256 = await fileSha256(file);
+  const contentSha256 = screened.sha256;
 
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   // Leading folder MUST be the caller's uid — the storage own-folder policy

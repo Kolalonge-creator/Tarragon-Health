@@ -59,6 +59,7 @@ export default function AboutPage() {
   return (
     <>
       <PageHero
+        image={{ src: "/marketing/photos/hero/about.jpg", alt: "A doctor reviewing notes at a laptop in the evening", width: 1400, height: 1400 }}
         eyebrow="About TarragonHealth"
         title="Your health deserves more than a single appointment."
         description="Many health problems are found late because care stops between visits: the test that is not repeated, the result nobody explains, the reading nobody sees. TarragonHealth exists to close that gap, for people in Nigeria and for the relatives who look out for them from abroad."

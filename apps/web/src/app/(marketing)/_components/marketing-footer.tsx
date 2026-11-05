@@ -32,8 +32,9 @@ const FOOTER_LINKS = {
   ],
   forYou: [
     { href: MARKETING_ROUTES.forYou, label: "For individuals" },
-    { href: MARKETING_ROUTES.gift, label: "For families" },
+    { href: MARKETING_ROUTES.families, label: "For families" },
     { href: MARKETING_ROUTES.corporate, label: "For employers" },
+    { href: MARKETING_ROUTES.clinicians, label: "For healthcare professionals" },
     { href: MARKETING_ROUTES.labs, label: "Diagnostic services" },
     { href: MARKETING_ROUTES.partners, label: "Our partners" },
     { href: MARKETING_ROUTES.coverage, label: "Where we work" },
