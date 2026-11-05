@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { withSentryConfig } from "@sentry/nextjs";
+import { MARKETING_REDIRECTS } from "./src/lib/marketing/redirects";
 
 // Derived from NEXT_PUBLIC_SUPABASE_URL rather than hardcoded, so a local
 // dev/staging Supabase project (or a future project migration) doesn't
@@ -184,6 +185,14 @@ const nextConfig: NextConfig = {
   // the order Next offers them in the Accept negotiation.
   images: {
     formats: ["image/avif", "image/webp"],
+  },
+  // Marketing site URL changes (website upgrade, plan section 3.3). Permanent
+  // (308/301) so search engines move the old page's standing to the new one.
+  // Phase 3 (2026-11-05): /hmo folds into the Employers & Organisations page
+  // (founder decision W-05). The full redirect map lands in Phase 5; the
+  // map itself is in src/lib/marketing/redirects.ts, where a test checks it.
+  async redirects() {
+    return MARKETING_REDIRECTS.map((r) => ({ ...r, permanent: true }));
   },
   // Apple Pay domain verification for Paystack. The file lives at
   // public/.well-known/apple-developer-merchantid-domain-association and has

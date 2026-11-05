@@ -13,6 +13,8 @@ import { TarragonCommunity } from "./_components/tarragon-community";
 import { MarketingVideo } from "./_components/marketing-video";
 import { MARKETING_MEDIA } from "./_content/media";
 import { HomeHero, HomeHeroFallback } from "./_components/home-hero";
+import { HomeEntryChips } from "./_components/home-entry-chips";
+import { TrustBand } from "./_components/trust-band";
 import {
   HomeAudienceRouter,
   HomeClinicalOversight,
@@ -118,8 +120,10 @@ export default async function MarketingHomePage() {
       {/* 2. Who it is for. */}
       <HomeAudienceRouter />
 
+      {/* "What would you like help with?" quick links, kept from the previous site (founder ask, 2026-11-05). */}
+      <HomeEntryChips />
+
       {/* 3. The problem, 4. the journey, 5. the app. */}
-      <div className="pt-6" />
       <HomeProblem />
       <HomeJourney />
       <HomeShowcase />
@@ -131,7 +135,7 @@ export default async function MarketingHomePage() {
       <Section id="membership" labelledBy="home-membership-title">
         <div className="mb-10 grid max-w-3xl gap-3">
           <p className="text-sm font-semibold uppercase tracking-wider text-brand-green">Membership</p>
-          <h2 id="home-membership-title" className="text-balance font-heading text-3xl font-medium leading-tight text-charcoal-ink sm:text-4xl">
+          <h2 id="home-membership-title" className="text-balance font-heading text-3xl font-semibold leading-tight text-charcoal-ink sm:text-4xl">
             Healthcare that stays with you.
           </h2>
           <p className="text-lg text-charcoal-ink/80">
@@ -171,6 +175,12 @@ export default async function MarketingHomePage() {
       ) : null}
       <HomeEmployers seatPrice={`₦${seatPrice}`} />
       <HomeClinicalOversight />
+
+      {/* Kept from the previous site (founder ask, 2026-11-05): every claim maps to something the platform enforces. */}
+      <Section variant="navy">
+        <SectionHeading eyebrow="Why people trust Tarragon" title="Designed so that we are accountable to you" invert />
+        <TrustBand />
+      </Section>
 
       {/* 12. Real, consented testimonials only; these render nothing until one is published. */}
       <TestimonialsSection />

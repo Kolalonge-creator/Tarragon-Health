@@ -61,6 +61,7 @@ export default function ClinicalApproachPage() {
   return (
     <>
       <PageHero
+        image={{ src: "/marketing/photos/body/trust-care-team.jpg", alt: "Clinicians talking together in a bright hospital hallway", width: 1400, height: 1750 }}
         eyebrow="Our clinical approach"
         title="Technology that helps, with doctors who decide."
         description="How we choose your tests, review your results and decide when something needs action, and the limits we want you to know about."
@@ -99,7 +100,7 @@ export default function ClinicalApproachPage() {
             <ol className="grid gap-3">
               {REVIEW_STEPS.map((step, i) => (
                 <li key={step.title} className="grid grid-cols-[2rem_1fr] gap-3">
-                  <span className="font-heading text-2xl text-brand-green" aria-hidden>
+                  <span className="font-heading font-bold text-2xl text-brand-green" aria-hidden>
                     {i + 1}
                   </span>
                   <span>

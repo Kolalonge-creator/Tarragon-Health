@@ -2,6 +2,7 @@ import { isCronAuthorised } from "@/lib/cron-auth";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { retryUnreadLabReports } from "@/lib/clinical-documents/retry";
 import { retryStuckClassifications } from "@/lib/clinical-documents/classify-run";
+import { rescanHeldUploads, startReadersForClearedUploads } from "@/lib/upload-scan/sweep";
 
 /**
  * Daily retry of uploaded lab reports the automatic reader could not read (clinical document engine step 1). See
@@ -9,6 +10,10 @@ import { retryStuckClassifications } from "@/lib/clinical-documents/classify-run
  * ops exception queue immediately, so nothing waits on this sweep to reach a person.
  *
  * Also finishes sorting "not sure what this is" uploads that were interrupted (step 4, classify-run.ts).
+ *
+ * T2-08 runs first: documents held for the malware scan (the scanner was down when they arrived) are rescanned, newly clean ones
+ * get their reader started, and the ops incident for held documents is refreshed (lib/upload-scan/sweep.ts). Every reader skips
+ * a held document, so the order only decides whether a cleared document is read in this run or the next.
  *
  * Verifies the Vercel-attached CRON_SECRET bearer, same as the other cron routes.
  */
@@ -18,9 +23,12 @@ export async function GET(request: Request): Promise<Response> {
     return new Response("Not authorised", { status: 401 });
   }
   const service = createServiceRoleClient();
+  const scanned = await rescanHeldUploads(service);
+  const readersStarted = await startReadersForClearedUploads(service, scanned.cleared);
+  const scan = { ...scanned, cleared: scanned.cleared.length, readersStarted };
   // Step 4: uploads interrupted while being sorted first, so a document sorted into the lab path here is read in the same run.
   const sorting = await retryStuckClassifications(service);
   const result = await retryUnreadLabReports(service);
-  if ("error" in result) return Response.json({ error: result.error, sorting }, { status: 500 });
-  return Response.json({ ...result, sorting });
+  if ("error" in result) return Response.json({ error: result.error, sorting, scan }, { status: 500 });
+  return Response.json({ ...result, sorting, scan });
 }

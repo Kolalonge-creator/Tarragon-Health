@@ -4,6 +4,7 @@ import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { IMAGING_REPORT_BUCKET } from "./documents";
+import { HELD_FOR_SCAN_MESSAGE, isPathHeld } from "@/lib/upload-scan/hold";
 import { extractImagingReport, isImagingReportExtractionConfigured } from "./extract";
 import { deriveImagingAiSummaryStatus } from "./ai-summary";
 import { isReadableDocumentType, normaliseForVision } from "@/lib/lab-reports/heic";
@@ -45,6 +46,9 @@ export async function runImagingReportExtraction(
   },
 ): Promise<{ status: "extracted" | "failed"; message: string }> {
   const { documentId, patientId, filePath, mimeType } = params;
+
+  // T2-08: a file held for the malware scan is not read and nothing is persisted; the retry reads it once it is clean.
+  if (await isPathHeld(service, filePath)) return { status: "failed", message: HELD_FOR_SCAN_MESSAGE };
 
   const fail = async (message: string, errorMessage: string) => {
     try {

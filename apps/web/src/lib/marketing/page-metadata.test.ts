@@ -35,9 +35,7 @@ const TITLE_SUFFIX = ` | ${SITE.name}`;
  * cannot quietly join it and skip the checks.
  */
 const METADATA_ELSEWHERE = [
-  "corporate/page.tsx",
   "diabetes/page.tsx",
-  "hmo/page.tsx",
   "hypertension/page.tsx",
   "labs/page.tsx",
   "learn/[code]/page.tsx",
