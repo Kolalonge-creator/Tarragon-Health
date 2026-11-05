@@ -50,6 +50,19 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: "no organisation on file" }, { status: 200 });
   }
 
+  // A row for this endpoint that is already disabled was disabled by the sender because the push service said the subscription can
+  // never work again (gone, or made with a VAPID key that has since been rotated). Re-enabling it would only fail the next page and be
+  // disabled again, while the device kept reporting itself as subscribed. Tell the client to drop it and subscribe afresh instead.
+  // (A user's own unsubscribe deletes the row, so a disabled row only ever comes from the sender.)
+  const { data: existing } = await supabase
+    .from("push_subscriptions")
+    .select("disabled_at")
+    .eq("endpoint", endpoint)
+    .maybeSingle();
+  if (existing?.disabled_at) {
+    return NextResponse.json({ ok: false, resubscribe: true, error: "this subscription no longer works" }, { status: 200 });
+  }
+
   const { error } = await supabase.from("push_subscriptions").upsert(
     {
       organisation_id: profile.organisation_id,
