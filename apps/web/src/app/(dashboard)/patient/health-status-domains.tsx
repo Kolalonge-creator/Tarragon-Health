@@ -2,7 +2,7 @@
 
 import {
   HEALTH_STATUS_DISCLAIMER,
-  HEALTH_STATUS_WORDS,
+  healthStatusWord,
   INDICATOR_FLAG_WORDS,
   trendWords,
   type HealthStatusDomain,
@@ -40,7 +40,7 @@ function DomainBlock({ d }: { d: HealthStatusDomain }) {
     <div className="rounded-xl border border-charcoal-ink/10 bg-white p-4 dark:border-night-ink/15 dark:bg-night-card">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{d.label}</p>
-        <Badge variant={variant}>{HEALTH_STATUS_WORDS[d.status]}</Badge>
+        <Badge variant={variant}>{healthStatusWord(d)}</Badge>
       </div>
       <p className="mt-0.5 text-xs text-charcoal-ink/50 dark:text-night-ink/55">{d.blurb}</p>
       {d.indicators.length > 0 && (

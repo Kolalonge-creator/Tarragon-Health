@@ -316,6 +316,12 @@ export const INDICATOR_FLAG_WORDS: Record<IndicatorFlag, string> = {
   no_range: "no range printed",
 };
 
+/** The status word for a domain. Screening has no range, so it reads as up to date or something due, never "within range". */
+export function healthStatusWord(d: Pick<HealthStatusDomain, "key" | "status">): string {
+  if (d.key === "screening") return d.status === "worth_discussing" ? "Something is due" : "Up to date";
+  return HEALTH_STATUS_WORDS[d.status];
+}
+
 /** "Up from 6.7 on 2026-08-04", "Same as last time", or null for a first result. Plain, never a judgement. */
 export function trendWords(i: HealthStatusIndicator, formatDate: (iso: string) => string = (iso) => iso.slice(0, 10)): string | null {
   if (i.trend === "first" || i.previousValue === null) return null;

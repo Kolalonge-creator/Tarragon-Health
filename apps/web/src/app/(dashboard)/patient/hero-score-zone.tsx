@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { HEALTH_STATUS_WORDS, healthStatusSummary } from "@tarragon/shared";
+import { healthStatusWord, healthStatusSummary } from "@tarragon/shared";
 import { useHealthStatusDomains } from "@/lib/queries/health-status";
 
 /**
@@ -52,7 +52,7 @@ export function HeroScoreZone({ patientId, eyebrow }: { patientId: string; eyebr
                   aria-hidden
                   className={`h-2 w-2 shrink-0 rounded-full ${d.status === "worth_discussing" ? "bg-amber-500" : d.status === "within_range" ? "bg-green-500" : "bg-charcoal-ink/30"}`}
                 />
-                {d.label}: {HEALTH_STATUS_WORDS[d.status].toLowerCase()}
+                {d.label}: {healthStatusWord(d).toLowerCase()}
               </li>
             ))}
           </ul>

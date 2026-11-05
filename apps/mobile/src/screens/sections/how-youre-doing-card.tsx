@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import {
   HEALTH_STATUS_DISCLAIMER,
-  HEALTH_STATUS_WORDS,
+  healthStatusWord,
   INDICATOR_FLAG_WORDS,
   healthStatusSummary,
   trendWords,
@@ -87,7 +87,7 @@ export function HowYoureDoingCard({ patientId, reloadToken = 0 }: HowYoureDoingC
               <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: DOT[d.status] }} />
                 <AppText variant="bodyStrong">
-                  {d.label}: {HEALTH_STATUS_WORDS[d.status].toLowerCase()}
+                  {d.label}: {healthStatusWord(d).toLowerCase()}
                 </AppText>
               </View>
               {d.indicators.map((i) => {

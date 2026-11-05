@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { buildHealthStatusDomains, healthStatusSummary, trendWords, HEALTH_STATUS_DISCLAIMER } from "./health-status-domains";
+import { buildHealthStatusDomains, healthStatusSummary, healthStatusWord, trendWords, HEALTH_STATUS_DISCLAIMER } from "./health-status-domains";
 
 const lab = (code: string, latest: number, opts: Partial<Record<string, unknown>> = {}) => ({
   code, latest_value: latest, latest_unit: "%", latest_at: "2026-10-01T09:00:00Z", ref_low: null, ref_high: null, ref_text: null, flag: null,
@@ -56,6 +56,9 @@ describe("buildHealthStatusDomains (T2-06: per-domain status, no composite score
     );
     expect(s!.key).toBe("screening");
     expect(s!.status).toBe("worth_discussing");
+    expect(healthStatusWord(s!)).toBe("Something is due");
+    expect(healthStatusWord({ key: "screening", status: "within_range" })).toBe("Up to date");
+    expect(healthStatusWord({ key: "renal", status: "within_range" })).toBe("Within range");
     expect(s!.actions).toEqual(["1 check done in the last 12 months", "Cervical screening: now due", "Eye check: due 2027-01-10"]);
   });
 
