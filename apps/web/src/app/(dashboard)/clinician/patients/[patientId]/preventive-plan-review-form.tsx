@@ -7,7 +7,7 @@ import { reviewPreventivePlan, type ReviewPreventivePlanState } from "./preventi
 
 export function PreventivePlanReviewForm({ patientId, baselineId }: { patientId: string; baselineId: string }) {
   const [state, action, pending] = useActionState<ReviewPreventivePlanState, FormData>(reviewPreventivePlan.bind(null, patientId), undefined);
-  if (state?.success) return <p className="text-sm text-emerald-800 dark:text-emerald-300">Saved. Close the review task in your queue.</p>;
+  if (state?.success) return <p className="text-sm text-emerald-800 dark:text-emerald-300">Saved. The review task for this plan is closed.</p>;
   return (
     <form action={action} className="space-y-2">
       <input type="hidden" name="baseline_id" value={baselineId} />

@@ -8,8 +8,10 @@
 --  4. a stage reached under the old code is never sent again;
 --  5. defer: the patient moves a test with a reason; the sequence restarts; bad reason, missing note for 'other', a date too far, a
 --     stranger and a fourth patient deferral are refused; a tied clinician may move it again;
---  6. privileges.
--- Sabotage (rolled-back sub-blocks): the window upper bound removed -> check 2 flips; the reason check removed -> check 5 flips.
+--  6. privileges;
+--  7. with no active version nothing is sent and one ops incident is opened (deduped while open) plus one audit row a day.
+-- Sabotage (rolled-back sub-blocks): the window upper bound removed -> check 2 flips; the reason check removed -> check 5 flips;
+-- the stopped-job signal removed -> check 7 flips.
 --
 -- Run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/db/tests/t2_screening_reminder_cadence_and_defer.sql
 
@@ -155,6 +157,21 @@ begin
   if r <> 'ok' or (select version from public.screening_reminder_configs where is_active) <> 1 then raise exception 'FAIL 6: an admin could not switch the version: %', r; end if;
   r := pg_temp.as_user(v_admin, 'select public.activate_screening_reminder_config(2, ''proof: back to the founder timing, rolled back'')');
 
+  -- 7. no active timing: nothing is sent, and it is never silent (one ops incident while it lasts, one audit row a day)
+  update public.screening_reminder_configs set is_active = false where is_active;
+  update public.screening_schedules set reminder_stage = null, reminder_last_offset = null where id = (pg_temp.s('d7')).id;
+  select count(*) into v_n from public.notifications where recipient_id = v_pat;
+  perform private.queue_screening_reminders();
+  perform private.queue_screening_reminders();
+  if (select count(*) from public.notifications where recipient_id = v_pat) <> v_n then raise exception 'FAIL 7: reminders were sent with no active timing'; end if;
+  if (select count(*) from public.ops_incidents where external_reference = 'screening_reminders_no_active_config' and status not in ('resolved', 'closed')) <> 1 then
+    raise exception 'FAIL 7: expected exactly one open ops incident for the stopped reminder job';
+  end if;
+  if (select count(*) from public.audit_log where action = 'screening_reminders.no_active_config') <> 1 then
+    raise exception 'FAIL 7: expected exactly one audit row for the day';
+  end if;
+  update public.screening_reminder_configs set is_active = true where version = 2;
+
   -- SABOTAGE A: no upper bound on a step's window -> a 7-days-overdue schedule gets the 14-day "coming up" step
   begin
     execute replace(pg_get_functiondef('private.queue_screening_reminders()'::regprocedure),
@@ -172,6 +189,19 @@ begin
                     'if p_reason_code is null or not ((v_cfg -> ''reasonCodes'') ? p_reason_code) then raise exception ''reason_required'' using errcode = ''22023''; end if;', '');
     r := pg_temp.as_user(v_pat, format('select public.defer_screening(%L, current_date + 30, %L, null)', (pg_temp.s('d20')).id, 'because'));
     if r like '22023:reason_required%' then raise exception 'VACUOUS B: the reason check is not tested'; end if;
+    raise exception 'sabotage_rollback';
+  exception when raise_exception then if sqlerrm <> 'sabotage_rollback' then raise; end if;
+  end;
+
+  -- SABOTAGE C: the silent return is back -> check 7 must flip (no incident is opened)
+  begin
+    execute replace(pg_get_functiondef('private.queue_screening_reminders()'::regprocedure), 'if v_org is not null then', 'if false then');
+    delete from public.ops_incidents where external_reference = 'screening_reminders_no_active_config';
+    update public.screening_reminder_configs set is_active = false where is_active;
+    perform private.queue_screening_reminders();
+    if exists (select 1 from public.ops_incidents where external_reference = 'screening_reminders_no_active_config' and status not in ('resolved', 'closed')) then
+      raise exception 'VACUOUS C: the stopped-job signal is not tested';
+    end if;
     raise exception 'sabotage_rollback';
   exception when raise_exception then if sqlerrm <> 'sabotage_rollback' then raise; end if;
   end;

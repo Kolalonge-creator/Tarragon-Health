@@ -13,7 +13,7 @@
 --   previous tests         screening_completions / lab_results (optional)
 -- The plan IS the patient's screening_schedules, produced by the existing nightly scheduler (private.run_screening_scheduler, which uses
 -- only the CMO-signed screening_rule_sets and the screening_scheduler_enabled guard) run once for this patient at submission. The doctor
--- review is a clinical_tasks row of a new type, preventive_plan_review, in the existing queue. Adjustments use the existing tools
+-- review is a clinical_tasks row of a new type, preventive_plan_review, in the existing queue; recording the decision closes it. Adjustments use the existing tools
 -- (set_screening_state for "not applicable", defer_screening for a later date).
 --
 -- The one new table, preventive_baselines, records only the step itself: when it was submitted, which items were present (codes and
@@ -258,6 +258,35 @@ end $$;
 revoke all on function public.clinician_preventive_baseline(uuid) from public, anon;
 grant execute on function public.clinician_preventive_baseline(uuid) to authenticated;
 
+-- Closes the review task once the plan is decided, in the same transaction. Same rules as the other "done directly" closers
+-- (private.close_report_signoff_task, private.lab_close_tasks): a claim held by the deciding doctor is ended and the task completed
+-- (reliability event, audit, domain event, exactly as queue_complete records it); a task nobody has claimed yet is cancelled with
+-- the reason; a claim held by ANOTHER doctor is left for them to finish (never taken from them).
+create function private.close_preventive_plan_task(p_task uuid, p_actor uuid, p_decision text) returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare t public.clinical_tasks%rowtype; c public.task_claims%rowtype;
+begin
+  if p_task is null then return; end if;
+  select * into t from public.clinical_tasks where id = p_task and type = 'preventive_plan_review' for update;
+  if not found or t.state in ('completed', 'cancelled') then return; end if;
+  if t.state = 'claimed' then
+    if t.claimed_by is distinct from p_actor then return; end if;
+    select * into c from public.task_claims where task_id = p_task and clinician_id = p_actor and ended_at is null for update;
+    if found then update public.task_claims set ended_at = now(), end_reason = 'completed' where id = c.id; end if;
+    perform private.apply_task_transition(t.id, 'completed', 'clinician', p_actor, 'preventive plan ' || p_decision, null, null,
+      jsonb_build_object('code', 'completed_action_taken', 'preventive_plan', p_decision));
+    perform private.reliability_event(p_actor, t.id, case when now() <= t.due_at then 'completed_on_time' else 'completed_late' end);
+    insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, subject_patient_id)
+    values (t.organisation_id, p_actor, 'queue.complete', 'clinical_task', t.id, jsonb_build_object('type', t.type), t.patient_id);
+    perform private.emit_domain_event('clinical_task.completed', t.organisation_id,
+      jsonb_build_object('task_id', t.id, 'type', t.type), 'clinical_task.completed:' || t.id, t.patient_id, 'clinical_task', t.id);
+  else
+    perform private.apply_task_transition(t.id, 'cancelled', 'lead', p_actor, 'The preventive plan was ' || p_decision || ' directly by a tied doctor');
+  end if;
+end $$;
+revoke all on function private.close_preventive_plan_task(uuid, uuid, text) from public, anon, authenticated;
+
 create function public.review_preventive_plan(p_baseline uuid, p_decision text, p_note text default null) returns uuid
 language plpgsql security definer set search_path = ''
 as $$
@@ -283,6 +312,7 @@ begin
   end if;
   if v_note is not null and char_length(v_note) > 1000 then raise exception 'note_too_long' using errcode = '22023'; end if;
   update public.preventive_baselines set state = p_decision, reviewed_by = v_staff, reviewed_at = now(), review_note = v_note where id = p_baseline;
+  perform private.close_preventive_plan_task(b.review_task_id, v_uid, p_decision);
   perform private.log_audit('preventive_baseline.' || p_decision, 'preventive_baselines', p_baseline, jsonb_build_object('patient', b.patient_id));
   return p_baseline;
 end $$;
@@ -298,7 +328,8 @@ begin
      or has_function_privilege('anon', 'public.review_preventive_plan(uuid,text,text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.clinician_preventive_baseline(uuid)', 'EXECUTE')
      or has_function_privilege('authenticated', 'private.preventive_baseline_items(uuid)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'private.preventive_plan(uuid)', 'EXECUTE') then
+     or has_function_privilege('authenticated', 'private.preventive_plan(uuid)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'private.close_preventive_plan_task(uuid,uuid,text)', 'EXECUTE') then
     raise exception 'a baseline function is callable by the wrong role';
   end if;
   if has_table_privilege('authenticated', 'public.preventive_baselines', 'INSERT')

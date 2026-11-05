@@ -6,8 +6,10 @@
 --     task for a doctor; a second submit makes no second row or task;
 --  4. my_preventive_baseline shows the state, the items and the plan; the row holds codes and true/false, no values;
 --  5. RLS: another patient sees nothing; nobody writes the table directly;
---  6. review: a coordinator and an untied doctor are refused; "adjusted" needs a note; a tied doctor authorises once.
--- Sabotage (rolled-back sub-blocks): the Members-only check removed -> check 1 flips; a coordinator admitted to review -> check 6 flips.
+--  6. review: a coordinator and an untied doctor are refused; "adjusted" needs a note; a tied doctor authorises once;
+--  7. the decision closes the review task: an unclaimed one is cancelled with the reason, one the doctor claimed is completed.
+-- Sabotage (rolled-back sub-blocks): the Members-only check removed -> check 1 flips; a coordinator admitted to review -> check 6 flips;
+-- the task-closing call removed -> check 7 flips.
 --
 -- Run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/db/tests/t2_preventive_baseline_assessment.sql
 
@@ -37,7 +39,7 @@ end $f$;
 do $proof$
 declare
   v_org uuid; v_member uuid; v_free uuid; v_other uuid; v_doc uuid; v_doc2 uuid; v_coord uuid; v_admin uuid;
-  r text; j jsonb; v_bid uuid; v_n integer;
+  r text; j jsonb; v_bid uuid; v_n integer; v_m2 uuid; v_bid2 uuid; v_task uuid; v_task2 uuid;
 begin
   select id into v_org from public.organisations order by created_at limit 1;
   v_member := pg_temp.mkuser(v_org, 'member', 'patient');
@@ -118,6 +120,38 @@ begin
   r := pg_temp.as_user(v_doc, format('select public.review_preventive_plan(%L, %L, null)::text', v_bid, 'authorised'));
   if r not like '22023:already_reviewed%' then raise exception 'FAIL 6: a plan was reviewed twice: %', r; end if;
 
+  -- 7. the decision closes the review task in the same transaction: an unclaimed task is cancelled with the reason
+  select review_task_id into v_task from public.preventive_baselines where id = v_bid;
+  if (select state::text from public.clinical_tasks where id = v_task) <> 'cancelled'
+     or not exists (select 1 from public.clinical_task_transitions tr where tr.task_id = v_task and tr.to_state = 'cancelled'
+                     and tr.reason like 'The preventive plan was authorised%') then
+    raise exception 'FAIL 7: the unclaimed review task was not closed by the decision (state %)', (select state from public.clinical_tasks where id = v_task);
+  end if;
+
+  -- 7b. a task the deciding doctor has claimed is completed (claim ended, completion audited)
+  v_m2 := pg_temp.mkuser(v_org, 'member2', 'patient');
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id) values (v_org, v_m2, v_doc);
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, is_test)
+  values (v_org, v_m2, 'purchase', 'active', now() - interval '1 day', true);
+  insert into public.prevention_risk_scores (organisation_id, profile_id, condition, tier) values (v_org, v_m2, 'hypertension', 'low');
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic) values (v_org, v_m2, 'blood_pressure', 124, 80);
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, weight_kg) values (v_org, v_m2, 'weight', 70);
+  insert into public.vitals_readings (organisation_id, patient_id, vital_type, waist_cm) values (v_org, v_m2, 'waist_circumference', 84);
+  update public.profiles set height_cm = 170 where id = v_m2;
+  r := pg_temp.as_user(v_m2, 'select public.submit_my_preventive_baseline()::text');
+  v_bid2 := (r::jsonb ->> 'baseline_id')::uuid; v_task2 := (r::jsonb ->> 'task_id')::uuid;
+  if v_task2 is null then raise exception 'FAIL 7b: no task for the second Member: %', r; end if;
+  insert into public.task_claims (organisation_id, task_id, clinician_id, claimed_at, expires_at, is_test)
+  values (v_org, v_task2, v_doc, now(), now() + interval '30 minutes', true);
+  perform private.apply_task_transition(v_task2, 'claimed', 'clinician', v_doc, null, v_doc, now() + interval '30 minutes');
+  r := pg_temp.as_user(v_doc, format('select public.review_preventive_plan(%L, %L, %L)::text', v_bid2, 'adjusted', 'Lipid profile moved to after the fasting week.'));
+  if r <> v_bid2::text then raise exception 'FAIL 7b: the doctor could not record an adjusted plan: %', r; end if;
+  if (select state::text from public.clinical_tasks where id = v_task2) <> 'completed'
+     or exists (select 1 from public.task_claims where task_id = v_task2 and ended_at is null)
+     or not exists (select 1 from public.audit_log where action = 'queue.complete' and entity_id = v_task2) then
+    raise exception 'FAIL 7b: the claimed review task was not completed by the decision';
+  end if;
+
   -- SABOTAGE A: no Members-only check -> a Free patient gets a doctor task
   begin
     execute replace(pg_get_functiondef('public.submit_my_preventive_baseline()'::regprocedure),
@@ -135,6 +169,23 @@ begin
     update public.preventive_baselines set state = 'submitted', reviewed_by = null, reviewed_at = null where id = v_bid;
     r := pg_temp.as_user(v_coord, format('select public.review_preventive_plan(%L, %L, null)::text', v_bid, 'authorised'));
     if r like '42501:%' then raise exception 'VACUOUS B: the doctor-only rule is not tested'; end if;
+    raise exception 'sabotage_rollback';
+  exception when raise_exception then if sqlerrm <> 'sabotage_rollback' then raise; end if;
+  end;
+
+  -- SABOTAGE C: the decision no longer closes the task -> check 7 must flip
+  begin
+    execute replace(pg_get_functiondef('public.review_preventive_plan(uuid,text,text)'::regprocedure),
+                    'perform private.close_preventive_plan_task(b.review_task_id, v_uid, p_decision);', '');
+    update public.preventive_baselines set state = 'submitted', reviewed_by = null, reviewed_at = null, review_note = null where id = v_bid2;
+    perform set_config('tarragon.task_transition', 'on', true);
+    update public.clinical_tasks set state = 'open', claimed_by = null where id = v_task2;
+    perform set_config('tarragon.task_transition', 'off', true);
+    r := pg_temp.as_user(v_doc, format('select public.review_preventive_plan(%L, %L, null)::text', v_bid2, 'authorised'));
+    if r <> v_bid2::text then raise exception 'sabotage C setup failed: %', r; end if;
+    if (select state::text from public.clinical_tasks where id = v_task2) in ('completed', 'cancelled') then
+      raise exception 'VACUOUS C: task closing is not tested';
+    end if;
     raise exception 'sabotage_rollback';
   exception when raise_exception then if sqlerrm <> 'sabotage_rollback' then raise; end if;
   end;

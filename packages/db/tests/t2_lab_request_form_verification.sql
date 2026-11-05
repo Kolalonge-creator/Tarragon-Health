@@ -4,9 +4,11 @@
 --  2. neither can be changed afterwards;
 --  3. an anonymous caller with the token, or the code typed with a dash and in lower case, gets proof: status, reference, issue date,
 --     the tests, the patient's INITIALS and who requested it; never the name, date of birth or patient number;
---  4. an unknown, malformed or partial reference returns nothing; a cancelled request says cancelled;
+--  4. an unknown, malformed or partial reference returns nothing; a cancelled request says cancelled; once a sample has been taken
+--     (collected, processing, rejected, resulted) it says used; a scheduled request names the schedule, a patient's own choice the patient;
 --  5. the helpers are not callable by a client role.
--- Sabotage (in rolled-back sub-blocks): the stamp keeps a client value -> check 1 flips; the function returns the full name -> check 3 flips.
+-- Sabotage (in rolled-back sub-blocks): the stamp keeps a client value -> check 1 flips; the function returns the full name -> check 3 flips;
+-- only 'resulted' counts as used -> check 4b flips.
 --
 -- Run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f packages/db/tests/t2_lab_request_form_verification.sql
 
@@ -41,6 +43,9 @@ declare
   v_bundle uuid;
   o public.lab_orders%rowtype;
   o2 public.lab_orders%rowtype;
+  o3 public.lab_orders%rowtype;
+  v_status text; v_expect text;
+  v_sched uuid;
   j jsonb;
   v_n integer;
 begin
@@ -82,7 +87,7 @@ begin
   reset role;
   if j is null or j ->> 'status' <> 'valid' or j ->> 'order_number' is distinct from o.order_number
      or (j ->> 'issued_on')::date <> (o.ordered_at at time zone 'Africa/Lagos')::date
-     or jsonb_array_length(j -> 'tests') < 2 or j ->> 'requested_by' not like '%preventive schedule%' then
+     or jsonb_array_length(j -> 'tests') < 2 or j ->> 'requested_by' <> 'the patient, through TarragonHealth' then
     raise exception 'FAIL 3: the token check did not return the expected proof: %', j;
   end if;
   if not pg_temp.check_no_name(v_pat, o.request_verification_token) then raise exception 'FAIL 3: the proof carries an identifier or wrong initials'; end if;
@@ -101,6 +106,31 @@ begin
   select x into j from pg_temp.verify_as_anon(o.request_verification_code) x limit 1; reset role;
   if j ->> 'status' <> 'cancelled' then raise exception 'FAIL 4: a cancelled request did not say cancelled'; end if;
   update public.lab_orders set status = 'ordered' where id = o.id;
+
+  -- 4b. once a laboratory has taken a sample against the form it reads as already used, so a second laboratory does not run it
+  --     again; before that it is valid. Statuses set with user triggers off: this proves the check's mapping, not the lab workflow.
+  alter table public.lab_orders disable trigger user;
+  foreach v_status in array array['sample_collected', 'processing', 'sample_rejected', 'resulted', 'pending_payment', 'payment_confirmed', 'ordered'] loop
+    update public.lab_orders set status = v_status::public.lab_order_status, rejection_reason = 'proof: sample haemolysed', rejected_at = now() where id = o.id;
+    select x into j from pg_temp.verify_as_anon(o.request_verification_code) x limit 1; reset role;
+    v_expect := (case when v_status in ('pending_payment', 'payment_confirmed', 'ordered') then 'valid' else 'used' end);
+    if j ->> 'status' is distinct from v_expect then
+      raise exception 'FAIL 4b: a request in status % reads as %', v_status, j ->> 'status';
+    end if;
+  end loop;
+  alter table public.lab_orders enable trigger user;
+
+  -- 4c. who requested it: a request issued from a screening schedule says the preventive schedule; one the patient chose says the patient
+  insert into public.screening_schedules (organisation_id, patient_id, screen_type_id, status, due_date)
+  values (v_org, v_pat, (select id from public.screen_types where code = 'hba1c'), 'pending', current_date) returning id into v_sched;
+  perform set_config('tarragon.screening_request_job', 'on', true);
+  insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, screening_schedule_id)
+  values (v_org, v_pat, (select id from public.panel_bundles where name = 'HbA1c' and test_codes = array['hba1c'] limit 1), v_sched) returning * into o3;
+  perform set_config('tarragon.screening_request_job', 'off', true);
+  select x into j from pg_temp.verify_as_anon(o3.request_verification_token) x limit 1; reset role;
+  if j ->> 'requested_by' <> 'the patient''s TarragonHealth preventive schedule' then
+    raise exception 'FAIL 4c: a scheduled request was attributed to %', j ->> 'requested_by';
+  end if;
 
   -- 5. privileges
   if not has_function_privilege('anon', 'public.verify_lab_request_public(text)', 'EXECUTE') then raise exception 'FAIL 5: anon cannot check'; end if;
@@ -135,6 +165,20 @@ begin
     raise exception 'sabotage_rollback';
   exception when raise_exception then
     if sqlerrm <> 'sabotage_rollback' then raise; end if;
+  end;
+  reset role;
+
+  -- SABOTAGE C: only 'resulted' counts as used (the old mapping) -> a collected sample reads as valid, check 4b must flip
+  begin
+    execute replace(pg_get_functiondef('public.verify_lab_request_public(text)'::regprocedure),
+                    'when o.status in (''sample_collected'', ''processing'', ''sample_rejected'', ''resulted'') then', 'when o.status = ''resulted'' then');
+    alter table public.lab_orders disable trigger user;
+    update public.lab_orders set status = 'sample_collected' where id = o.id;
+    alter table public.lab_orders enable trigger user;
+    select x into j from pg_temp.verify_as_anon(o.request_verification_code) x limit 1; reset role;
+    if j ->> 'status' = 'used' then raise exception 'VACUOUS C: the used mapping is not tested'; end if;
+    raise exception 'sabotage_rollback';
+  exception when raise_exception then if sqlerrm <> 'sabotage_rollback' then raise; end if;
   end;
   reset role;
 

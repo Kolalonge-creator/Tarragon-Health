@@ -77,9 +77,10 @@ export function presentRequestStatus(status: PublicRequestProof["status"]): { to
       };
     case "used":
       return {
-        tone: "warn",
-        headline: "This request form is genuine, and a result is already on record for it",
-        guidance: "It may be a repeat visit. If the person needs the tests again, they can get a new form in the app.",
+        tone: "bad",
+        headline: "This request form has already been used",
+        guidance:
+          "The form is genuine, but a laboratory has already taken a sample against it. Do not run these tests again on this form. If the person needs them again, they can get a new form in the app.",
       };
     case "cancelled":
       return {

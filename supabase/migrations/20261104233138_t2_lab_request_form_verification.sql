@@ -11,8 +11,9 @@
 --     about 30 triggers (notifications, commissions, timeline) and none of them should fire for a column that is not clinical.
 --  2. public.verify_lab_request_public(p_ref text): SECURITY DEFINER, anon-executable on purpose (added to the anon allowlist test, the
 --     S39 security catalogue, the release-integrity allowlist and docs/security/ANON-EXECUTABLE-FUNCTIONS.md). Accepts the token or the
---     code. Returns proof only: status, reference number, issue date, the tests listed, the patient's INITIALS, and who requested it
---     (the clinician's name and verified registration, or "the patient's preventive schedule"). It returns no patient name, date of
+--     code. Returns proof only: status (valid; used once a sample has been taken; cancelled), reference number, issue date, the tests listed, the patient's INITIALS, and who requested it
+--     (the clinician's name and verified registration, "the patient's preventive schedule" when issued from a screening schedule,
+--     otherwise "the patient, through TarragonHealth"). It returns no patient name, date of
 --     birth, patient number or contact detail, and no price. Unknown, malformed or ambiguous input returns zero rows.
 --     Rate limiting is applied by the page that calls it.
 --
@@ -162,15 +163,19 @@ begin
   end if;
 
   return query select
+    -- 'used': a laboratory has already taken a sample against this form (collected, processing, rejected or resulted), so a
+    -- second laboratory should not run it again on the same paper. Before that (ordered, awaiting or confirmed payment) it is valid.
     case when o.status = 'cancelled' then 'cancelled'
-         when o.status = 'resulted' then 'used'
+         when o.status in ('sample_collected', 'processing', 'sample_rejected', 'resulted') then 'used'
          else 'valid' end,
     o.order_number,
     (o.ordered_at at time zone 'Africa/Lagos')::date,
     coalesce(v_tests, '{}'),
     private.name_initials((select p.full_name from public.profiles p where p.id = o.patient_id)),
-    case when o.ordered_by is null then 'the patient''s TarragonHealth preventive schedule'
-         else coalesce(v_name, 'TarragonHealth care team') end,
+    -- a clinician's order names the clinician; a request issued from a screening schedule says so; anything else the patient chose
+    case when o.ordered_by is not null then coalesce(v_name, 'TarragonHealth care team')
+         when o.screening_schedule_id is not null then 'the patient''s TarragonHealth preventive schedule'
+         else 'the patient, through TarragonHealth' end,
     v_reg;
 end;
 $$;

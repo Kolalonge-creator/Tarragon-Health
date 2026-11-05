@@ -166,8 +166,28 @@ as $$
 declare
   v_rules jsonb := private.screening_reminder_rules();
   r record;
+  v_org uuid;
 begin
-  if v_rules is null then return; end if;  -- no active timing: send nothing rather than guess
+  if v_rules is null then
+    -- No active timing: send nothing rather than guess, but never silently. One sev3 ops incident while the outage lasts (the
+    -- nightly run finds the open one and does not open a second), plus one audit row per day. No patient is named (INV-07).
+    select o.id into v_org from public.organisations o order by o.created_at limit 1;
+    if v_org is not null then
+      if not exists (select 1 from public.audit_log a where a.action = 'screening_reminders.no_active_config'
+                      and a.created_at >= date_trunc('day', now() at time zone 'Africa/Lagos') at time zone 'Africa/Lagos') then
+        insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, result)
+        values (v_org, null, 'screening_reminders.no_active_config', 'screening_reminder_configs', null, '{}'::jsonb, 'failed');
+      end if;
+      if not exists (select 1 from public.ops_incidents i where i.external_reference = 'screening_reminders_no_active_config'
+                      and i.status not in ('resolved', 'closed')) then
+        insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at, owner_id)
+        values (v_org, 'technical', 'sev3', 'Screening reminders stopped: no active reminder timing',
+                'The nightly screening reminder job found no active row in screening_reminder_configs, so it sent no reminders. An admin or the CMO switches a version on with activate_screening_reminder_config(version, note). No patient is named here.',
+                'screening_reminders_no_active_config', now(), now() + interval '1 day', private.screening_incident_owner(v_org));
+      end if;
+    end if;
+    return;
+  end if;
   for r in
     with steps as (
       select x ->> 'code' as code, (x ->> 'offsetDays')::integer as off, (x ->> 'untilDays')::integer as until_d,

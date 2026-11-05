@@ -52,5 +52,8 @@ describe("request form verification helpers (T2 Phase 3)", () => {
       expect(`${v.headline} ${v.guidance}`).not.toMatch(/partner|contracted|must accept/i);
     }
     expect(presentRequestStatus("cancelled").tone).toBe("bad");
+    // a form a laboratory has already taken a sample against must not read as acceptable to a second laboratory
+    expect(presentRequestStatus("used").tone).toBe("bad");
+    expect(presentRequestStatus("used").guidance).toMatch(/Do not run these tests again/);
   });
 });
