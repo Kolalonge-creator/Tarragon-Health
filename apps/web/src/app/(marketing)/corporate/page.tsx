@@ -30,7 +30,7 @@ export const metadata: Metadata = pageMetadata({
  */
 const STEPS = [
   { title: "Talk to us", body: "Tell us how many people you want to cover and what matters most to you." },
-  { title: "Agree the programme", body: "We confirm the number of seats, the start date and any workplace screening you want, scoped and priced separately." },
+  { title: "Agree the programme", body: "We confirm the number of seats and the start date. Checks at your workplace, if you want them, are scoped and priced separately." },
   { title: "Your people join", body: "Each employee gets an invitation and creates their own private account. Joining takes a few minutes." },
   { title: "Group reporting", body: "You receive group figures, such as how many people have joined and completed their checks. Never anyone's results." },
 ] as const;
@@ -97,10 +97,6 @@ export default function CorporatePage() {
             </li>
           ))}
         </ol>
-        <p className="mt-6 max-w-3xl text-charcoal-ink/80">
-          <span className="font-semibold text-charcoal-ink">Workplace screening.</span> If you want checks at your workplace, such as
-          blood pressure, weight and blood sugar, we scope and price them separately for you. They are never bundled into the seat price.
-        </p>
       </Section>
 
       <Section variant="sage" labelledBy="emp-privacy-title">
@@ -125,7 +121,7 @@ export default function CorporatePage() {
           id="emp-insurers-title"
           eyebrow="Health insurers and HMOs"
           title="Add ongoing preventive care for your members."
-          description="Your members keep their insurance for treatment. Tarragon adds a preventive plan, review of their laboratory results and follow-up between visits. Members' results stay between them and their care team; you receive group reporting only."
+          description="Your members keep their insurance for treatment. Tarragon can add a preventive plan, review of their laboratory results and follow-up between visits. Members' results always stay between them and their care team. Tell us about your members and we will discuss how we could work together."
         />
         <Link
           href={`${MARKETING_ROUTES.contact}?source=hmo&role=hmo`}

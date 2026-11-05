@@ -43,6 +43,9 @@ export const MARKETING_ROUTES = {
   careers: "/careers",
   faq: "/faq",
   corporate: "/corporate",
+  // No page any more (/hmo 301-redirects to /corporate#insurers, W-05). Kept so
+  // /hmo still counts as a public marketing path: the app host bounces it to the
+  // root domain, where the redirect in lib/marketing/redirects.ts runs.
   hmo: "/hmo",
   resources: "/resources",
   impact: "/impact",

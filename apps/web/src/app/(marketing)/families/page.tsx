@@ -35,7 +35,7 @@ const PRINCIPLES = [
 const FAQ = [
   {
     question: "Can I pay for my mother's Membership from the UK?",
-    answer: "Yes. You pay once, in naira, by card or bank transfer, wherever you are paying from. It is hers to accept, and if she does not accept within 14 days you are refunded.",
+    answer: "Yes. You pay in naira wherever you are paying from, and the Membership is hers to accept. The payment, acceptance and refund terms are set out on our page about giving a Membership.",
   },
   {
     question: "Will I see my father's results?",
