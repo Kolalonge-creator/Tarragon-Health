@@ -1,6 +1,6 @@
 -- Publishes consent version 2026-11-05-v3 of TWO required consents, terms_of_service (Schedule C) and
 -- telehealth (Schedule B), removing every mention of the retired Membership Plus plan (founder decisions
--- T2-01, T2-09 and T2-13 of 2026-11-04 in docs/DECISIONS.md). DRAFT FOR THE OWNER: not signed, not applied.
+-- T2-01, T2-09 and T2-13 of 2026-11-04 in docs/DECISIONS.md). Approved by the founder in chat on 2026-11-05 (PR #1755).
 --
 -- What changes, and nothing else (every other sentence is byte-identical to the live 2026-10-30-v2 text):
 --   Terms of service
