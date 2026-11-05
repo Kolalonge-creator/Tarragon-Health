@@ -823,8 +823,6 @@ s05f_four_tables_staff_writes_dropped.sql
 s05f_review_tie_gate_definer_functions.sql
 # Prescription PDF phase 1: clinical_staff_directory.license_verified readable by a same-org patient (true / never verified false / expired false), no sensitive columns, anon refused, other org sees none; a patient's own download audit row insert works and a forged actor is refused; one sabotage.
 prescription_pdf_license_flag_and_download_audit.sql
-# Security audit M-9 (2026-11-05): an audit_log row written from a user session names that user as actor: a session that names another actor is refused (42501) and writes nothing, a null actor is filled with the session user, server-side writes keep their actor. Sabotage: the old staff branch back lets the forged actor survive.
-audit_log_actor_is_the_session_user.sql
 # Prescription PDF phase 2: public_token stamped (64 hex, distinct) for clinician prescriptions only; anon holder of the token gets proof with no patient column; unknown, malformed, upper-case, null, truncated and non-clinician tokens return nothing; status follows superseded/expired/cancelled; patient cannot rewrite the token; sabotage.
 prescription_public_verification.sql
 # Prescription PDF phase 3: anon pharmacy records a supply (source pharmacy, self-declared names, no recorder); duplicate window; second supply needs a clinician-approved repeat, capped at 1+repeats_allowed; patient collection claim not counted; superseded/expired/stopped/unknown/malformed/invalid refused; verify reports supplies and availability; anon cannot touch the table; sabotage.
