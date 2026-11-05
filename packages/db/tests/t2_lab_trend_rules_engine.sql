@@ -13,6 +13,10 @@
 --   e. Command centre: the clinical worklist and the organisation totals count 'deteriorating_trends'.
 --   f. patient_health_status: the patient reads their own latest and previous HbA1c; another patient is refused; the patient cannot read
 --      lab_trend_detections at all.
+--   g. D5: a caregiver with a labs_results grant sees HbA1c but never the pregnancy hormone or a syphilis screening (SABOTAGE 3: the
+--      access-sensitive test made false shows the hormone).
+--   h. One patient whose check raises does not stop the run: others are alerted, the run is 'partial' with only the SQLSTATE, and an
+--      ops incident opens.
 begin;
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
@@ -197,6 +201,70 @@ begin
   perform pg_temp.rec('f4 anon cannot execute patient_health_status', 'false', has_function_privilege('anon', 'public.patient_health_status(uuid)', 'EXECUTE')::text);
 end $$;
 
+-- g. a caregiver with a labs_results grant sees the ordinary values but never a sensitive one (D5); SABOTAGE 3 flips it
+do $$
+declare
+  v_org uuid := (select v from ids where k = 'org'); v_rise uuid := (select v from ids where k = 'rise');
+  v_cc uuid; v_a uuid; v_saved text; v_r text;
+begin
+  v_cc := pg_temp.mkuser(v_org, 'caregiver', 'patient');
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, clinical_access, permissions)
+  values (v_rise, v_cc, 'view', v_rise, false, null) returning id into v_a;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_rise::text, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', v_rise::text, true);
+  set local role authenticated;
+  perform public.set_care_access_categories(v_a, array['labs_results']::public.care_access_category[]);
+  reset role;
+  perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true);
+  perform pg_temp.lab(v_org, v_rise, 'beta_hcg', 1200, 'mIU/mL', 1);
+  set local session_replication_role = replica;
+  insert into public.screening_schedules (organisation_id, patient_id, screen_type_id, status, due_date)
+  values (v_org, v_rise, (select id from public.screen_types where code = 'syphilis'), 'pending', current_date + 10),
+         (v_org, v_rise, (select id from public.screen_types where code = 'hba1c'), 'pending', current_date + 20);
+  set local session_replication_role = origin;
+
+  perform pg_temp.rec('g1 the caregiver sees the HbA1c', '1',
+    pg_temp.as_user(v_cc, format($q$select count(*)::text from jsonb_array_elements(public.patient_health_status(%L) -> 'labs') h where h ->> 'code' = 'hba1c'$q$, v_rise)));
+  perform pg_temp.rec('g2 the caregiver never sees the pregnancy hormone', '0',
+    pg_temp.as_user(v_cc, format($q$select count(*)::text from jsonb_array_elements(public.patient_health_status(%L) -> 'labs') h where h ->> 'code' = 'beta_hcg'$q$, v_rise)));
+  perform pg_temp.rec('g3 the caregiver never sees the syphilis screening', 'hba1c',
+    pg_temp.as_user(v_cc, format($q$select string_agg(lower(s ->> 'name'), ',') from jsonb_array_elements(public.patient_health_status(%L) #> '{screening,open}') s$q$, v_rise)));
+  perform pg_temp.rec('g4 the patient sees their own pregnancy hormone', '1',
+    pg_temp.as_user(v_rise, $q$select count(*)::text from jsonb_array_elements(public.patient_health_status() -> 'labs') h where h ->> 'code' = 'beta_hcg'$q$));
+
+  -- SABOTAGE 3: the access-sensitive test made to say "not sensitive"; the caregiver must now see the hormone
+  v_saved := pg_get_functiondef('private.analyte_access_sensitive(text)'::regprocedure);
+  create or replace function private.analyte_access_sensitive(p_code text) returns boolean language sql stable security definer set search_path = '' as $s$ select false $s$;
+  v_r := pg_temp.as_user(v_cc, format($q$select count(*)::text from jsonb_array_elements(public.patient_health_status(%L) -> 'labs') h where h ->> 'code' = 'beta_hcg'$q$, v_rise));
+  insert into results values ('sabotaged', 'the caregiver never sees the pregnancy hormone', '0', v_r);
+  execute v_saved;
+end $$;
+
+-- h. one patient that cannot be checked does not stop the run: the others are still alerted, the run is 'partial' with no patient
+--    reference, and an ops incident opens. (The failure is injected: the dispute check raises for one patient only.)
+do $$
+declare
+  v_org uuid := (select v from ids where k = 'org'); v_dip uuid := (select v from ids where k = 'dip'); v_rise2 uuid;
+  v_saved text; v_r jsonb; v_run record;
+begin
+  v_rise2 := pg_temp.mkuser(v_org, 'rise2', 'patient');
+  perform pg_temp.lab(v_org, v_rise2, 'hba1c', 5.8, '%', 8);
+  perform pg_temp.lab(v_org, v_rise2, 'hba1c', 6.2, '%', 5);
+  perform pg_temp.lab(v_org, v_rise2, 'hba1c', 6.6, '%', 2);
+  v_saved := pg_get_functiondef('private.lab_code_disputed(uuid,text)'::regprocedure);
+  execute format($f$create or replace function private.lab_code_disputed(p_patient uuid, p_code text) returns boolean language plpgsql stable security definer set search_path = '' as $b$
+    begin if p_patient = %L then raise exception 'injected failure for the proof' using errcode = 'XX001'; end if; return false; end $b$ $f$, v_dip);
+  v_r := private.run_lab_trend_rules();
+  execute v_saved;
+  select * into v_run from public.lab_trend_rule_runs where outcome <> 'awaiting_signature' and patients_failed > 0;
+  perform pg_temp.rec('h1 a failing patient makes the run partial', 'partial/1', (v_r ->> 'outcome') || '/' || (v_r ->> 'patients_failed'));
+  perform pg_temp.rec('h2 the other patients are still checked and alerted', '1', pg_temp.trend_alerts(v_rise2)::text);
+  perform pg_temp.rec('h3 the run row records the failure with the SQLSTATE and no patient reference', 'partial/1/true/false',
+    v_run.outcome || '/' || v_run.patients_failed || '/' || (v_run.error like '%XX001%')::text || '/' || (v_run.error like '%' || v_dip::text || '%')::text);
+  perform pg_temp.rec('h4 an ops incident is open for it', '1',
+    (select count(*)::text from public.ops_incidents where external_reference = 'lab-trend-rules-partial' and status not in ('resolved', 'closed')));
+end $$;
+
 -- SABOTAGE 2: with the detections gone the dedupe has nothing to hold, so the next run raises again
 do $$
 declare v_rise uuid := (select v from ids where k = 'rise'); v_before integer;
@@ -220,7 +288,7 @@ begin
       (select string_agg(check_name || ' => expected ' || expected || ' got ' || coalesce(actual, 'null'), '; ') from results where phase = 'real' and expected is distinct from actual);
   end if;
   select count(*) into v_caught from results where phase = 'sabotaged' and expected <> actual;
-  if v_caught < 2 then raise exception 'VACUOUS TEST: % of 2 sabotage steps changed the outcome', v_caught; end if;
+  if v_caught < 3 then raise exception 'VACUOUS TEST: % of 3 sabotage steps changed the outcome', v_caught; end if;
 end $$;
 
 rollback;

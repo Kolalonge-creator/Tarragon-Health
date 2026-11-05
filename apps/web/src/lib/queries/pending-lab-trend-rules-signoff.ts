@@ -20,7 +20,7 @@ export type LabTrendRulesView = {
   review: { alertLevel: string; slaPathway: string; slaTier: string };
 };
 
-export type LabTrendLastRun = { ranAt: string; outcome: "awaiting_signature" | "ok" | "failed"; alertsRaised: number; error: string | null };
+export type LabTrendLastRun = { ranAt: string; outcome: "awaiting_signature" | "ok" | "partial" | "failed"; alertsRaised: number; error: string | null };
 
 export type PendingLabTrendRulesSignoff = {
   /** An unsigned version newer than the one in force, waiting for the CMO. */
@@ -75,7 +75,7 @@ export function labTrendRulesView(config: unknown): LabTrendRulesView | null {
 function lastRun(v: unknown): LabTrendLastRun | null {
   if (!isObj(v)) return null;
   const outcome = v.outcome;
-  if (outcome !== "awaiting_signature" && outcome !== "ok" && outcome !== "failed") return null;
+  if (outcome !== "awaiting_signature" && outcome !== "ok" && outcome !== "partial" && outcome !== "failed") return null;
   const ranAt = str(v.ran_at);
   if (!ranAt) return null;
   return { ranAt, outcome, alertsRaised: int(v.alerts_raised) ?? 0, error: str(v.error) };

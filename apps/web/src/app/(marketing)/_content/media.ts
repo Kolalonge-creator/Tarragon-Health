@@ -116,7 +116,9 @@ export const MARKETING_MEDIA = {
       // four "Not tracked yet / Nothing logged here yet" empty states: an
       // empty app is the wrong thing to put in the homepage phone.
       imageSrc: "/marketing/photos/app/how-it-works-health-score-cropped.jpg",
-      imageAlt: "The Tarragon app's dashboard, showing a stable Health Score and the next step, a blood pressure check that is due",
+      // T2-06 (2026-11-04): the app no longer shows a Health Score number; this capture predates that and should be retaken from the
+      // health-by-area view. The alt text describes the dashboard without naming the retired score.
+      imageAlt: "The Tarragon app's overview, showing how the person is doing and their next step, a blood pressure check that is due",
     } satisfies MarketingMediaSlot,
     /** Set youtubeId when a product walkthrough is ready on YouTube. */
     walkthroughVideo: {

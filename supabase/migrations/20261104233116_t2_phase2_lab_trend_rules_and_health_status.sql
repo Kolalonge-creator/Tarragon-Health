@@ -140,14 +140,15 @@ create table public.lab_trend_rule_runs (
   id               uuid primary key default gen_random_uuid(),
   ran_at           timestamptz not null default now(),
   rule_set_version integer,
-  outcome          text not null check (outcome in ('awaiting_signature', 'ok', 'failed')),
+  outcome          text not null check (outcome in ('awaiting_signature', 'ok', 'partial', 'failed')),
+  patients_failed  integer not null default 0,
   patients_checked integer not null default 0,
   findings         integer not null default 0,
   alerts_raised    integer not null default 0,
   error            text
 );
 create index lab_trend_rule_runs_ran_at_idx on public.lab_trend_rule_runs (ran_at desc);
-comment on table public.lab_trend_rule_runs is 'T2 Phase 2: one row per run of private.run_lab_trend_rules(). awaiting_signature means the rules are unsigned and nothing was checked; failed carries the error (for example no active escalation SLA for the named pathway).';
+comment on table public.lab_trend_rule_runs is 'T2 Phase 2: one row per run of private.run_lab_trend_rules(). awaiting_signature means the rules are unsigned and nothing was checked; failed carries the error (for example no active escalation SLA for the named pathway); partial means some patients could not be checked (patients_failed, and the SQLSTATE only in error: never a patient reference or a value). A partial run also opens an ops incident.';
 alter table public.lab_trend_rule_runs enable row level security;
 revoke all on public.lab_trend_rule_runs from public, anon, authenticated;
 
@@ -347,7 +348,7 @@ as $$
 declare
   v_active jsonb; v_config jsonb; v_version integer; v_minutes integer; v_level public.alert_level;
   v_codes text[]; p record; h record; v_alert uuid; v_lines text; v_new integer;
-  v_patients integer := 0; v_findings integer := 0; v_alerts integer := 0;
+  v_patients integer := 0; v_findings integer := 0; v_alerts integer := 0; v_failed integer := 0; v_last_state text;
 begin
   v_active := private.lab_trend_rules_active();
   if v_active is null then
@@ -360,6 +361,8 @@ begin
     v_minutes := private.escalation_sla_minutes(v_config #>> '{review,sla_pathway}', (v_config #>> '{review,sla_tier}')::public.alert_level);
   exception when others then
     insert into public.lab_trend_rule_runs (rule_set_version, outcome, error) values (v_version, 'failed', sqlerrm);
+    perform private.open_job_incident('lab-trend-rules-failed', 'The nightly lab trend check could not run',
+      format('Lab trend rules version %s are signed but the run stopped before checking anyone: %s. No trend was looked at tonight. See public.lab_trend_rule_runs.', v_version, left(sqlerrm, 200)));
     return jsonb_build_object('outcome', 'failed', 'error', sqlerrm);
   end;
   v_level := (v_config #>> '{review,alert_level}')::public.alert_level;
@@ -374,6 +377,8 @@ begin
   loop
     v_patients := v_patients + 1;
     v_lines := null; v_new := 0;
+    -- one patient that cannot be checked never stops the others or undoes their alerts: each patient is its own subtransaction
+    begin
     create temp table if not exists lab_trend_hits (analyte text, rule_kind text, latest_taken_at timestamptz, summary text, points jsonb) on commit drop;
     truncate lab_trend_hits;
     insert into lab_trend_hits
@@ -383,7 +388,7 @@ begin
                             and (d.latest_taken_at = e.latest_taken_at
                                  or exists (select 1 from public.clinician_alerts a where a.id = d.alert_id and a.status in ('open', 'acknowledged', 'snoozed'))));
     select count(*), string_agg('- ' || summary, E'\n' order by analyte, rule_kind) into v_new, v_lines from lab_trend_hits;
-    if v_new = 0 then continue; end if;
+    if v_new > 0 then
 
     insert into public.clinician_alerts (organisation_id, patient_id, level, status, title, detail, sla_due_at, category, type_code)
     values (p.organisation_id, p.id, v_level, 'open', 'Lab trend to review',
@@ -394,11 +399,24 @@ begin
       select p.organisation_id, p.id, h2.analyte, h2.rule_kind, h2.latest_taken_at, v_version, h2.summary, h2.points, v_alert from lab_trend_hits h2;
     v_findings := v_findings + v_new;
     v_alerts := v_alerts + 1;
+    end if;
+    exception when others then
+      -- the SQLSTATE only: an error message can carry a value or an identifier, and this row and the incident are read by ops staff
+      v_failed := v_failed + 1;
+      v_last_state := sqlstate;
+    end;
   end loop;
 
-  insert into public.lab_trend_rule_runs (rule_set_version, outcome, patients_checked, findings, alerts_raised)
-    values (v_version, 'ok', v_patients, v_findings, v_alerts);
-  return jsonb_build_object('outcome', 'ok', 'version', v_version, 'patients_checked', v_patients, 'findings', v_findings, 'alerts_raised', v_alerts);
+  insert into public.lab_trend_rule_runs (rule_set_version, outcome, patients_checked, patients_failed, findings, alerts_raised, error)
+    values (v_version, case when v_failed > 0 then 'partial' else 'ok' end, v_patients, v_failed, v_findings, v_alerts,
+            case when v_failed > 0 then format('%s patient(s) could not be checked; last SQLSTATE %s', v_failed, v_last_state) end);
+  if v_failed > 0 then
+    perform private.open_job_incident('lab-trend-rules-partial', 'The nightly lab trend check skipped some patients',
+      format('%s of %s patient(s) could not be checked by lab trend rules version %s (last SQLSTATE %s). Their trends were not looked at tonight; everyone else was checked and alerted as usual. See public.lab_trend_rule_runs. The job runs again tomorrow night.',
+             v_failed, v_patients, v_version, v_last_state));
+  end if;
+  return jsonb_build_object('outcome', case when v_failed > 0 then 'partial' else 'ok' end, 'version', v_version, 'patients_checked', v_patients,
+                            'patients_failed', v_failed, 'findings', v_findings, 'alerts_raised', v_alerts);
 end $$;
 revoke all on function private.run_lab_trend_rules() from public, anon, authenticated;
 
@@ -475,6 +493,8 @@ begin
                 union select lower(l.code) from private.lab_analyte_readings_current l where l.patient_id = v_patient
                 union select lower(pr.code) from public.patient_reported_lab_values pr where pr.patient_id = v_patient and v_self) codes
           cross join lateral private.biomarker_points_with_reported(v_patient, codes.code, v_self) p
+         -- D5: a caregiver or anyone else never sees a sensitive analyte (HIV, hepatitis, syphilis and other STI tests, pregnancy hormone)
+         where v_self or not private.analyte_access_sensitive(codes.code)
          group by codes.code) x;
   end if;
 
@@ -499,9 +519,9 @@ begin
     v_screening := jsonb_build_object(
       'open', coalesce((select jsonb_agg(jsonb_build_object('name', st.name, 'status', s.status, 'due_date', s.due_date) order by s.due_date nulls last)
                           from public.screening_schedules s join public.screen_types st on st.id = s.screen_type_id
-                         where s.patient_id = v_patient and s.status in ('pending', 'overdue', 'booked') and (v_self or not st.sensitive)), '[]'::jsonb),
+                         where s.patient_id = v_patient and s.status in ('pending', 'overdue', 'booked') and (v_self or not private.screen_code_access_sensitive(st.code))), '[]'::jsonb),
       'completed_last_year', (select count(*) from public.screening_schedules s join public.screen_types st on st.id = s.screen_type_id
-                               where s.patient_id = v_patient and s.status = 'completed' and s.updated_at > now() - interval '12 months' and (v_self or not st.sensitive)));
+                               where s.patient_id = v_patient and s.status = 'completed' and s.updated_at > now() - interval '12 months' and (v_self or not private.screen_code_access_sensitive(st.code))));
   end if;
 
   return jsonb_build_object('labs', v_labs, 'vitals', v_vitals, 'screening', v_screening);

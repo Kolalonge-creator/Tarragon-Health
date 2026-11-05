@@ -41,7 +41,7 @@ export function LabTrendRulesPanel({ pending }: { pending: PendingLabTrendRulesS
           <p className="rounded-md bg-amber-50 px-3 py-2 text-charcoal-ink/90">
             Proposed values, drafted from ADA and KDIGO guidance. Nothing here is in force until you sign
             {liveVersion !== null ? `, and version ${liveVersion} stays in force until then` : ""}. Today the nightly check runs and raises nothing.
-            {lastRun ? ` Last run ${new Date(lastRun.ranAt).toLocaleString("en-GB", { timeZone: "Africa/Lagos" })}: ${lastRun.outcome === "awaiting_signature" ? "awaiting your signature, nothing checked" : lastRun.outcome === "failed" ? `failed (${lastRun.error ?? "no detail"})` : `${lastRun.alertsRaised} alerts raised`}.` : ""}
+            {lastRun ? ` Last run ${new Date(lastRun.ranAt).toLocaleString("en-GB", { timeZone: "Africa/Lagos" })}: ${lastRun.outcome === "awaiting_signature" ? "awaiting your signature, nothing checked" : lastRun.outcome === "failed" ? `failed (${lastRun.error ?? "no detail"})` : lastRun.outcome === "partial" ? `${lastRun.alertsRaised} alerts raised, some patients skipped (${lastRun.error ?? "no detail"})` : `${lastRun.alertsRaised} alerts raised`}.` : ""}
           </p>
           <div>
             <p className="font-medium">A trend is found when, within {view.windowMonths} months and over at least {view.minPoints} results in the same unit{view.consecutive ? ", each result moving the same way as the one before" : ""}:</p>
