@@ -9,11 +9,11 @@
  */
 
 const createSignedUrls = jest.fn();
-const rpc = jest.fn(async () => ({ data: [] as string[], error: null }));
+const rpc = jest.fn<Promise<{ data: string[]; error: null }>, [string, unknown?]>(async () => ({ data: [], error: null }));
 
 jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
-    rpc: (...a: unknown[]) => rpc(...(a as [])),
+    rpc: (...a: unknown[]) => rpc(...(a as [string, unknown?])),
     storage: {
       from: (bucket: string) => ({
         createSignedUrls: (paths: string[], ttl: number) => createSignedUrls(bucket, paths, ttl),
