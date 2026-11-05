@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createBearerClient } from "@/lib/supabase/bearer";
@@ -61,7 +62,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (error) {
     if (error.code === "42501") return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (error.code === "22023") return NextResponse.json({ error: error.message }, { status: 422 });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(error, "mobile/device-rhythm-results") }, { status: 500 });
   }
   const result = (data ?? {}) as { category?: string; patient_copy?: string | null; red_path?: boolean; duplicate?: boolean };
   // The phone shows ONLY `patient_copy` (a fixed sentence), and the existing emergency guidance when `red_path` is true. It never shows `category`.

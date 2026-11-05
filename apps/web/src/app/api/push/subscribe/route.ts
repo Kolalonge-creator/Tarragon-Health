@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -64,7 +65,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   );
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
+    return NextResponse.json({ ok: false, error: safeErrorMessage(error, "push/subscribe") }, { status: 200 });
   }
   return NextResponse.json({ ok: true });
 }

@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createBearerClient } from "@/lib/supabase/bearer";
@@ -56,7 +57,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     p_slot_id: parsed.data.slotId,
   });
   if (error || !consultId) {
-    return NextResponse.json({ error: error?.message ?? "Could not book that time." }, { status: 400 });
+    return NextResponse.json({ error: safeErrorMessage(error, "mobile/video-visits/select-alternate-slot", "Could not book that time.") }, { status: 400 });
   }
 
   const service = createServiceRoleClient();

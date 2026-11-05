@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -40,6 +41,7 @@ const noteSchema = z
 export async function uploadUnsortedDocument(formData: FormData): Promise<UnsortedUploadResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Not signed in" };
+  if (!(await checkAbuseLimit("upload", user.id)).ok) return { ok: false, error: ABUSE_LIMIT_MESSAGE };
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Attach the document (PDF or photo)." };

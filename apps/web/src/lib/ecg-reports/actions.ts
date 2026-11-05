@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -170,6 +171,7 @@ export async function uploadEcgReportForPatient(formData: FormData): Promise<Ecg
 export async function uploadEcgReportAsPatient(formData: FormData): Promise<EcgUploadResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
+  if (!(await checkAbuseLimit("upload", user.id)).ok) return { error: ABUSE_LIMIT_MESSAGE };
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {

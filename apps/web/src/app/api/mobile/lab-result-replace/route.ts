@@ -1,5 +1,7 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
@@ -43,6 +45,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   } = await supabase.auth.getUser(accessToken);
   if (authError || !user) {
     return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 });
+  }
+  // Security audit 2026-11-05 (M-8): bounded per user so a script cannot run up storage and AI costs.
+  const limited = await checkAbuseLimit("upload", user.id);
+  if (!limited.ok) {
+    return NextResponse.json({ error: ABUSE_LIMIT_MESSAGE }, { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } });
   }
 
   let formData: FormData;
@@ -99,7 +106,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     .from(RESULT_DOC_BUCKET)
     .upload(path, file, { contentType: file.type, upsert: false });
   if (uploadError) {
-    return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(uploadError, "mobile/lab-result-replace") }, { status: 500 });
   }
 
   // Supersede, never edit (see replaceResultDocumentAsPatient): the database function inserts the new document, links both ways,
@@ -124,7 +131,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (replaceError && REPLACE_REFUSAL_CODES.has(replaceError.code)) {
       await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
     }
-    return NextResponse.json({ error: replaceError?.message ?? "Could not replace that upload." }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(replaceError, "mobile/lab-result-replace", "Could not replace that upload.") }, { status: 500 });
   }
 
   await runLabReportExtraction(createServiceRoleClient(), {

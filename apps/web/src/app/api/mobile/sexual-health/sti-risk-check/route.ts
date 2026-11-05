@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -59,7 +60,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     responses: answers as unknown as Json,
   });
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 400 });
+    return NextResponse.json({ error: safeErrorMessage(insertError, "mobile/sexual-health/sti-risk-check") }, { status: 400 });
   }
 
   if (symptomFlag || riskLevel === "high") {
