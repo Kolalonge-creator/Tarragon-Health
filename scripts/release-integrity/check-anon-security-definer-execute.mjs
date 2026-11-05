@@ -69,6 +69,9 @@ const ALLOWLIST = new Set([
   // asserts it in a DO block: a pharmacy holding a printed prescription checks its 64-hex token with no
   // account and sees proof only (status, drug, dose, repeats, prescriber), never a patient identifier.
   "public.verify_prescription_public(p_token text)",
+  // *_t2_11b_prescribing_safety_gaps.sql -- revokes from public then grants anon: the Rx number and verification code typed at
+  // /verify-rx return the same QR token, so the page shows the same proof; ten wrong codes lock that number for an hour.
+  "public.verify_prescription_by_code(p_rx_number text, p_code text)",
   // *_t2_lab_request_form_verification.sql -- revokes from public then grants anon explicitly, and asserts it: a laboratory
   // holding a printed test request form checks its token or code with no account and sees proof only (status, reference, date,
   // tests, the patient's initials, the requester), never a name, date of birth or patient number.
