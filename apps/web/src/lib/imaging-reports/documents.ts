@@ -1,5 +1,6 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { isPathHeld } from "@/lib/upload-scan/hold";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
@@ -44,6 +45,8 @@ export interface ImagingReportDocumentView {
  */
 export async function signImagingReportPath(path: string): Promise<string | null> {
   const service = createServiceRoleClient();
+  // T2-08: no link to a file held for the malware scan.
+  if (await isPathHeld(service, path)) return null;
   const { data } = await service.storage.from(IMAGING_REPORT_BUCKET).createSignedUrl(path, 300);
   return data?.signedUrl ?? null;
 }

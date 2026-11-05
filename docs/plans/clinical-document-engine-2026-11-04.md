@@ -37,7 +37,7 @@ Nothing existing is dropped or rewritten. The specialised tables stay the system
 | Spec component | Exists? | Reuse | Gap |
 |---|---|---|---|
 | Private storage, owner folders, signed URLs, file-signature check | Yes, per pipeline (lab check added in #1681) | All of it | Apply the signature check to every bucket; one shared helper |
-| Malware scan | Decided (T2-08, self-hosted ClamAV), not built | Plan it once for the shared intake | Railway service |
+| Malware scan | Built (T2-08): a scan step and `scan_status` on the intake record, `services/scanner` (ClamAV); see `docs/runbooks/upload-scanner.md` | Plan it once for the shared intake | Railway service (deploy pending) |
 | Patient upload (PDF, photo, multi-page) | Lab, ECG, imaging, documents each have a form | Upload actions, HEIC conversion | One "Upload medical report" entry point; multi-page as one document |
 | Auto classification | **No** | — | New governed AI system (assist only) plus a deterministic first pass on the filename and printed headings |
 | Processing status | Partial (`ai_summary_status` on lab) | — | One status field on the intake record |

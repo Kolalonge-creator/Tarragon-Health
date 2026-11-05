@@ -9,7 +9,7 @@ import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
 import { replaceResultDocumentSchema, validateResultDocFile } from "@/lib/validation/lab-result-documents";
 import { verifyResultDocSignature } from "@/lib/validation/result-doc-signature";
-import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
+import { screenUpload } from "@/lib/upload-scan/screen";
 import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 
 /** SQLSTATEs public.replace_my_result_document raises before it writes anything. */
@@ -72,6 +72,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (signatureError) {
     return NextResponse.json({ error: signatureError }, { status: 400 });
   }
+  // T2-08: scanned before it is stored. Infected: refused (422), never stored. Scanner down: stored, held as pending_scan.
+  const screened = await screenUpload(createServiceRoleClient(), file, { patientId: user.id, uploadedBy: user.id });
+  if (!screened.ok) {
+    return NextResponse.json({ error: screened.error }, { status: 422 });
+  }
 
   const parsed = replaceResultDocumentSchema.safeParse({
     document_id: formData.get("document_id"),
@@ -122,7 +127,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     p_mime_type: file.type,
     p_file_size_bytes: file.size,
     ...(note ? { p_note: note } : {}),
-    p_content_sha256: await fileSha256(file),
+    p_content_sha256: screened.sha256,
   });
   if (isDuplicateDocumentError(replaceError)) {
     // The database refused before writing anything: this file is already in the record.
