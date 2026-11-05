@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { logSleepEntrySchema } from "@/lib/validation/sleep";
@@ -80,7 +81,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     .eq("logged_on", today)
     .select("id");
   if (updateErr) {
-    return NextResponse.json({ error: updateErr.message }, { status: 400 });
+    return NextResponse.json({ error: safeErrorMessage(updateErr, "mobile/lifestyle/sleep-log") }, { status: 400 });
   }
 
   if (!updated || updated.length === 0) {
@@ -91,7 +92,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       ...row,
     });
     if (insertErr) {
-      return NextResponse.json({ error: insertErr.message }, { status: 400 });
+      return NextResponse.json({ error: safeErrorMessage(insertErr, "mobile/lifestyle/sleep-log") }, { status: 400 });
     }
   }
 

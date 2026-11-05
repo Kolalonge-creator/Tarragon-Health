@@ -1891,7 +1891,11 @@ t2_13_plus_renews_as_membership.sql
 t2_11_prescribing_take_anywhere.sql
 # S2 (2026-11-05): staff cannot insert an audit row naming another actor; record_audit_event stamps actor and the subject's organisation, refuses off-allowlist actions, another patient's prescription without access, an entity of someone else and a doctor summary on another profile; a clinician and a caregiver with medication access may record a download; record_audit_events is all-or-nothing; anon cannot execute. Sabotage: the old audit_log_insert policy restored, the forgery succeeds.
 audit_log_no_forged_actor.sql
+# S3 (2026-11-05): the Zoom host start link is moved off video_consultations into the staff-only video_consultation_host_links (BEFORE trigger parks it, AFTER trigger stores it); the patient reads NULL and sees no side row, staff read it, a replaced or cleared meeting or a cancelled call deletes it, a conflicting insert leaves no orphan and no parked value leaks into a later write, a patient cannot write it. Sabotage: triggers off and CHECK dropped, the patient reads the link.
+video_consultation_host_link_staff_only.sql
 # Security audit H-2 (2026-11-05): in the lab-result, ECG, imaging and referral-outcome buckets a patient can update and delete files they uploaded themselves, but not a file the care team or a lab wrote into their folder (owner_id null), and another patient can touch neither. Sabotage: the old folder-only lab-result policies put back let the patient overwrite and delete the care team's report.
 result_files_patient_may_only_change_own_uploads.sql
 # Security audit H-1 (2026-11-05): can_manage_payer_seats / can_manage_provider_org_seats are not executable by anon, return false with no session and for a patient, and true for an admin on provider-org seats. Sabotage: the payer check replaced by a bare true lets the patient through.
 seat_invite_preflight_checks.sql
+# Test flag follows the profile: marking a real patient as a test account re-stamps their existing rows (an append-only table and a guarded one) without firing row triggers, another patient is untouched, one audit row records the counts, unmarking turns them back, an admin session works and the replication setting is restored afterwards, and no client can call the re-stamp. Sabotage: without the profiles trigger the rows stay real.
+test_flag_follows_profile.sql

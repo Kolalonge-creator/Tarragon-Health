@@ -48100,6 +48100,42 @@ export type Database = {
           },
         ]
       }
+      video_consultation_host_links: {
+        Row: {
+          host_start_url: string
+          organisation_id: string
+          updated_at: string
+          video_consultation_id: string
+        }
+        Insert: {
+          host_start_url: string
+          organisation_id: string
+          updated_at?: string
+          video_consultation_id: string
+        }
+        Update: {
+          host_start_url?: string
+          organisation_id?: string
+          updated_at?: string
+          video_consultation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_consultation_host_links_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultation_host_links_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: true
+            referencedRelation: "video_consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_consultations: {
         Row: {
           annual_review_id: string | null
