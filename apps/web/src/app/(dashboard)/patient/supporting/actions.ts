@@ -179,10 +179,22 @@ export async function joinAsPatientToo(): Promise<void> {
   if (!user) redirect("/login");
 
   const supabase = await createClient();
-  await supabase
+  // The update used to be fire-and-forget: if it failed (or matched no row,
+  // which RLS reports as success), the supporter was sent to onboarding with
+  // receives_care still false and nothing told them why. Check both and send
+  // them back with a visible message instead.
+  const { data, error } = await supabase
     .from("profiles")
     .update({ receives_care: true, onboarding_completed_at: null })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .select("id");
+
+  if (error || !data || data.length === 0) {
+    console.error("[joinAsPatientToo] could not switch account to receive care", {
+      code: error?.code ?? "no_row_updated",
+    });
+    redirect("/patient/supporting?join=failed");
+  }
 
   redirect("/onboarding");
 }
