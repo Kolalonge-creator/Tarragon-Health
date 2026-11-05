@@ -10,6 +10,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { AnnualHealthCheckBooking } from "@/app/(dashboard)/patient/annual-health-check-booking";
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
 import { PreventiveScreeningCalendar } from "@/app/(dashboard)/patient/preventive-screening-calendar";
+import { PreventiveBaselineCard } from "@/app/(dashboard)/patient/preventive-baseline-card";
 import { OptionalScreeningsCard } from "@/app/(dashboard)/patient/optional-screenings-card";
 import { PreventiveProgrammes } from "@/app/(dashboard)/patient/preventive-programmes";
 import { CancerScreeningCard } from "@/app/(dashboard)/patient/cancer-screening-card";
@@ -115,6 +116,8 @@ export default async function PreventionHubPage() {
       content: (
         <div id="screenings" className="scroll-mt-24 space-y-4">
           <DownloadPreventiveCarePlanLink patientId={subjectId} />
+          {/* T2 Phase 3: the baseline step is the person's own (the database reads auth.uid()), never shown while acting for someone else */}
+          {subjectId === profile.id && <PreventiveBaselineCard patientId={subjectId} />}
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
             <div className="space-y-4">
               <PreventiveScreeningCalendar

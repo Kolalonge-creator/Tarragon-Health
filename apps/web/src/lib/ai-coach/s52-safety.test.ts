@@ -28,7 +28,7 @@ function neverCalledModel() {
   return { model, touched };
 }
 function graphWith() {
-  const supabase = { from: jest.fn(() => ({ insert: jest.fn(async () => ({ error: null })) })) } as unknown as SupabaseClient<Database>;
+  const supabase = { rpc: jest.fn(async () => ({ data: null, error: null })), from: jest.fn(() => ({ insert: jest.fn(async () => ({ error: null })) })) } as unknown as SupabaseClient<Database>;
   const { model, touched } = neverCalledModel();
   return { graph: buildCoachGraph({ supabase, getServiceRoleSupabase: () => supabase, model }), touched };
 }

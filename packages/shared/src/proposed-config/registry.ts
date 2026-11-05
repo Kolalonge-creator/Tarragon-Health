@@ -11582,4 +11582,53 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     effectiveFrom: "2026-11-04",
     source: "supabase/migrations/20261104230924_diag_p2_listings_services_credentials_eligibility.sql; docs/plans/diagnostic-directory-design-2026-11-04.md §11",
   },
+  {
+    key: "screening.reminder_cadence",
+    // When screening reminders go, relative to the due date. An OPERATIONAL setting (G-01 rule 3): versioned, no signature. Live value is the
+    // active row of `screening_reminder_configs`; screening-reminder-cadence-mirror.test.ts fails if this and the migration seed drift.
+    // v1 is the timing that lived in code before T2-12 (upcoming within 7 days, due, overdue after 6 days, escalated after 20), kept for history.
+    value: {
+      steps: [
+        { code: "upcoming", offsetDays: -7, untilDays: 0, stage: "upcoming", template: "screening_upcoming", push: false },
+        { code: "due", offsetDays: 0, untilDays: 7, stage: "due", template: "screening_due", push: false },
+        { code: "overdue", offsetDays: 7, untilDays: null, stage: "overdue", template: "screening_overdue", push: false },
+        { code: "escalated", offsetDays: 21, untilDays: null, stage: "escalated", template: "screening_escalated", push: true },
+      ],
+      coordinatorFollowUp: { afterStage: "escalated", taskType: "screening_result_chase", membersOnly: true },
+      defer: null,
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-08-28",
+    source: "supabase/migrations/20260828183145_escalating_preventive_reminders.sql and 20261030110000 (the code before T2-12)",
+  },
+  {
+    key: "screening.reminder_cadence",
+    // v2, founder decision T2-12 (2026-11-04): 14, 7 and 1 day before due, 7 and 30 days overdue, then a care coordinator follows up a Member
+    // (the existing screening_result_chase sweep reads stage 'escalated'). In-app, push and email only. A patient may move a test with a
+    // recorded reason (defer), at most maxPerSchedule times; a tied clinician has no limit. Mirrors *_t2_screening_reminder_cadence_and_defer.sql.
+    value: {
+      steps: [
+        { code: "due_in_14", offsetDays: -14, untilDays: -7, stage: "upcoming", template: "screening_upcoming", push: false },
+        { code: "due_in_7", offsetDays: -7, untilDays: -1, stage: "upcoming", template: "screening_upcoming", push: false },
+        { code: "due_in_1", offsetDays: -1, untilDays: 7, stage: "due", template: "screening_due", push: true },
+        { code: "overdue_7", offsetDays: 7, untilDays: null, stage: "overdue", template: "screening_overdue", push: false },
+        { code: "overdue_30", offsetDays: 30, untilDays: null, stage: "escalated", template: "screening_escalated", push: true },
+      ],
+      coordinatorFollowUp: { afterStage: "escalated", taskType: "screening_result_chase", membersOnly: true },
+      defer: {
+        maxDaysAhead: 90,
+        maxPerSchedule: 3,
+        reasonCodes: ["travelling", "unwell", "cost", "waiting_for_doctor_advice", "booked_for_later", "other"],
+        noteRequiredFor: ["other"],
+        noteMaxChars: 500,
+      },
+    },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-04",
+    source: "Founder decision T2-12, 2026-11-04 (docs/DECISIONS.md); brief section 6.4; supabase/migrations/*_t2_screening_reminder_cadence_and_defer.sql",
+  },
 ];
