@@ -194,7 +194,7 @@ The spec refers to a "Tarragon Enterprise Security Architecture specification". 
 
 The agent signs nothing. Each item below needs the CMO (or founder) before it is in force:
 
-1. **Free-tier red events (decision needed, conflicts with spec section 9).** A dangerous BP, pulse, SpO2, temperature, symptom, triage or exercise reading on Free raises no clinician alert and no page; the patient gets the emergency safety net and guidance only. This is CMO decision D3/C2 (`20261013004008_two_tier_free_red_event_path.sql`), fails toward paging on error. Abnormal and critical **results** already escalate on every plan (no result function checks membership). The spec says safety must never depend on Membership. Confirm or reverse.
+1. **Free-tier red events (decision needed, conflicts with spec section 9).** A dangerous BP, pulse, SpO2, temperature, symptom, triage or exercise reading on Free raises no clinician alert and no page; the patient gets the emergency safety net and guidance only. This is CMO decision D3/C2 (`20261013004008_two_tier_free_red_event_path.sql`), fails toward paging on error. Abnormal and critical **results** already escalate on every plan (no result function checks membership). The spec says safety must never depend on Membership. Confirm or reverse. **Decided 2026-11-05 (SEC-02): kept as built.**
 2. Asthma/COPD, heart failure and CKD triage rule sets (draft).
 3. Lab trend and deterioration rules (#1720, inert until signed).
 4. Ranges and critical limits for any test outside the signed 17-test panel (urine ACR, PSA, thyroid, extra LFTs); until then those go to a doctor unclassified.
@@ -259,7 +259,7 @@ Mapped to the spec's phases and the founder's top-10 priority list. Work already
 5. **Merge the live-but-unmerged PRs** (#1710, #1712, #1715, #1719) and replay or close the 62 dead deliveries.
 6. **Consultation completion chain**: clinician column on `video_consultations`, loud failure, note task, follow-ups, timeline.
 7. **Request ↔ report link**: `clinical_documents` / `lab_results` to `lab_orders`; completion tracking.
-8. **Governance decision on Free-tier red events.**
+8. ~~Governance decision on Free-tier red events.~~ Decided 2026-11-05 (SEC-02): kept as built.
 9. **One task engine**: fold empty silos into `task_types`; one worklist projection; `care_plan.approved` → owned tasks.
 10. **Timeline as pointer** + missing source triggers.
 11. **Clinician problem-list write path.**
@@ -275,7 +275,7 @@ Mapped to the spec's phases and the founder's top-10 priority list. Work already
 ## Conflicts to log in `docs/OPEN-QUESTIONS.md` (not built past)
 
 - **Django** (spec section 10) vs Stack A final.
-- **Free-tier red events** (spec section 9) vs CMO decision D3/C2.
+- ~~**Free-tier red events** (spec section 9) vs CMO decision D3/C2.~~ Closed: SEC-02 keeps D3/C2.
 - **Enterprise Security Architecture spec** referenced but not supplied.
 - **Three message queues** (support, clinical, clinical-safety) vs today's two queues plus a safety-screen trigger: is the trigger enough?
 - **SMS** in spec 4.6 is phone verification only (OQ-05), which matches; WhatsApp stays removed (F-02), which the spec also says.
