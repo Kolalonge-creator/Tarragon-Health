@@ -25,10 +25,11 @@ function getSessionId(): string {
   try {
     let id = window.localStorage.getItem(SESSION_KEY);
     if (!id) {
+      const c: Crypto = globalThis.crypto;
       id =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : Math.random().toString(36).slice(2);
+        typeof c.randomUUID === "function"
+          ? c.randomUUID()
+          : Array.from(c.getRandomValues(new Uint8Array(16)), (b: number) => b.toString(16).padStart(2, "0")).join("");
       window.localStorage.setItem(SESSION_KEY, id);
     }
     return id;
