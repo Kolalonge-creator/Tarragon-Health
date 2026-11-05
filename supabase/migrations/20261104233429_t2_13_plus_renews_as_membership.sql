@@ -19,7 +19,9 @@
 --      'membership_plus_auto_renews_as_membership' (states the Membership amount and the card) instead of the plain reminder.
 --   3. The charge gate. service_prepare_membership_renewal refuses a Plus year unless that auto notice was queued at least 2 days
 --      earlier; without it the person is told to renew by hand (notify_renewal_blocked) and nothing is charged.
---   4. Sponsorship (brief section 10.2): the person who paid for a gifted Membership is reminded when it is ending
+--   4. Sponsorship (brief section 10.2): the person who paid for a gifted Membership is reminded when it is ending (found by the
+--      exact order link that respond_to_gifted_pack now records; a date match only for years accepted before this migration, and never
+--      past a later order the person paid themselves)
 --      ('membership_gift_renewal_reminder': first name and end date only, never anything clinical), and only while that person still
 --      holds the beneficiary's own "pay for my care" Care Circle permission. Paying still grants no record access (unchanged).
 --   5. Founding discount codes (and any other code) no longer name the retired Plus items: a new code may not name them, a founding code
@@ -91,9 +93,18 @@ begin
   if p_auto then
     v_kobo := p_amount_kobo;
   else
-    -- the list price of the Membership, which is what renewing by hand costs before any code
-    v_kobo := (private.current_price((select id from public.catalog_items
-                                        where organisation_id = m.organisation_id and code = 'membership_annual_no_panel' and active))).amount_kobo;
+    -- What renewing by hand costs before any code, resolved exactly as checkout resolves it: price_quote_calc reads the catalogue of
+    -- the PATIENT'S profile organisation, not the membership row's (an employer or voucher year can sit in another organisation, whose
+    -- own catalogue is empty). Only if no quote can be made (e.g. the billing guard is closed) is the list price read from that same
+    -- catalogue.
+    begin
+      v_kobo := (private.price_quote_calc(m.patient_id, m.patient_id, 'membership_annual_no_panel', null, false) ->> 'amount_due_kobo')::bigint;
+    exception when others then v_kobo := null;
+    end;
+    if v_kobo is null then
+      v_kobo := (private.current_price((select ci.id from public.catalog_items ci join public.profiles pr on pr.organisation_id = ci.organisation_id
+                                         where pr.id = m.patient_id and ci.code = 'membership_annual_no_panel' and ci.active))).amount_kobo;
+    end if;
   end if;
   if v_kobo is null or v_kobo <= 0 or (p_auto and p_last4 is null) then return false; end if;
   insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload)
@@ -117,14 +128,24 @@ declare m public.patient_memberships%rowtype; v_buyer uuid; v_first text;
 begin
   select * into m from public.patient_memberships where id = p_membership and source = 'purchase' and ends_at is not null;
   if not found then return false; end if;
-  select o.buyer_profile_id into v_buyer
-    from public.entitlements e
-    join public.orders o on o.id = e.order_id
-    join public.catalog_items i on i.id = o.catalog_item_id and i.kind = 'membership'
-   where e.patient_id = m.patient_id and e.acceptance = 'accepted' and o.state = 'paid'
-     and o.beneficiary_patient_id = m.patient_id and o.buyer_profile_id <> m.patient_id
-     and (o.id = m.order_id or abs(extract(epoch from (e.ends_at - m.ends_at))) < 86400)
-   order by o.paid_at desc limit 1;
+  if m.order_id is not null then
+    -- the exact link: the order this year was paid by (a gift accepted since this migration, or a queued year)
+    select o.buyer_profile_id into v_buyer from public.orders o
+     where o.id = m.order_id and o.state = 'paid' and o.beneficiary_patient_id = m.patient_id and o.buyer_profile_id <> m.patient_id;
+  else
+    -- no link (a year started before this migration): an accepted gift whose year ends within a day of this one, and only if that gift is
+    -- the person's MOST RECENT paid Membership order, so a year they later bought for themselves never reminds an earlier sponsor
+    select o.buyer_profile_id into v_buyer
+      from public.entitlements e
+      join public.orders o on o.id = e.order_id
+      join public.catalog_items i on i.id = o.catalog_item_id and i.kind = 'membership'
+     where e.patient_id = m.patient_id and e.acceptance = 'accepted' and o.state = 'paid'
+       and o.beneficiary_patient_id = m.patient_id and o.buyer_profile_id <> m.patient_id
+       and abs(extract(epoch from (e.ends_at - m.ends_at))) < 86400
+       and o.id = (select x.id from public.orders x join public.catalog_items xi on xi.id = x.catalog_item_id and xi.kind = 'membership'
+                    where x.beneficiary_patient_id = m.patient_id and x.state = 'paid' order by x.paid_at desc nulls last limit 1)
+     order by o.paid_at desc limit 1;
+  end if;
   if v_buyer is null then return false; end if;
   if not exists (select 1 from public.care_circle_members c join public.profiles s on s.id = c.supporter_id and s.is_active
                   where c.patient_id = m.patient_id and c.supporter_id = v_buyer and c.state = 'active' and c.expires_at > now()
@@ -188,6 +209,17 @@ insert into public.notification_template_locales (template_key, locale, channel,
   ('membership_gift_renewal_reminder', 'en', 'email', 'The Membership you gave {{first_name}} ends on {{ends_at}}',
    E'Hi there,\n\nThe Membership you gave {{first_name}} ends on {{ends_at}}. Once it ends you can give another year from People you support in the app. They choose whether to accept it, and nothing renews by itself.\n\nPaying for someone''s Membership never gives you access to their health records; they decide what, if anything, to share with you in their Care Circle.')
 on conflict (template_key, locale, channel) do nothing;
+
+-- A gift accepted from now on records its order on the new Membership row, so the sponsor is found by an exact link, not a date.
+-- From the LIVE body (2026-11-04); only the new-row insert gains order_id. A refund reads order_id only for state = 'scheduled', so an
+-- active row carrying it changes no refund path.
+select pg_temp.t2p4b_patch_fn('public.respond_to_gifted_pack(uuid,boolean)'::regprocedure, array[
+  $r$        insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test, tier, collection_state)
+        values (o.organisation_id, e.patient_id, 'purchase', now(), now() + make_interval(days => it.duration_days), o.is_test, private.membership_tier_for_item(it.code), o.collection_state);$r$,
+  $r$        insert into public.patient_memberships (organisation_id, patient_id, source, starts_at, ends_at, is_test, tier, collection_state, order_id)
+        values (o.organisation_id, e.patient_id, 'purchase', now(), now() + make_interval(days => it.duration_days), o.is_test, private.membership_tier_for_item(it.code), o.collection_state, o.id);$r$]);
+revoke all on function public.respond_to_gifted_pack(uuid, boolean) from public, anon;
+grant execute on function public.respond_to_gifted_pack(uuid, boolean) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- 3. Discount codes never name the retired Plus items

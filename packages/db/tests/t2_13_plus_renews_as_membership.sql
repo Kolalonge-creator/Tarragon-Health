@@ -14,8 +14,12 @@
 --      beneficiary removes them from the Care Circle, no reminder is sent.
 --   6. Discount codes: a founding code must be exactly the Membership; no new code may name a retired Plus item; the guard allows
 --      removing a retired item, refuses emptying a code ("every item") and refuses any other change.
+--   2b. A Plus member whose membership row is in a second organisation (no catalogue there, as live) still gets the notice at 100,000.
+--   5b. A year the beneficiary later bought themselves never reminds the earlier sponsor (the gift row carries its exact order link; the
+--       date match for older rows yields to a later self-paid order).
 --   SABOTAGE (automatic): (a) the Plus notice gate removed from the renewal charge -> a Plus year is charged without notice, so check 3
---   flips; (b) the Care Circle check removed from the sponsor reminder -> a removed sponsor is reminded, so check 5 flips.
+--   flips; (b) the Care Circle check removed from the sponsor reminder -> a removed sponsor is reminded, so check 5 flips; (c) the price
+--   read from the membership row's organisation -> 2b flips; (d) the most-recent-order rule removed -> 5b flips.
 
 begin;
 
@@ -122,6 +126,27 @@ begin
   end if;
 end $$;
 
+-- 2b. a Plus member whose membership row sits in a SECOND organisation (the catalogue lives only in the platform organisation, as live):
+--     the notice still names the Membership price, resolved from the patient's profile organisation the way checkout resolves it
+do $$
+declare v_p uuid := pg_temp.mkuser('plusorg2', 'patient'); v_org2 uuid; v_m uuid; n jsonb;
+begin
+  insert into public.organisations (name, type) values ('T213 second organisation', 'corporate') returning id into v_org2;
+  perform pg_temp.setf('org2', v_org2);
+  if exists (select 1 from public.catalog_items where organisation_id = v_org2) then raise exception 'SETUP: the second organisation has a catalogue'; end if;
+  insert into public.patient_memberships (organisation_id, patient_id, source, state, starts_at, ends_at, is_test, tier)
+  values (v_org2, v_p, 'purchase', 'active', now() - interval '359 days', now() + interval '6 days', true, 'plus') returning id into v_m;
+  perform pg_temp.setf('plusorg2', v_p);
+  perform private.queue_membership_renewal_reminders();
+  select payload into n from public.notifications where recipient_id = v_p and template = 'membership_plus_renews_as_membership';
+  if n is null or n ->> 'amount' <> '100,000' then
+    raise exception 'FAIL 2b: a Plus member whose year sits in a second organisation got no Plus notice at 100,000 naira (%)', n;
+  end if;
+  if exists (select 1 from public.notifications where recipient_id = v_p and template = 'membership_renewal_reminder') then
+    raise exception 'FAIL 2b: the second-organisation Plus member fell back to the plain reminder';
+  end if;
+end $$;
+
 -- 3. automatic renewal of a Plus year (the module is switched on only inside this transaction)
 do $$
 declare v_p uuid := pg_temp.mkuser('plusauto', 'patient'); v_m uuid; r jsonb; v_end timestamptz; v_res text; n jsonb;
@@ -194,6 +219,11 @@ begin
   r := pg_temp.q_as(v_sp, format($q$select private.can_read_clinical(%L::uuid)::text$q$, v_ben));
   if r is distinct from 'false' then raise exception 'FAIL 4: paying gave the sponsor general clinical access (%)', r; end if;
 
+  if (select o.paystack_reference from public.patient_memberships pm join public.orders o on o.id = pm.order_id
+       where pm.patient_id = v_ben and pm.state = 'active') is distinct from v_ref then
+    raise exception 'FAIL 4: the accepted gift year does not carry the exact link to its order';
+  end if;
+
   -- 5. near the end of the gifted year
   select id into v_m from public.patient_memberships where patient_id = v_ben and state = 'active';
   perform pg_temp.setf('ben_m', v_m);
@@ -218,6 +248,38 @@ begin
   perform private.queue_membership_renewal_reminders();
   if exists (select 1 from public.notifications where recipient_id = v_sp and template = 'membership_gift_renewal_reminder') then
     raise exception 'FAIL 5: a sponsor the beneficiary removed was still reminded';
+  end if;
+end $$;
+
+-- 5b. the beneficiary later buys a year for themselves: the earlier sponsor is not reminded about it, even when an old gift's dates line up
+do $$
+declare v_ben uuid := pg_temp.mkuser('chidi', 'patient'); v_sp uuid := pg_temp.mkuser('sponsor2', 'patient'); v_ref text; v_ent uuid; r text; v_m uuid; v_own uuid;
+begin
+  update public.profiles set receives_care = false where id = v_sp;
+  insert into public.care_circle_members (organisation_id, patient_id, supporter_id, relationship, permissions, expires_at, is_test)
+  values ('00000000-0000-0000-0000-000000000001', v_ben, v_sp, 'Daughter', array['pay_for_care'], now() + interval '800 days', true);
+  v_ref := pg_temp.q_as(v_sp, format($q$select (public.create_order('membership_annual_no_panel', gen_random_uuid(), %L)) ->> 'reference'$q$, v_ben));
+  if pg_temp.pay(v_ref, 10000000) <> 'paid' then raise exception 'SETUP 5b: the gift was not paid'; end if;
+  select e.id into v_ent from public.entitlements e join public.orders o on o.id = e.order_id where o.paystack_reference = v_ref;
+  r := pg_temp.q_as(v_ben, format($q$select (public.respond_to_gifted_pack(%L, true)) ->> 'result'$q$, v_ent));
+  -- the gifted year is over (and past its grace); they buy the next year themselves. In one proof transaction now() never moves, so the
+  -- gift's payment is dated a year back, as it would be in life.
+  update public.orders set paid_at = now() - interval '400 days' where paystack_reference = v_ref;
+  select id into v_m from public.patient_memberships where patient_id = v_ben and state = 'active';
+  update public.patient_memberships set state = 'ended', ended_at = now(), end_reason = 'proof: the gifted year has ended', starts_at = now() - interval '400 days', ends_at = now() - interval '30 days' where id = v_m;
+  r := pg_temp.q_as(v_ben, $q$select (public.create_order('membership_annual_no_panel', gen_random_uuid())) ->> 'reference'$q$);
+  if pg_temp.pay(r, 10000000) <> 'paid' then raise exception 'SETUP 5b: the own purchase was not paid: %', r; end if;
+  select id into v_own from public.patient_memberships where patient_id = v_ben and state = 'active';
+  perform pg_temp.setf('own_m', v_own); perform pg_temp.setf('sp2', v_sp);
+  -- line the old gift entitlement up with the new year so only the "most recent order" rule can tell them apart
+  update public.patient_memberships set starts_at = now() - interval '360 days', ends_at = now() + interval '5 days' where id = v_own;
+  update public.entitlements set ends_at = now() + interval '5 days' where id = v_ent;
+  perform private.queue_membership_renewal_reminders();
+  if exists (select 1 from public.notifications where recipient_id = v_sp and template = 'membership_gift_renewal_reminder') then
+    raise exception 'FAIL 5b: a year the beneficiary bought themselves reminded their earlier sponsor';
+  end if;
+  if not exists (select 1 from public.notifications where recipient_id = v_ben and template = 'membership_renewal_reminder') then
+    raise exception 'FAIL 5b: the beneficiary was not reminded about their own year';
   end if;
 end $$;
 
@@ -279,6 +341,35 @@ begin
   perform private.queue_membership_renewal_reminders();
   if not exists (select 1 from public.notifications where recipient_id = pg_temp.f('sp') and template = 'membership_gift_renewal_reminder') then
     raise exception 'FAIL sabotage (b): without the consent check the removed sponsor still was not reminded, so check 5 is vacuous';
+  end if;
+end $$;
+
+-- SABOTAGE (c): the Membership price looked up in the membership row's organisation again -> the second-organisation member gets no
+-- Plus notice, so check 2b would catch it
+do $$
+declare d text := pg_get_functiondef('private.queue_plus_renewal_notice(uuid,integer,boolean,bigint,text)'::regprocedure); v_p uuid := pg_temp.f('plusorg2');
+begin
+  d := replace(d, $s$private.price_quote_calc(m.patient_id, m.patient_id, 'membership_annual_no_panel', null, false)$s$, $s$private.price_quote_calc(m.patient_id, m.patient_id, 'no_such_item', null, false)$s$);
+  d := replace(d, $s$join public.profiles pr on pr.organisation_id = ci.organisation_id$s$, $s$join public.profiles pr on m.organisation_id = ci.organisation_id$s$);
+  execute d;
+  delete from public.notifications where recipient_id = v_p;
+  delete from public.membership_renewal_reminders where membership_id in (select id from public.patient_memberships where patient_id = v_p);
+  perform private.queue_membership_renewal_reminders();
+  if exists (select 1 from public.notifications where recipient_id = v_p and template = 'membership_plus_renews_as_membership') then
+    raise exception 'FAIL sabotage (c): with the price read from the membership organisation the second-organisation notice still went out, so check 2b is vacuous';
+  end if;
+end $$;
+
+-- SABOTAGE (d): the "most recent order" rule removed -> the earlier sponsor is reminded about a year the beneficiary bought, so 5b catches it
+do $$
+declare d text := pg_get_functiondef('private.queue_gift_renewal_reminder(uuid,integer)'::regprocedure); v_m uuid := pg_temp.f('own_m');
+begin
+  d := replace(d, $s$       and o.id = (select x.id from public.orders x$s$, $s$       and o.id <> (select x.id from public.orders x$s$);
+  execute d;
+  delete from public.membership_renewal_reminders where membership_id = v_m;
+  perform private.queue_membership_renewal_reminders();
+  if not exists (select 1 from public.notifications where recipient_id = pg_temp.f('sp2') and template = 'membership_gift_renewal_reminder') then
+    raise exception 'FAIL sabotage (d): without the most-recent-order rule the earlier sponsor still was not reminded, so check 5b is vacuous';
   end if;
 end $$;
 
