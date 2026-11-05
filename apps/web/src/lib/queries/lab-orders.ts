@@ -512,7 +512,7 @@ export function useLabOrderReports(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("clinical_documents")
-        .select("id, lab_order_id, status, created_at")
+        .select("id, lab_order_id, status, created_at, lab_order_link_source")
         .eq("patient_id", patientId)
         .eq("is_superseded", false)
         .not("lab_order_id", "is", null);
@@ -520,7 +520,13 @@ export function useLabOrderReports(patientId: string) {
       const reports: LinkedReport[] = [];
       for (const row of data ?? []) {
         if (row.lab_order_id) {
-          reports.push({ id: row.id, labOrderId: row.lab_order_id, status: row.status, createdAt: row.created_at });
+          reports.push({
+            id: row.id,
+            labOrderId: row.lab_order_id,
+            status: row.status,
+            createdAt: row.created_at,
+            linkSource: row.lab_order_link_source,
+          });
         }
       }
       return reports;

@@ -8,14 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLabOrderLinkCandidates, type LabOrderLinkCandidate } from "@/lib/queries/lab-orders";
 import { linkReportToLabOrder } from "@/lib/lab-orders/report-link-actions";
+import { isConfirmedLink } from "@/lib/lab-orders/report-link";
 
 /** Value of the "answers no request" option; never a uuid, so it cannot collide with an order id. */
 const NO_REQUEST = "none";
 
-const LINK_SOURCE_LABEL: Record<string, string> = {
+/** Where a SUGGESTED link came from. A staff link is confirmed and is the only kind that can close a request. */
+const SUGGESTION_LABEL: Record<string, string> = {
   upload: "named at upload",
   patient: "chosen by the patient",
-  staff: "linked by the care team",
   auto: "matched automatically",
 };
 
@@ -29,8 +30,9 @@ function candidateLabel(c: LabOrderLinkCandidate): string {
 }
 
 /**
- * Request to report, staff side: which test request this uploaded report answers. Shows the current link (and whether the
- * request is now resulted), and lets staff set, change or clear it. The candidates come from public.lab_order_link_candidates,
+ * Request to report, clinician side: which test request this uploaded report answers. A link made at upload, by the patient
+ * or by the matcher is only a SUGGESTION and never closes a request; a clinician confirms it (the same request) or changes it,
+ * and only then can filing the report close the request. Shows suggested vs confirmed, and whether the request is resulted. The candidates come from public.lab_order_link_candidates,
  * which flags the requests whose tests overlap the report's; the database refuses another patient's or a cancelled request
  * and closes the request itself once the linked report is filed.
  */
@@ -49,13 +51,14 @@ export function LinkReportToOrder({
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [choice, setChoice] = useState("");
+  const confirmed = isConfirmedLink(linkSource);
   const { data: candidates, isLoading, isError } = useLabOrderLinkCandidates(editing ? clinicalDocumentId : null);
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (target: string) => {
       const result = await linkReportToLabOrder({
         documentId: clinicalDocumentId,
-        labOrderId: choice === NO_REQUEST ? null : choice,
+        labOrderId: target === NO_REQUEST ? null : target,
         patientId,
       });
       if (result.error) throw new Error(result.error);
@@ -78,9 +81,22 @@ export function LinkReportToOrder({
           <>
             <span className="text-charcoal-ink/70">
               Answers test request {linkedOrder.orderNumber ?? "(no number)"}
-              {linkSource && LINK_SOURCE_LABEL[linkSource] ? `, ${LINK_SOURCE_LABEL[linkSource]}` : ""}
+              {!confirmed && linkSource && SUGGESTION_LABEL[linkSource] ? `, ${SUGGESTION_LABEL[linkSource]}` : ""}
             </span>
+            {confirmed ? <Badge variant="green">Confirmed</Badge> : <Badge variant="amber">Suggested</Badge>}
             {linkedOrder.status === "resulted" && <Badge variant="green">Result back</Badge>}
+            {!confirmed && !editing && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                disabled={save.isPending}
+                onClick={() => save.mutate(linkedOrder.id)}
+              >
+                {save.isPending ? "Confirming…" : "Confirm"}
+              </Button>
+            )}
           </>
         ) : (
           <span className="text-charcoal-ink/60">
@@ -121,16 +137,16 @@ export function LinkReportToOrder({
             variant="outline"
             size="sm"
             disabled={!choice || save.isPending}
-            onClick={() => save.mutate()}
+            onClick={() => save.mutate(choice)}
           >
             {save.isPending ? "Saving…" : "Save"}
           </Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
             Cancel
           </Button>
-          {save.isError && <p className="w-full text-red-600">{(save.error as Error).message}</p>}
         </div>
       )}
+      {save.isError && <p className="text-red-600">{(save.error as Error).message}</p>}
     </div>
   );
 }

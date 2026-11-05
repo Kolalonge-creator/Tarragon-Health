@@ -1,16 +1,33 @@
 import {
   groupReportsByOrder,
+  isConfirmedLink,
+  needsConfirmation,
   linkErrorMessage,
   orderReportState,
   ORDER_REPORT_LABEL,
   type LinkedReport,
 } from "./report-link";
 
-const report = (id: string, labOrderId: string, createdAt: string): LinkedReport => ({
+const report = (id: string, labOrderId: string, createdAt: string, linkSource: string | null = "auto"): LinkedReport => ({
   id,
   labOrderId,
   status: "processing",
   createdAt,
+  linkSource,
+});
+
+describe("confirmed vs suggested links", () => {
+  it("only a staff link is confirmed", () => {
+    expect(isConfirmedLink("staff")).toBe(true);
+    for (const source of ["upload", "patient", "auto", "declined", null]) {
+      expect(isConfirmedLink(source)).toBe(false);
+    }
+  });
+  it("needs confirmation while every linked report is a suggestion", () => {
+    expect(needsConfirmation([])).toBe(false);
+    expect(needsConfirmation([report("a", "o1", "2026-11-01", "auto"), report("b", "o1", "2026-11-02", "patient")])).toBe(true);
+    expect(needsConfirmation([report("a", "o1", "2026-11-01", "auto"), report("b", "o1", "2026-11-02", "staff")])).toBe(false);
+  });
 });
 
 describe("orderReportState", () => {

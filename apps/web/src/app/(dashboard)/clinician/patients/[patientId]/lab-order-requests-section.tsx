@@ -5,7 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { formatPatientDate } from "@/lib/format-date";
 import { useLabOrderReports, usePatientLabOrders } from "@/lib/queries/lab-orders";
-import { groupReportsByOrder, orderReportState, type OrderReportState } from "@/lib/lab-orders/report-link";
+import {
+  groupReportsByOrder,
+  needsConfirmation,
+  orderReportState,
+  type OrderReportState,
+} from "@/lib/lab-orders/report-link";
 
 const STATE_BADGE: Record<OrderReportState, { variant: BadgeProps["variant"]; label: string }> = {
   result_back: { variant: "green", label: "Result back" },
@@ -16,8 +21,8 @@ const STATE_BADGE: Record<OrderReportState, { variant: BadgeProps["variant"]; la
 
 /**
  * Request to report, clinician view: every test request for this patient with whether its result is back. A request turns
- * "Result back" when a linked report is filed (or S27 releases its result); "Report linked" means a report is tied to it but
- * nobody has filed it yet. The link itself is set or corrected on each document in Result documents below.
+ * "Result back" when a linked report is filed (or S27 releases its result); "Report suggested" means a report is tied to it only by
+ * the patient or the matcher, so a clinician must confirm the link before filing can close the request. The link itself is set or corrected on each document in Result documents below.
  */
 export function LabOrderRequestsSection({ patientId }: { patientId: string }) {
   const { data: orders, isLoading, isError } = usePatientLabOrders(patientId);
@@ -39,7 +44,12 @@ export function LabOrderRequestsSection({ patientId }: { patientId: string }) {
           {orders.slice(0, 20).map((order) => {
             const linked = reportsByOrder.get(order.id) ?? [];
             const state = orderReportState(order.status, linked);
-            const badge = order.status === "cancelled" ? { variant: "grey" as const, label: "Cancelled" } : STATE_BADGE[state];
+            const badge =
+              order.status === "cancelled"
+                ? { variant: "grey" as const, label: "Cancelled" }
+                : state === "report_added" && needsConfirmation(linked)
+                  ? { variant: "amber" as const, label: "Report suggested, confirm the link" }
+                  : STATE_BADGE[state];
             return (
               <li key={order.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
                 <Badge variant={badge.variant}>{badge.label}</Badge>

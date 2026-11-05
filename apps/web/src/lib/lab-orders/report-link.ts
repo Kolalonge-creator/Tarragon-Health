@@ -13,7 +13,19 @@ export type LinkedReport = {
   labOrderId: string;
   status: string;
   createdAt: string;
+  /** upload, patient or auto: a suggestion; staff: made or confirmed by a clinician (the only kind that can close a request). */
+  linkSource: string | null;
 };
+
+/** Only a link a clinician made or confirmed counts toward closing a request (migration 20261105164553). */
+export function isConfirmedLink(linkSource: string | null | undefined): boolean {
+  return linkSource === "staff";
+}
+
+/** True when every report linked to a request is still only a suggestion, so a clinician needs to confirm one. */
+export function needsConfirmation(reports: readonly LinkedReport[]): boolean {
+  return reports.length > 0 && !reports.some((r) => isConfirmedLink(r.linkSource));
+}
 
 export type OrderReportState = "result_back" | "report_added" | "waiting" | "closed";
 

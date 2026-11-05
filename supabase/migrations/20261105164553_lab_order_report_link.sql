@@ -5,43 +5,55 @@
 --     coordinator, lab liaison, clinician, partner) and whatever the store behind it (routed_table: lab_result_documents,
 --     lab_result_files (the S27 store behind lab_results.document_id), ecg_report_documents, imaging_report_documents, or nothing yet
 --     for an unsorted upload). One nullable column there covers lab, ECG, imaging and S27 reports in one place.
---   * lab_result_documents.lab_order_id, ecg_report_documents.lab_order_id and lab_results.lab_order_id already exist and stay the
---     working columns the older machinery reads (handle_lab_result_document, raise_abnormal_results_from_filed_upload, submit_lab_result,
---     screening_result_uploaded). The intake link INHERITS from them and is PUSHED DOWN to the first two when a person or the matcher
---     sets it later, so filing an uploaded report through S27 carries the order too. lab_results.lab_order_id is immutable (its guard,
---     private.guard_lab_result, refuses any change), so a result filed before the link is reached through the document instead:
---     private.document_lab_result_ids ties a document to its S27 results (an S27 file by document_id; an uploaded report by the same
---     stored file path, or by the 'lab_upload.submitted_to_s27' audit row its extraction filing wrote; plus one level of corrections).
+--   * lab_result_documents.lab_order_id, ecg_report_documents.lab_order_id and lab_results.lab_order_id already exist. The intake link
+--     INHERITS from them as a suggestion. lab_results.lab_order_id is immutable (private.guard_lab_result), so a result filed before
+--     the link is reached through the document instead: private.document_lab_result_ids ties a document to its S27 results (an S27
+--     file by document_id; an uploaded report by the same stored file path, or by the 'lab_upload.submitted_to_s27' audit row its
+--     extraction filing wrote; plus one level of corrections).
 --
 -- Live state when written: 40 lab_orders, all 'ordered'; 0 clinical_documents; 0 lab_results; 0 lab_result_documents. No backfill.
 -- 0 of 40 orders carry a clinical_indication, so nothing here reads that column.
 --
--- Matching rule (automatic, conservative): a document not yet linked, never declined, not superseded and not failed, whose tests are
--- known, is linked only when EXACTLY ONE of the patient's open orders (payment_confirmed, ordered, sample_collected, processing) in the
--- same organisation shares at least one test with it and was ordered no more than 1 day after and no more than 90 days before the
--- report date (investigation date, else the date printed on the report, else the upload date, Africa/Lagos). Otherwise a person decides.
+-- SUGGESTED vs CONFIRMED. Only a link a clinician made or confirmed (lab_order_link_source = 'staff') counts toward completing an
+-- order. Everything else is a suggestion a clinician sees and can confirm: 'upload' (inherited from the store row, which the patient
+-- may have named at upload or repointed), 'patient' (chosen by the patient), 'auto' (the matcher). A clinician confirms by calling
+-- public.link_clinical_document_to_lab_order with the same order. Only a confirmed link (or a clinician's decline of one) is pushed
+-- down to lab_result_documents / ecg_report_documents.lab_order_id, and raise_abnormal_results_from_filed_upload is redefined here
+-- (from its live body, with an exactly-once text check) to hand an order to S27 only from a confirmed link, never from the
+-- patient-settable lab_result_documents.lab_order_id. Without that, an S27 release (release_lab_result -> private.lab_order_resulted)
+-- would close an order from one analyte, bypassing coverage. private.lab_order_resulted itself is NOT changed: partner and
+-- care-team S27 submissions that name an order (lab_partner_submit_result, submitTeamResult) keep closing it on release as before.
+-- Documented limit: an order a clinician confirmed is still closed by S27's own release of a result filed against it, by S27's
+-- rules, without this file's coverage check.
+--
+-- Matching rule (automatic suggestion): a document not yet linked, never declined, not superseded and not failed, whose tests are
+-- known, is suggested only when EXACTLY ONE of the patient's open orders (payment_confirmed, ordered, sample_collected, processing) in
+-- the same organisation shares at least one test with it and was ordered no more than 1 day after and no more than 90 days before
+-- the report date (investigation date, else the date printed on the report, else the upload date, Africa/Lagos).
 --
 -- Who may link (public.link_clinical_document_to_lab_order):
---   * staff who may read the document (private.staff_may_read on its access category, the same test as clinical_documents_select):
---     any of the patient's requests that is not unpaid or cancelled, including relinking a filed document;
---   * the patient: only their own document that no clinician has reviewed or filed yet, only one they or nobody linked (never over a
---     staff or automatic link, never over a decline staff recorded), and only to an open request that shares a test with the report
---     inside the same date window the matcher uses. A patient may also decline (record "answers no request") under the same limits.
+--   * a clinician who may write to the patient's record (private.staff_may_write on the document's access category, plus an active
+--     clinical_staff row and the clinician role): any of the patient's requests that is not unpaid or cancelled. This confirms.
+--   * the patient: only their own document that no clinician has reviewed or filed yet, never over a link staff or the matcher made,
+--     and only to an open request sharing a test inside the matcher's window. A patient link is a suggestion.
+--   Care coordinators, lab liaison and admin accounts cannot link (no clinical write).
 --
 -- Completion rule (private.complete_lab_order_from_report): an open order moves to 'resulted' only when ALL of these hold:
---   * every test on the order is covered by the tests of FILED reports linked to it (a single-test order too). An order whose tests
---     cannot be read never closes from a link. 'will_not_do' marks are ignored: patients can write them, so they never close an order.
---     Imaging codes: abdominal_ultrasound and breast_imaging are covered by imaging documents of the matching kind
---     (imaging.ultrasound.abdomen; imaging.mammography, imaging.ultrasound.breast, screening.breast). prostate_ultrasound has no document
---     kind on this platform, so it is EXCLUDED from coverage explicitly (screen_comprehensive is the only bundle that names it).
+--   * every test on the order is covered by CLINICIAN-CONFIRMED test data of filed, confirmed-link reports: analytes a clinician filed
+--     from an extraction (confirmed_codes), analytes S27 released, an ECG a clinician reviewed in the ECG pathway, a document kind
+--     confirmed by someone other than the patient. Never the patient-set lab_result_documents.test_code or a patient-chosen kind.
+--     A single-test order is also covered when a clinician confirmed the link of a filed report to it: that confirmation is the
+--     clinician saying this report answers this one test. An order with no readable tests never closes from a link.
+--     'will_not_do' marks are ignored. Imaging: abdominal_ultrasound and breast_imaging are covered only by a confirmed imaging kind
+--     (imaging.ultrasound.abdomen; imaging.mammography, imaging.ultrasound.breast, screening.breast); prostate_ultrasound has no
+--     document kind on this platform and is EXCLUDED from coverage explicitly (screen_comprehensive is the only bundle naming it).
 --   * filed means: reviewed by a clinician, not superseded; an S27 file only when its result is released; an uploaded lab report only
 --     when its S27 hand-off has run and released (or found no panel test), and never while its extraction still holds panel analytes
---     that have not been filed ("mark reviewed" alone waits for the S27 hand-off);
---   * no S27 result on the order, or tied to any document linked to it, is anything but released (held, awaiting disclosure or
---     withheld all keep the order open), unless withdrawn or superseded;
+--     not yet filed;
+--   * no S27 result on the order, or tied to any document linked to it (confirmed or not), is anything but released;
 --   * a document that already closed one order (clinical_documents.resulted_lab_order_id) never counts towards another.
 -- It runs when the intake row changes, after an extraction filing has been handed to S27 (zz_ trigger on lab_report_extractions), and
--- when an S27 result tied to a linked document is released or withdrawn (zz_ trigger on lab_results).
+-- when an S27 result tied to a linked document is released, withdrawn or superseded by a correction (zz_ trigger on lab_results).
 
 -- 1. The link ---------------------------------------------------------------------------------------------------------------------
 
@@ -248,6 +260,50 @@ as $$
   ) x where id is not null
 $$;
 
+-- The tests a document covers by CLINICIAN-CONFIRMED data only (see header): filed extraction analytes, released S27 analytes, a
+-- reviewed ECG, a kind confirmed by someone other than the patient. Never the uploader's test_code, never a patient-chosen kind.
+create or replace function private.confirmed_report_test_codes(p_document uuid)
+returns text[]
+language sql
+stable
+security definer
+set search_path to ''
+as $$
+  with cd as (select * from public.clinical_documents where id = p_document),
+  codes as (
+    select coalesce(private.yearly_panel_screen_type(c), lower(btrim(c))) as c
+      from cd join public.lab_report_extractions e on cd.routed_table = 'lab_result_documents' and e.document_id = cd.routed_id
+                                                   and e.status = 'confirmed'
+      cross join jsonb_array_elements_text(case when jsonb_typeof(e.confirmed_codes) = 'array' then e.confirmed_codes else '[]'::jsonb end) c
+    union
+    select coalesce(private.yearly_panel_screen_type(i.analyte_code), lower(btrim(i.analyte_code)))
+      from cd, unnest(private.document_lab_result_ids(cd.id)) x
+      join public.lab_results r on r.id = x and r.release_state = 'released' and r.withdrawn_at is null and r.superseded_by is null
+      join public.lab_result_items i on i.lab_result_id = r.id
+    union
+    select 'ecg_resting' from cd join public.ecg_report_documents d on cd.routed_table = 'ecg_report_documents'
+                                                                    and d.id = cd.routed_id and d.reviewed_at is not null
+    union
+    select case cd.kind_code
+             when 'cardiology.ecg' then 'ecg_resting'
+             when 'lab.urinalysis' then 'urinalysis'
+             when 'screening.cervical' then 'cervical_smear'
+             when 'screening.prostate' then 'psa'
+             when 'imaging.ultrasound.abdomen' then 'abdominal_ultrasound'
+             when 'imaging.mammography' then 'breast_imaging'
+             when 'imaging.ultrasound.breast' then 'breast_imaging'
+             when 'screening.breast' then 'breast_imaging'
+           end
+      from cd where cd.kind_confirmed_by is not null and cd.kind_confirmed_by <> cd.patient_id
+  ),
+  with_tft as (
+    select c from codes
+    union
+    select 'tft' from codes where c in ('tsh', 'free_t4')
+  )
+  select coalesce(array_agg(distinct c order by c), '{}'::text[]) from with_tft where c is not null and c <> ''
+$$;
+
 -- A lab result keeps an order open unless released, withdrawn or replaced.
 create or replace function private.lab_result_is_open_hold(p_result uuid)
 returns boolean
@@ -354,6 +410,7 @@ declare
   v_docs uuid[];
 begin
   select * into cd from public.clinical_documents where id = p_document;
+  -- any linked document may trigger the check (a suggestion's S27 result being released, say); only confirmed ones count below
   if cd.id is null or cd.lab_order_id is null then
     return false;
   end if;
@@ -379,17 +436,22 @@ begin
     return false;
   end if;
 
+  -- only reports whose link a clinician made or confirmed count; suggestions never do
   select coalesce(array_agg(d.id), '{}'::uuid[]) into v_docs
     from public.clinical_documents d
    where d.lab_order_id = v_ord.id
+     and d.lab_order_link_source = 'staff'
      and (d.resulted_lab_order_id is null or d.resulted_lab_order_id = v_ord.id)
      and private.clinical_document_is_filed(d.id);
   if cardinality(v_docs) = 0 then
     return false;
   end if;
   select coalesce(array_agg(distinct c), '{}'::text[]) into v_covered
-    from public.clinical_documents d, unnest(private.report_test_codes(d.routed_table, d.routed_id, d.kind_code)) c
-   where d.id = any (v_docs);
+    from unnest(v_docs) x, unnest(private.confirmed_report_test_codes(x)) c;
+  -- a clinician confirming a filed report against a single-test order is the clinician saying it answers that test
+  if cardinality(v_required) = 1 then
+    v_covered := v_covered || v_required;
+  end if;
   if not (v_required <@ v_covered) then
     return false;
   end if;
@@ -470,9 +532,12 @@ as $$
 declare
   v_old uuid := case when tg_op = 'UPDATE' then old.lab_order_id end;
 begin
-  if new.lab_order_id is distinct from v_old then
-    -- Push down to the store row, so the older machinery (S27 filing, screening upload checks) sees the same order. Never overwrite an
-    -- order the store row names that this intake did not put there.
+  -- Push down to the store row only a clinician's own link or decline (a suggestion never reaches the older machinery). Never
+  -- overwrite an order the store row names that this intake did not put there.
+  if new.lab_order_link_source in ('staff', 'declined')
+     and (new.lab_order_id is distinct from v_old or (tg_op = 'UPDATE' and old.lab_order_link_source is distinct from 'staff'))
+     and new.lab_order_linked_by is not null
+     and exists (select 1 from public.clinical_staff cs where cs.profile_id = new.lab_order_linked_by and cs.active) then
     perform set_config('app.change_reason', 'Linked to the test request it answers', true);
     if new.routed_table = 'lab_result_documents' then
       update public.lab_result_documents set lab_order_id = new.lab_order_id
@@ -483,8 +548,14 @@ begin
        where id = new.routed_id and lab_order_id is distinct from new.lab_order_id
          and (lab_order_id is null or lab_order_id = v_old);
     end if;
+  end if;
+
+  if new.lab_order_id is distinct from v_old
+     or (tg_op = 'UPDATE' and new.lab_order_link_source is distinct from old.lab_order_link_source) then
     perform private.log_audit(
-      case when new.lab_order_id is null then 'clinical_document.unlinked_from_lab_order' else 'clinical_document.linked_to_lab_order' end,
+      case when new.lab_order_id is null then 'clinical_document.unlinked_from_lab_order'
+           when new.lab_order_link_source = 'staff' then 'clinical_document.lab_order_link_confirmed'
+           else 'clinical_document.lab_order_link_suggested' end,
       'clinical_documents', new.id,
       jsonb_build_object('lab_order_id', new.lab_order_id, 'previous_lab_order_id', v_old, 'source', new.lab_order_link_source));
   end if;
@@ -530,7 +601,7 @@ create trigger zz_lab_order_complete_on_filing
   after update of status on public.lab_report_extractions
   for each row execute function private.lab_order_complete_on_extraction_filed();
 
--- An S27 result tied to a linked document is released (or withdrawn): re-check that document's order.
+-- An S27 result tied to a linked document is released, withdrawn or superseded by a correction: re-check that document's order.
 create or replace function private.lab_order_complete_on_result_change()
 returns trigger
 language plpgsql
@@ -552,13 +623,14 @@ end
 $$;
 
 create trigger zz_lab_order_complete_on_result_change
-  after update of release_state, withdrawn_at on public.lab_results
+  after update of release_state, withdrawn_at, superseded_by on public.lab_results
   for each row execute function private.lab_order_complete_on_result_change();
 
 -- 6. What people call ---------------------------------------------------------------------------------------------------------------
 
--- Staff who may read this document (the same test clinical_documents_select applies to staff), or null for anyone else.
-create or replace function private.staff_may_link_clinical_document(cd public.clinical_documents)
+-- A clinician who may write to this patient's record (private.staff_may_write, the clinical write test) and holds an active
+-- clinical_staff row in the document's organisation. Care coordinators, lab liaison and admin accounts are not clinicians here.
+create or replace function private.clinician_may_link_clinical_document(cd public.clinical_documents)
 returns boolean
 language sql
 stable
@@ -566,7 +638,10 @@ security definer
 set search_path to ''
 as $$
   select (select auth.uid()) is not null and (select auth.uid()) <> cd.patient_id
-     and private.staff_may_read(cd.patient_id, cd.organisation_id, cd.access_category)
+     and exists (select 1 from public.profiles pr join public.clinical_staff cs on cs.profile_id = pr.id
+                  where pr.id = (select auth.uid()) and pr.role = 'clinician' and pr.is_active and cs.active
+                    and cs.organisation_id = cd.organisation_id)
+     and private.staff_may_write(cd.patient_id, cd.organisation_id, cd.access_category)
 $$;
 
 -- The patient's own document they can see or uploaded.
@@ -597,7 +672,8 @@ declare
   v_date date;
 begin
   select * into cd from public.clinical_documents where id = p_document;
-  if cd.id is null or not (private.staff_may_link_clinical_document(cd) or private.patient_owns_clinical_document(cd)) then
+  if cd.id is null or not (private.staff_may_read(cd.patient_id, cd.organisation_id, cd.access_category)
+                            or private.patient_owns_clinical_document(cd)) then
     raise exception 'clinical document not found' using errcode = '42501';
   end if;
   v_codes := private.report_test_codes(cd.routed_table, cd.routed_id, cd.kind_code);
@@ -631,7 +707,7 @@ begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   select * into cd from public.clinical_documents where id = p_document for update;
   if cd.id is null then raise exception 'clinical document not found' using errcode = '42501'; end if;
-  v_staff := private.staff_may_link_clinical_document(cd);
+  v_staff := private.clinician_may_link_clinical_document(cd);
   if not v_staff then
     if not private.patient_owns_clinical_document(cd) then
       raise exception 'clinical document not found' using errcode = '42501';
@@ -667,25 +743,52 @@ begin
 end
 $$;
 
+-- 6b. S27 hand-off from an uploaded report: only a confirmed link carries the order -----------------------------------------------
+-- Redefined from its LIVE body (pg_get_functiondef), replacing exactly one block; the migration refuses if that block is not there
+-- exactly once, so a drifted body fails loudly instead of being overwritten.
+do $do$
+declare
+  v_def text := pg_get_functiondef('private.raise_abnormal_results_from_filed_upload()'::regprocedure);
+  v_old text := $old$  if d.lab_order_id is not null
+     and exists (select 1 from public.lab_orders o where o.id = d.lab_order_id and o.patient_id = new.patient_id
+                 and o.status not in ('pending_payment', 'cancelled')) then
+    v_order := d.lab_order_id;
+  end if;$old$;
+  v_new text := $new$  -- request to report (20261105164553): only a link a clinician made or confirmed carries the order into S27; the
+  -- patient-settable lab_result_documents.lab_order_id never does (an S27 release would otherwise close the order from one analyte)
+  select cdoc.lab_order_id into v_order
+    from public.clinical_documents cdoc
+   where cdoc.routed_table = 'lab_result_documents' and cdoc.routed_id = d.id and cdoc.lab_order_link_source = 'staff'
+     and exists (select 1 from public.lab_orders o where o.id = cdoc.lab_order_id and o.patient_id = new.patient_id
+                 and o.status not in ('pending_payment', 'cancelled'));$new$;
+begin
+  if (length(v_def) - length(replace(v_def, v_old, ''))) / length(v_old) <> 1 then
+    raise exception 'raise_abnormal_results_from_filed_upload drifted: the order block is not present exactly once';
+  end if;
+  execute replace(v_def, v_old, v_new);
+end
+$do$;
+
 -- 7. Grants -------------------------------------------------------------------------------------------------------------------------
 
-revoke all on function private.lab_order_test_codes(uuid) from public;
-revoke all on function private.report_test_codes(text, uuid, text) from public;
-revoke all on function private.routed_document_lab_order(text, uuid) from public;
-revoke all on function private.report_date(date, text, uuid, timestamptz) from public;
-revoke all on function private.lab_order_fits_report(uuid, uuid, uuid, text[], date) from public;
-revoke all on function private.match_lab_order_for_report(uuid, uuid, text[], date) from public;
-revoke all on function private.document_lab_result_ids(uuid) from public;
-revoke all on function private.lab_result_is_open_hold(uuid) from public;
-revoke all on function private.clinical_document_clinician_touched(uuid) from public;
-revoke all on function private.clinical_document_is_filed(uuid) from public;
-revoke all on function private.complete_lab_order_from_report(uuid) from public;
-revoke all on function private.cd_lab_order_link_before() from public;
-revoke all on function private.cd_lab_order_link_after() from public;
-revoke all on function private.lab_order_complete_on_extraction_filed() from public;
-revoke all on function private.lab_order_complete_on_result_change() from public;
-revoke all on function private.staff_may_link_clinical_document(public.clinical_documents) from public;
-revoke all on function private.patient_owns_clinical_document(public.clinical_documents) from public;
+revoke all on function private.lab_order_test_codes(uuid) from public, anon, authenticated;
+revoke all on function private.report_test_codes(text, uuid, text) from public, anon, authenticated;
+revoke all on function private.routed_document_lab_order(text, uuid) from public, anon, authenticated;
+revoke all on function private.report_date(date, text, uuid, timestamptz) from public, anon, authenticated;
+revoke all on function private.lab_order_fits_report(uuid, uuid, uuid, text[], date) from public, anon, authenticated;
+revoke all on function private.match_lab_order_for_report(uuid, uuid, text[], date) from public, anon, authenticated;
+revoke all on function private.document_lab_result_ids(uuid) from public, anon, authenticated;
+revoke all on function private.confirmed_report_test_codes(uuid) from public, anon, authenticated;
+revoke all on function private.lab_result_is_open_hold(uuid) from public, anon, authenticated;
+revoke all on function private.clinical_document_clinician_touched(uuid) from public, anon, authenticated;
+revoke all on function private.clinical_document_is_filed(uuid) from public, anon, authenticated;
+revoke all on function private.complete_lab_order_from_report(uuid) from public, anon, authenticated;
+revoke all on function private.cd_lab_order_link_before() from public, anon, authenticated;
+revoke all on function private.cd_lab_order_link_after() from public, anon, authenticated;
+revoke all on function private.lab_order_complete_on_extraction_filed() from public, anon, authenticated;
+revoke all on function private.lab_order_complete_on_result_change() from public, anon, authenticated;
+revoke all on function private.clinician_may_link_clinical_document(public.clinical_documents) from public, anon, authenticated;
+revoke all on function private.patient_owns_clinical_document(public.clinical_documents) from public, anon, authenticated;
 revoke all on function public.lab_order_link_candidates(uuid) from public, anon;
 revoke all on function public.link_clinical_document_to_lab_order(uuid, uuid) from public, anon;
 grant execute on function public.lab_order_link_candidates(uuid) to authenticated;
@@ -712,6 +815,25 @@ begin
   if not has_function_privilege('authenticated', 'public.link_clinical_document_to_lab_order(uuid, uuid)', 'EXECUTE')
      or not has_function_privilege('authenticated', 'public.lab_order_link_candidates(uuid)', 'EXECUTE') then
     raise exception 'authenticated cannot execute the lab order link functions';
+  end if;
+  -- no new private function is executable by a client role
+  if exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'private'
+       and p.proname in ('lab_order_test_codes', 'report_test_codes', 'routed_document_lab_order', 'report_date', 'lab_order_fits_report',
+                         'match_lab_order_for_report', 'document_lab_result_ids', 'confirmed_report_test_codes', 'lab_result_is_open_hold',
+                         'clinical_document_clinician_touched', 'clinical_document_is_filed', 'complete_lab_order_from_report',
+                         'cd_lab_order_link_before', 'cd_lab_order_link_after', 'lab_order_complete_on_extraction_filed',
+                         'lab_order_complete_on_result_change', 'clinician_may_link_clinical_document', 'patient_owns_clinical_document')
+       and (has_function_privilege('authenticated', p.oid, 'EXECUTE') or has_function_privilege('anon', p.oid, 'EXECUTE'))
+  ) then
+    raise exception 'a request-to-report private function is executable by authenticated or anon';
+  end if;
+  if position('cdoc.lab_order_link_source = ' in pg_get_functiondef('private.raise_abnormal_results_from_filed_upload()'::regprocedure)) = 0 then
+    raise exception 'raise_abnormal_results_from_filed_upload still hands a suggested order to S27';
+  end if;
+  if pg_get_triggerdef((select oid from pg_trigger where tgname = 'zz_lab_order_complete_on_result_change')) not like '%superseded_by%' then
+    raise exception 'the result trigger does not re-run on a correction';
   end if;
   if (select count(*) from pg_trigger where not tgisinternal and tgname in ('zz_lab_order_link_before', 'zz_lab_order_link_after',
         'zz_lab_order_complete_on_filing', 'zz_lab_order_complete_on_result_change')) <> 4 then
