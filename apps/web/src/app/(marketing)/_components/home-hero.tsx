@@ -69,7 +69,7 @@ function HomeHeroView({ hero }: { hero: ChannelHeroCopy }) {
             alt={MARKETING_MEDIA.homepage.hero.imageAlt ?? ""}
             width={1400}
             height={1750}
-            priority
+            loading="eager"
             sizes="(min-width: 1024px) 520px, 90vw"
             className="aspect-[4/5] w-full rounded-[28px] object-cover"
           />

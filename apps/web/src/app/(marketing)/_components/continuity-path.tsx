@@ -34,7 +34,7 @@ const MOMENTS = [
     label: "Doctor call",
     cx: 244,
     cy: 33,
-    detail: "Your care team reviews the trend and follows up, and refers you to a doctor when that is needed.",
+    detail: "On Membership, your care team reviews the trend and follows up, and refers you to a doctor when that is needed.",
   },
   {
     label: "Follow-up",

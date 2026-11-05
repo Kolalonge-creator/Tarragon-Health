@@ -8,8 +8,8 @@ import { FrontDeskChat } from "./_components/frontdesk-chat";
 import { SITE, SITE_URL, absoluteUrl } from "@/lib/marketing/site";
 
 /**
- * The public site's one typeface, Plus Jakarta Sans (founder decision W-09,
- * 2026-11-05, type option 2). Loaded here, not in the root layout, so the
+ * The public site's heading typeface, Plus Jakarta Sans (founder decisions
+ * W-09 and W-11, 2026-11-05); body text stays Inter for legibility. Loaded here, not in the root layout, so the
  * signed-in app never downloads it. Self-hosted by next/font, so no runtime
  * Google request and no CSP change. latin-ext carries the naira sign; the
  * browser fetches that file only on pages that show one.

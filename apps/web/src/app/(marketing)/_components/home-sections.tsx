@@ -440,12 +440,6 @@ export function HomeEmployers({ seatPrice }: { seatPrice: string }) {
 
 /* 11. Clinical oversight -------------------------------------------------- */
 
-const COMMITMENTS = [
-  { title: "Approved care rules", body: "Plans and result checks follow protocols our Chief Medical Officer signs." },
-  { title: "Doctors decide", body: "Software organises your information. Clinical decisions are made by doctors." },
-  { title: "Your consent first", body: "You decide who sees your information." },
-  { title: "Not an emergency service", body: "If you are very unwell, go to the nearest hospital now." },
-] as const;
 
 export function HomeClinicalOversight() {
   return (
@@ -453,6 +447,9 @@ export function HomeClinicalOversight() {
       <div className="mb-10 grid max-w-3xl gap-3">
         <Eyebrow>Clinical oversight</Eyebrow>
         <Heading id="home-clinical-title">Technology, with doctors accountable for your care.</Heading>
+        <p className="text-lg text-charcoal-ink/80">
+          Software organises your information. Doctors make the clinical decisions, under protocols our Chief Medical Officer signs.
+        </p>
       </div>
       <ul className="grid gap-4 md:grid-cols-3">
         {TEAM.map((m) => (
@@ -471,14 +468,6 @@ export function HomeClinicalOversight() {
               <span className="text-sm text-charcoal-ink/80">{m.title}</span>
               {m.credentials ? <span className="text-xs text-mk-muted">{m.credentials}</span> : null}
             </span>
-          </li>
-        ))}
-      </ul>
-      <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {COMMITMENTS.map((c) => (
-          <li key={c.title} className="grid gap-1">
-            <span className="font-semibold text-charcoal-ink">{c.title}</span>
-            <span className="text-[15px] text-mk-muted">{c.body}</span>
           </li>
         ))}
       </ul>

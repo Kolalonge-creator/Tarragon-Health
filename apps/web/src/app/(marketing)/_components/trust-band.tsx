@@ -80,7 +80,8 @@ export function TrustBand() {
             sizes="(min-width: 1024px) 420px, 100vw"
           />
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-clinical-navy/90 to-transparent p-5">
-            <p className="text-sm font-medium text-white/85">Your care team, whichever doctor is on duty</p>
+            {/* W-10: a library photo, never presented as Tarragon's own doctors or a Tarragon facility. */}
+            <p className="text-xs font-medium text-white/80">Illustrative photo</p>
           </div>
         </div>
         <div className="grid gap-6 sm:grid-cols-2">

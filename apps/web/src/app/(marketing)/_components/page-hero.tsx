@@ -60,15 +60,21 @@ export function PageHero({
         {children}
       </div>
       {image ? (
-        <Image
-          src={image.src}
-          alt={image.alt}
-          width={image.width}
-          height={image.height}
-          priority
-          sizes="(min-width: 1024px) 480px, 100vw"
-          className="aspect-[4/3] w-full rounded-[28px] object-cover lg:aspect-[4/5]"
-        />
+        <figure className="grid gap-2">
+          {/* Not `priority`: on a phone the photo stacks under the text, below
+              the fold, and a preload there competes with the headline. */}
+          <Image
+            src={image.src}
+            alt={image.alt}
+            width={image.width}
+            height={image.height}
+            loading="eager"
+            sizes="(min-width: 1024px) 480px, 100vw"
+            className="aspect-[4/3] w-full rounded-[28px] object-cover lg:aspect-[4/5]"
+          />
+          {/* W-10: library photos are never presented as real patients, Tarragon doctors or facilities. */}
+          <figcaption className="text-xs text-mk-muted">Illustrative photo</figcaption>
+        </figure>
       ) : null}
       </div>
     </section>

@@ -6,8 +6,8 @@
  * Public marketing site palette: Refined Tarragon (founder decision W-09,
  * 2026-11-05, replacing W-08's Evergreen the same day; plan section 5,
  * palette C). Tarragon Green deepened for contrast, Clinical Navy for
- * headings and dark bands, sprout gold as the one accent, Plus Jakarta Sans
- * for all text.
+ * headings and dark bands, sprout gold as the one accent. Plus Jakarta Sans
+ * headings over Inter body text.
  * Scoped to the marketing layout's wrapper (and the cookie banner, which
  * renders only on marketing paths), so the signed-in app and the staff
  * consoles are untouched. The brand tokens are mapped `@theme inline`, so
@@ -29,12 +29,19 @@
     --sprout-gold: #c9962b;
     --mk-canvas: #fbf8f3;
     --mk-border: #e5e0d6;
-    --mk-muted: #5f6a66;
-    /* One family for everything (type option 2). --font-inter is redefined
-       here so `font-sans` and inherited body text use it too. */
-    --font-inter: var(--font-jakarta);
+    /* Darker than the first pass (#5f6a66): about 6.9:1 on the canvas and
+       6.1:1 on sage, so secondary text stays easy to read for older eyes. */
+    --mk-muted: #4d5955;
+    /* Type (founder, 2026-11-05: "legible, good for health care, looks
+       trusted"): Plus Jakarta Sans for headings, Inter for everything people
+       read. Inter is built for small screens and is already self-hosted by
+       the root layout, so body text costs no extra download. */
     --marketing-heading-font: var(--font-jakarta), system-ui, sans-serif;
-    font-family: var(--font-jakarta), system-ui, sans-serif;
+    font-family: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
     background: var(--mk-canvas);
     color: var(--charcoal-ink);
   }
