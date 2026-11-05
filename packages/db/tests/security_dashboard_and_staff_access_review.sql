@@ -186,7 +186,10 @@ begin
   if v_caught < 2 then raise exception 'VACUOUS TEST: only % of 2 sabotage steps changed the matching check', v_caught; end if;
 end $$;
 
-select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result
+-- The runner fails on a trailing FAIL verdict, so a sabotage row that was caught reads CAUGHT (a missed one already raised above).
+select phase, check_name, expected, actual,
+       case when phase = 'real' then case when expected = actual then 'PASS' else 'FAIL' end
+            else case when expected is distinct from actual then 'CAUGHT' else 'MISSED' end end as result
 from results order by phase, check_name;
 
 rollback;
