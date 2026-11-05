@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { UserRole } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/client";
 import { APP_ICON } from "@/lib/icons";
@@ -39,6 +40,9 @@ const MFA_NUDGE_ROLES: ReadonlySet<UserRole> = new Set<UserRole>([
  */
 export function MfaNudgeBanner({ role }: { role: UserRole | null | undefined }) {
   const [visible, setVisible] = React.useState(false);
+  // Not on Profile & settings itself: the 2FA card is right there, and when an admin has required 2FA for the account's group
+  // (/admin/settings/two-factor) that page says so plainly, which a "whenever you're ready" nudge would contradict.
+  const onAccountPage = usePathname() === "/account";
 
   React.useEffect(() => {
     if (!role || !MFA_NUDGE_ROLES.has(role)) return;
@@ -78,7 +82,7 @@ export function MfaNudgeBanner({ role }: { role: UserRole | null | undefined }) 
     }
   };
 
-  if (!visible) return null;
+  if (!visible || onAccountPage) return null;
 
   return (
     <div

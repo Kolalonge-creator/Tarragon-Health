@@ -424,6 +424,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: anyOf("integrations.manage"),
       },
       {
+        href: "/admin/settings/two-factor",
+        label: "Two-factor sign-in",
+        blurb: "Require an authenticator code at sign-in for a whole group: a staff role, a doctor tier, or patients.",
+        icon: NAV_ICON.compliance,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/data-breach-incidents",
         label: "Data breach incidents",
         blurb: "The NDPA 72-hour notification clock, tracked.",

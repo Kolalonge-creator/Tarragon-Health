@@ -309,6 +309,8 @@ const SECURITY_NOTICE_SUBJECTS: Readonly<Record<string, string>> = {
   // S03 assisted recovery (private.queue_recovery_notice): queued since 2026-09-30 with no entry here, so the email rows failed as unknown.
   "security.assisted_recovery_requested": "Account recovery was started on your account",
   "security.assisted_recovery_executed": "An account recovery step was completed on your account",
+  // 2FA reset by an admin (public.admin_reset_mfa_factors): the owner is signed out everywhere and must set up a new authenticator.
+  "security.mfa_reset_by_admin": "Two-factor sign-in was reset on your Tarragon Health account",
 };
 
 // The message can contain a person's display name, which they chose, so it is escaped before it goes into HTML.

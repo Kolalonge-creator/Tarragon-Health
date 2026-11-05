@@ -29473,6 +29473,105 @@ export type Database = {
         }
         Relationships: []
       }
+      mfa_factor_resets: {
+        Row: {
+          factors_removed: number
+          id: string
+          reason: string
+          reset_at: string
+          reset_by: string
+          sessions_ended: number
+          target_profile_id: string
+        }
+        Insert: {
+          factors_removed: number
+          id?: string
+          reason: string
+          reset_at?: string
+          reset_by: string
+          sessions_ended: number
+          target_profile_id: string
+        }
+        Update: {
+          factors_removed?: number
+          id?: string
+          reason?: string
+          reset_at?: string
+          reset_by?: string
+          sessions_ended?: number
+          target_profile_id?: string
+        }
+        Relationships: []
+      }
+      mfa_group_requirements: {
+        Row: {
+          change_note: string | null
+          changed_at: string
+          changed_by: string | null
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          id: string
+          required: boolean
+          role: Database["public"]["Enums"]["user_role"]
+          version: number
+        }
+        Insert: {
+          change_note?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required?: boolean
+          role: Database["public"]["Enums"]["user_role"]
+          version?: number
+        }
+        Update: {
+          change_note?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required?: boolean
+          role?: Database["public"]["Enums"]["user_role"]
+          version?: number
+        }
+        Relationships: []
+      }
+      mfa_group_requirement_changes: {
+        Row: {
+          change_note: string
+          changed_at: string
+          changed_by: string
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          id: string
+          required: boolean
+          requirement_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          version: number
+        }
+        Insert: {
+          change_note: string
+          changed_at?: string
+          changed_by: string
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required: boolean
+          requirement_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          version: number
+        }
+        Update: {
+          change_note?: string
+          changed_at?: string
+          changed_by?: string
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          id?: string
+          required?: boolean
+          requirement_id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          version?: number
+        }
+        Relationships: []
+      }
       mental_health_screening_cadences: {
         Row: {
           approved_at: string | null
@@ -52757,6 +52856,75 @@ export type Database = {
         Args: { p_location_id?: string; p_patient?: string }
         Returns: string
       }
+      admin_reset_mfa_factors: { Args: { p_profile: string; p_reason: string }; Returns: Json }
+      admin_mfa_enrolled_accounts: {
+        Args: { p_search?: string | null }
+        Returns: {
+          profile_id: string
+          full_name: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          verified_factors: number
+          last_reset_at: string | null
+        }[]
+      }
+      admin_mfa_factor_resets: {
+        Args: { p_limit?: number }
+        Returns: {
+          target_name: string | null
+          reset_by_name: string | null
+          reason: string
+          factors_removed: number
+          sessions_ended: number
+          reset_at: string
+        }[]
+      }
+      my_mfa_requirement: {
+        Args: Record<PropertyKey, never>
+        Returns: { required: boolean; has_verified_factor: boolean }[]
+      }
+      mfa_required_roles: { Args: Record<PropertyKey, never>; Returns: Database["public"]["Enums"]["user_role"][] }
+      admin_mfa_group_requirements: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          required: boolean
+          version: number
+          change_note: string | null
+          changed_by_name: string | null
+          changed_at: string
+          member_count: number
+          enrolled_count: number
+          unenrolled_cmo_count: number
+          unenrolled_admin_count: number
+        }[]
+      }
+      admin_mfa_group_requirement_changes: {
+        Args: { p_limit?: number }
+        Returns: {
+          role: Database["public"]["Enums"]["user_role"]
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          required: boolean
+          version: number
+          change_note: string
+          changed_by_name: string | null
+          changed_at: string
+        }[]
+      }
+      set_mfa_group_requirement: {
+        Args: {
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          p_required: boolean
+          p_change_note: string
+          p_seen_unenrolled?: number | null
+          p_seen_unenrolled_cmo?: number | null
+          p_seen_unenrolled_admin?: number | null
+        }
+        Returns: number
+      }
       my_sensitive_request_optin: {
         Args: Record<PropertyKey, never>
         Returns: { available: boolean; opted_in: boolean }[]
@@ -53145,6 +53313,9 @@ export type Database = {
       sign_baseline_labs_rule_config: { Args: { p_version: number }; Returns: undefined };
       sign_bp_target_config: { Args: { p_version: number }; Returns: undefined };
       bp_target_config_for_signoff: { Args: Record<PropertyKey, never>; Returns: Json };
+      sign_lab_trend_rules: { Args: { p_version: number }; Returns: undefined };
+      lab_trend_rules_for_signoff: { Args: Record<PropertyKey, never>; Returns: Json };
+      patient_health_status: { Args: { p_patient?: string }; Returns: Json };
       sign_outcome_cascade_config: { Args: { p_version: number }; Returns: undefined };
       mark_hba1c_unreliable: { Args: { p_patient: string; p_reason: string }; Returns: undefined };
       clear_hba1c_unreliable: { Args: { p_patient: string }; Returns: undefined };

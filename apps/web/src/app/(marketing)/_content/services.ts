@@ -326,9 +326,9 @@ export const HOMEPAGE_FAQS = [
   },
   {
     category: "clinical",
-    question: "What is the difference between my Health Score and my Annual Health Check?",
+    question: "What is the difference between my health by area and my Annual Health Check?",
     answer:
-      "Your Health Score is a quick, non-diagnostic summary of several things already on your record: blood pressure control, HbA1c, weight, smoking status, and whether your screenings and vaccinations are up to date. It changes whenever you add something new, so it reflects what you are doing from day to day. Your yearly health check, at a laboratory you choose, covers what the Health Score is not built to track, so that nothing is missed. Anything it flags reaches a doctor within 24 hours, or within 12 hours if the result is critical.",
+      "Your health by area groups what is already on your record into a few areas, such as heart and circulation, blood sugar, kidneys, blood count, screening, and weight. For each result it shows the latest value, the range it is compared with, which way it has moved since last time, and anything still to do. There is no overall score. It changes whenever you add something new, and it does not replace a doctor's assessment. Your yearly health check, at a laboratory you choose, adds the tests your record does not yet have, so that nothing is missed. Anything it flags reaches a doctor within 24 hours, or within 12 hours if the result is critical.",
   },
   {
     category: "clinical",

@@ -19,7 +19,7 @@ export const PATIENT_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Lab results", href: "/patient/labs", group: "Tests", hint: "Your results and lab requests.", keywords: "blood test results hba1c cholesterol lipid kidney liver" },
   { label: "My Health Records", href: "/patient/health-records", group: "Tests", hint: "Every report, scan, letter and document on your record.", keywords: "documents reports scans xray ultrasound ecg letter discharge upload pdf biopsy smear" },
   { label: "Health Check", href: "/patient/health-check", group: "Tests", hint: "Your yearly whole-body check, step by step.", keywords: "annual yearly screening checkup" },
-  { label: "Health Score", href: "/patient/health-score", group: "Tests", hint: "How your score has moved and what feeds it.", keywords: "score rating progress" },
+  { label: "Your health by area", href: "/patient/health-score", group: "Tests", hint: "Your results by area, with ranges and trends.", keywords: "health status domains score progress trends" },
   { label: "Medications", href: "/patient/medications", group: "Care", hint: "Today's doses and your medicines.", keywords: "tablets pills drugs dose refill reminder medicine" },
   { label: "Messages", href: "/patient/messages", group: "Care", hint: "Write to your care team.", keywords: "chat doctor nurse ask question" },
   { label: "Appointments", href: "/patient/appointments", group: "Care", hint: "Book and see your visits.", keywords: "book visit consultation video clinic" },
