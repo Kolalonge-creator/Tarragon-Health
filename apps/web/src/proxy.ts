@@ -96,7 +96,8 @@ export async function proxy(request: NextRequest) {
   // No-login prescription check (QR on the prescription PDF). Same reasoning as /emergency/ and
   // /verify-report: it needs no session, must not bounce a signed-in visitor (a pharmacist who is also a
   // user), and the 64-hex token in the path must never leave through a Referer header.
-  if (pathname === "/verify-rx" || pathname.startsWith("/verify-rx/")) {
+  // T2 Phase 3: the no-login check of a printed test request form (QR on the request PDF). Same reasoning.
+  if (pathname === "/verify-rx" || pathname.startsWith("/verify-rx/") || pathname === "/verify-request" || pathname.startsWith("/verify-request/")) {
     response.headers.set("Referrer-Policy", "no-referrer");
     return response;
   }
