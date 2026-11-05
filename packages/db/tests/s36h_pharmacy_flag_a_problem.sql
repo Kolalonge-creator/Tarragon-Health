@@ -94,6 +94,8 @@ begin
   select id into v_org from public.organisations order by created_at limit 1;
   insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S36h Pharmacy A', true, now(), now(), 'activated', now()) returning id into v_pA;
   insert into public.pharmacy_partners (name, is_active, approved_at, license_verified_at, onboarding_status, nafdac_source_attested_at) values ('S36h Pharmacy B', true, now(), now(), 'activated', now()) returning id into v_pB;
+  -- T2-11: partner collection needs a choosable partner pharmacy, which needs an active, verified location.
+  insert into public.pharmacy_partner_locations (pharmacy_partner_id, name, state, address, is_active, verified_at) values (v_pA, 'S36h A Lekki', 'Lagos', '1 Test Road', true, now());
   v_phA := pg_temp.mkuser(v_org, 'phA', 'pharmacist', 'S36h Pharmacist A');
   v_phB := pg_temp.mkuser(v_org, 'phB', 'pharmacist', 'S36h Pharmacist B');
   update public.profiles set pharmacy_partner_id = v_pA where id = v_phA;
@@ -120,6 +122,12 @@ end $$;
 insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note, conditions)
   select 'prescribing_enabled', 'switched_on', id, 'admin', 'S36h proof', '[]'::jsonb from public.profiles order by created_at limit 1;
 update public.go_live_guards set is_on = true, changed_at = now(), changed_by = (select id from public.profiles order by created_at limit 1), change_note = 'S36h proof' where key = 'prescribing_enabled';
+-- T2-11: partner collection also needs its own readiness (collection rules confirmed, notification sender attested); recorded inside the rollback.
+insert into public.proposed_config_signoffs (config_key, config_version, value_hash, owner, decision, note, signed_by)
+select 'pharmacy.collection_rules', c.version, repeat('0', 64), 'Founder', 'confirmed', 'T2-11 proof fixture', (select id from public.profiles order by created_at limit 1)
+  from public.pharmacy_config c where c.is_active;
+insert into public.go_live_attestations (guard_key, condition_code, met, note, attested_by)
+values ('prescribing_enabled', 'notification_sender_deployed', true, 'T2-11 proof fixture', (select id from public.profiles order by created_at limit 1));
 
 -- 1. the pharmacy's own list: A has one sent and one dispensed (the draft and B's are not shown)
 insert into results values ('real', 'pharmacy A lists its two sent or dispensed prescriptions', '2', pg_temp.list_as(pg_temp.f('phA')));

@@ -107,3 +107,17 @@ describe("isSafetyResubmitReady", () => {
     expect(isSafetyResubmitReady({ kind: "blocked" }, { allergiesConfirmed: true, overrideReason: "please" })).toBe(false);
   });
 });
+
+describe("isPrescribingSwitchedOff (T2-11)", () => {
+  const { isPrescribingSwitchedOff, PRESCRIBING_SWITCHED_OFF_MESSAGE } = jest.requireActual("./parse-safety-error") as typeof import("./parse-safety-error");
+  it("recognises the master-off refusal and nothing else", () => {
+    expect(isPrescribingSwitchedOff({ code: "55000", message: "prescribing_guard_off" })).toBe(true);
+    expect(isPrescribingSwitchedOff({ code: "42501", message: "Not authorised to prescribe for this patient" })).toBe(false);
+    expect(isPrescribingSwitchedOff(null)).toBe(false);
+    expect(isPrescribingSwitchedOff("prescribing_guard_off")).toBe(false);
+  });
+  it("tells the signer who opens it, in plain words", () => {
+    expect(PRESCRIBING_SWITCHED_OFF_MESSAGE).toMatch(/Chief Medical Officer/);
+    expect(PRESCRIBING_SWITCHED_OFF_MESSAGE).not.toMatch(/\u2014|_/);
+  });
+});

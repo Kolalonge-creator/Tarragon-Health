@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useDisputePrescriptionSupply } from "@/lib/queries/medications";
+import { useDisputePrescriptionSupply, usePartnerCollectionAvailable } from "@/lib/queries/medications";
 import { formatPatientDate } from "@/lib/format-date";
 
 /**
@@ -13,6 +13,10 @@ import { formatPatientDate } from "@/lib/format-date";
  * a superseded, stopped or expired one), so this never offers a button that would only fail for those cases.
  * The "not a controlled medicine" line is the founder's wording (2026-10-01): TarragonHealth does not
  * prescribe controlled medicines, and patients should be told.
+ *
+ * T2-11 (2026-11-04): the PDF is the main path and needs no partner pharmacy. "Choose where to collect" is an optional extra and is
+ * offered only when a partner pharmacy can actually take the prescription (public.partner_pharmacy_collection_available), so the
+ * screen never implies Tarragon has a contracted pharmacy when it does not.
  */
 export interface RecordedSupply {
   id: string;
@@ -88,6 +92,7 @@ export function PrescriptionDownload({
   /** The signed prescription row, when there is one: lets the patient choose a verified pharmacy to collect from (S28). */
   prescriptionId?: string | null;
 }) {
+  const partner = usePartnerCollectionAvailable(!!prescriptionId);
   if (!rxNumber || !verificationCode) return null;
   const expired = !!expiresAt && new Date(expiresAt).getTime() < new Date().getTime();
   const href = `/api/patient/prescriptions/${medicationId}/pdf`;
@@ -128,7 +133,7 @@ export function PrescriptionDownload({
           >
             Download prescription (PDF)
           </a>
-          {prescriptionId && (
+          {prescriptionId && partner.data === true && (
             <a
               href={`/patient/pharmacy/collect/${prescriptionId}?for=${patientId}`}
               className="ml-2 inline-flex items-center rounded-md border border-clinical-navy px-3 py-1.5 font-medium text-clinical-navy hover:bg-clinical-navy/5 dark:text-night-ink dark:border-night-ink"
@@ -139,8 +144,8 @@ export function PrescriptionDownload({
         </p>
       )}
       <p className="text-charcoal-ink/50 dark:text-night-ink/55">
-        Take this to a pharmacy of your choice. This is not a controlled medicine: TarragonHealth does not prescribe
-        controlled medicines.
+        Take this to any licensed pharmacy you choose and pay the pharmacy there. The pharmacist can check it with the code
+        or the QR code on the form. This is not a controlled medicine: TarragonHealth does not prescribe controlled medicines.
       </p>
     </div>
   );
