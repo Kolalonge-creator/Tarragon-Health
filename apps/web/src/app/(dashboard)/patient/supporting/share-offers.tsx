@@ -67,7 +67,12 @@ function OfferCard({ offer, locale }: { offer: ShareOffer; locale: Locale }) {
           </ul>
         ) : null}
         <p className={`text-sm ${MUTED}`}>{t("circlep1.offer.answer_by", locale, { date: formatPatientDate(offer.answer_by) })}</p>
-        {respond.isError ? <p role="alert" className="text-sm">{t("circlep1.offer.error", locale)}</p> : null}
+        {respond.isError ? (
+          <p role="alert" className="text-sm">
+            {/* a full circle is not a passing fault: trying again cannot help, so say what happened and who can fix it */}
+            {respond.error?.message.includes("circle_full") ? t("circlep5.offer.full", locale, { name: offer.name }) : t("circlep1.offer.error", locale)}
+          </p>
+        ) : null}
         <div className="flex flex-col-reverse gap-3 sm:flex-row">
           <Button type="button" variant="ghost" className={TOUCH} disabled={respond.isPending} onClick={() => void answerWith(false)}>
             {t("circlep1.offer.decline", locale)}
