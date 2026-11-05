@@ -186,7 +186,7 @@ Checked live, each needs a fix before the matching module carries real patients:
 | S7 | `joinAsPatientToo` discards its update error, so a failed switch to patient fails silently | Low | Surface the error; Jest test |
 | S8 | Notification delivery: last 30 days critical email 63 sent / 744 failed, push 6 / 273; **0 clinician devices page-ready** (stale VAPID) | High for paging | Clinicians re-subscribe; fix missing-email recipients; already tracked in memory |
 
-**Status, 2026-11-05 (founder chose "fix those three first"):** S1 is PR #1737 (step 1, app-level enforcement; step 2, an `aal2` check in the database helpers, follows once every staff account is enrolled; decision SEC-01). S2 is PR #1736 (step 1; step 2 drops direct inserts). S3 is PR #1735. None is merged at the time of writing; check the PRs for current state.
+**Status, 2026-11-05:** S2 is PR #1736 (step 1; step 2 drops direct inserts). S3 is PR #1735. **S1 is deferred by founder decision SEC-01:** mandatory two-step sign-in would be difficult for many Nigerian users, so it is not required for now. The built change (PR #1737, closed unmerged, branch `fix/staff-mfa-required` kept) can be reopened later. MFA stays opt-in, as before. Check the PRs for current state.
 
 The spec refers to a "Tarragon Enterprise Security Architecture specification". It is not in this repository. Until it is supplied, this section is judged against the live rules only.
 
@@ -252,7 +252,7 @@ Mapped to the spec's phases and the founder's top-10 priority list. Work already
 
 ## 15. Prioritised backlog
 
-1. **S1 staff MFA mandatory + aal2 checks.**
+1. ~~S1 staff MFA mandatory + aal2 checks.~~ Deferred (SEC-01, 2026-11-05); stays opt-in.
 2. **S3 Zoom host link out of the patient's reach.**
 3. **S2 audit log definer-only writes.**
 4. **S8 paging delivery** (clinicians re-subscribe; recipients without email).

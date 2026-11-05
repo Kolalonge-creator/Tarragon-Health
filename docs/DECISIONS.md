@@ -874,3 +874,10 @@ Design record: `docs/design/MESSAGING-2.md` (audit of the live system against th
 | **MSG-2** | Clinical messages route coordinator first, with doctor fallback: while no Care Coordinator is active (0 today) or the coordinator is on leave, a clinical message routes straight to the least-loaded doctor as it does today. Coordinators never interpret results, diagnose, change medicines or close an alert needing a doctor. | Supersedes the 2026-09-18 "direct doctor-patient by default" principle in CLAUDE.md. The fallback keeps a message from ever waiting on a role nobody holds. | Routing PR (MSG-3 lifecycle). |
 | **MSG-3** | The support queue lives on the existing thread table, not a second intake: `care_message_threads` gains a queue (support / clinical), an assignee and a status lifecycle (received, assigned, doctor review needed, responded, closed), derived server-side from category and Membership. Every Free member's thread is a support thread. "I need help" requests (`navigation_requests`) stay as they are. | One patient inbox and one history; nothing duplicated. | Routing PR. |
 | **MSG-4** | Build now, entitlement fix first, then routing and lifecycle, then the operations dashboard. AI message classification and summaries wait for registration in `ai_systems` and CMO approval. | Smallest safe change closes a live hole immediately; AI call sites need governance before they exist. | This PR, then follow-ups in `docs/design/MESSAGING-2.md`. |
+
+## Founder decision, 2026-11-05 (staff two-step sign-in, from the Tarragon 2.0 master architecture assessment)
+
+| ID | Decision | Rationale | Where it lands |
+|----|----------|-----------|----------------|
+| **SEC-01** | Two-step sign-in is **not** made mandatory for staff accounts for now. It stays opt-in (set up from `/account`), as before. The built enforcement (PR #1737, closed unmerged, branch `fix/staff-mfa-required`) can be reopened later. | The founder: it would be difficult for many Nigerian users, and it is not needed for now. The assessment's finding S1 (0 of 8 staff accounts enrolled) stays open as a known risk. | Assessment §10 and §15; no code change. |
+
