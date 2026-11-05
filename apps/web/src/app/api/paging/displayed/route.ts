@@ -1,3 +1,4 @@
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -46,6 +47,6 @@ export async function POST(request: Request): Promise<NextResponse> {
   const { data, error } = await (supabase as unknown as {
     rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
   }).rpc("record_notification_displayed", { p_notification: parsed.data.notificationId });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 200 });
+  if (error) return NextResponse.json({ ok: false, error: safeErrorMessage(error, "paging/displayed") }, { status: 200 });
   return NextResponse.json({ ok: true, recorded: data === true });
 }

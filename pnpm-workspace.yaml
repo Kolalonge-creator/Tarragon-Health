@@ -46,13 +46,28 @@ overrides:
   # delimiter. Neither has a direct entry in any package.json to bump instead.
   # sharp raised again 2026-09-13: GHSA-rgj7-g3m4-5g8c (two libheif CVEs,
   # fixed at >=0.35.4) was still open against the >=0.35.0 floor above.
-  sharp: ">=0.35.4"
+  # Raised 2026-11-05 (security audit Phase 2): sharp/libvips high advisory fixed at 0.35.5.
+  sharp: ">=0.35.5"
   # fast-uri raised again 2026-09-13: four more host-confusion/SSRF
   # advisories (GHSA-5jgf-p345-68v8, GHSA-f65p-4m7j-42xc,
   # GHSA-fph4-wmhf-6fwf, GHSA-jqff-g426-hqxp — IDN canonicalisation, IPv6
   # normalisation, and percent-decoding bugs) were still open against the
   # >=3.1.5 floor above; all fixed at >=4.1.3.
   fast-uri: ">=4.1.3"
+  # 2026-11-05 security audit Phase 2: transitive critical/high advisories, each pinned to the first patched release
+  # inside the major version already in use (no major jumps). All are build/test tooling except where noted:
+  # Expo CLI (shell-quote critical command injection, compression, node-forge, undici TLS bypass), ts-jest
+  # (handlebars critical), Firebase JS SDK (grpc-js), postcss (source-map-js).
+  # brace-expansion and joi were raised in their existing entries below. image-size stays open: no patched 1.x exists and metro pins ^1 (see CLAUDE.md, revisit at the next Expo SDK bump).
+  "shell-quote@<1.11.0": "1.11.0"
+  "compression@<1.8.2": "1.8.2"
+  "node-forge@^1": "1.4.2"
+  "undici@^6": "6.29.1"
+  "handlebars@^4": "4.7.10"
+  "@grpc/grpc-js@^1": "1.13.6"
+  "source-map-js@^1": "1.2.2"
+  # zod 4.x: @langchain/core (AI coach, production) resolved its own 4.4.3; memory-exhaustion advisory fixed at 4.6.6.
+  "zod@^4": "4.6.7"
   # 2026-08-29 security audit (pnpm audit --prod: 24 findings, 17 high/7
   # moderate, 0 critical). Each entry fixes one or more real advisories;
   # see docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md-adjacent PR for the full
@@ -98,10 +113,10 @@ overrides:
   # tooling (metro/@expo/cli/react-native codegen/eas-cli) each pin their own
   # brace-expansion major — selector after the @ is minimatch's own declared
   # range for it. Scoped per-range for the same reason as js-yaml above.
-  "brace-expansion@^1.1.7": "1.1.18" # GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
-  "brace-expansion@^2.0.1": "2.1.4" # GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
-  "brace-expansion@^2.0.2": "2.1.4" # GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
-  "brace-expansion@^5.0.5": "5.0.9" # GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
+  "brace-expansion@^1.1.7": "1.1.20" # 2026-11-05: two recursion-DoS advisories (fixed 1.1.19/1.1.20); GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
+  "brace-expansion@^2.0.1": "2.1.7" # 2026-11-05: recursion DoS fixed 2.1.6; GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
+  "brace-expansion@^2.0.2": "2.1.7" # 2026-11-05: recursion DoS fixed 2.1.6; GHSA-3jxr-9vmj-r5cp, GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
+  "brace-expansion@^5.0.5": "5.0.12" # 2026-11-05: recursion DoS fixed 5.0.11; GHSA-mh99-v99m-4gvg, GHSA-rgw5-rvv9-x895
   # fast-xml-parser: only patched at >=5.7.0, a real major bump past
   # @react-native-community/cli-platform-apple/android's own tested
   # "^4.0.12" (no 4.x backport exists). Reachability is low — this only runs
@@ -180,7 +195,7 @@ overrides:
   # code that consumes joi transitively) — pinned to the newest real 17.x
   # release instead (17.13.8, confirmed published) to stay inside the same
   # major this override has always intended.
-  joi: "17.13.8" # CVE-2026-48038, CVE-2026-84368, CVE-2026-84367
+  joi: "17.13.9" # 2026-11-05: one more high advisory fixed in 17.13.9; CVE-2026-48038, CVE-2026-84368, CVE-2026-84367
   yaml: ">=2.8.3" # CVE-2026-33532 (stack overflow via deeply nested YAML collections)
   # browserslist (via babel-preset-expo's Babel target resolution, build-time
   # only): CVE-2026-73089/73088 (unbounded query-result cache growth toward

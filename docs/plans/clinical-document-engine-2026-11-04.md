@@ -332,3 +332,14 @@ Migration `*_cde10_apply_narrative_urgent_rules.sql` makes them act, in the data
 - Proof `cde10_apply_narrative_urgent_rules.sql` (sabotage: fingerprint check removed; by hand: always inserting, lowering allowed,
   negation removed).
 
+
+## 22. CDE-11 (2026-11-05): never notify no one; accented letters
+
+- **Fallback recipients.** When the alert router assigns nobody (every doctor on leave, or none at the tier), the finding now goes to
+  the organisation's active Chief Medical Officer, and with no CMO to every active doctor. The assignment is left to the router and the
+  CMO. Who was told is recorded on `narrative_urgent_findings.notified_profile_ids`; an empty list there means the organisation had no
+  active doctor at all.
+- **Accented letters.** Both matchers now remove accents first ("carcinóma" reads as "carcinoma") and use the same explicit ASCII word
+  boundary, so they can no longer disagree next to an accented letter. Four accented cases were added to the shared cases.
+- Migration `*_cde11_narrative_rules_fallback_and_accents.sql` (both functions redefined from their live bodies); proof step 9 in
+  `cde10_apply_narrative_urgent_rules.sql` (sabotage: CMO fallback removed -> FAIL 9).

@@ -1,6 +1,8 @@
 import { prepareUpload } from "@/lib/uploads/prepare-upload";
+import { safeErrorMessage } from "@/lib/http/safe-error";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 import type { Json, TablesInsert } from "@tarragon/shared";
 import { createBearerClient } from "@/lib/supabase/bearer";
 import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
@@ -55,6 +57,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   } = await supabase.auth.getUser(accessToken);
   if (authError || !user) {
     return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 });
+  }
+  // Security audit 2026-11-05 (M-8): bounded per user so a script cannot run up storage and AI costs.
+  const limited = await checkAbuseLimit("meal_photo_ai", user.id);
+  if (!limited.ok) {
+    return NextResponse.json({ error: ABUSE_LIMIT_MESSAGE }, { status: 429, headers: { "Retry-After": String(limited.retryAfterSeconds) } });
   }
 
   let formData: FormData;
@@ -112,7 +119,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     .from(MEAL_PHOTO_BUCKET)
     .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) {
-    return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    return NextResponse.json({ error: safeErrorMessage(uploadError, "mobile/nutrition/meal-photo-estimate") }, { status: 500 });
   }
 
   let aiEstimate: Json | null = null;
@@ -180,7 +187,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     // Roll back the orphaned object so a failed insert leaves no stray file.
     await supabase.storage.from(MEAL_PHOTO_BUCKET).remove([path]);
     return NextResponse.json(
-      { error: insertError?.message ?? "Could not save that meal." },
+      { error: safeErrorMessage(insertError, "mobile/nutrition/meal-photo-estimate", "Could not save that meal.") },
       { status: 500 },
     );
   }
