@@ -307,3 +307,39 @@ Migration `20261104200458_cde8_record_items_and_worklist.sql`, proof `packages/d
 3. **Doctor:** the letter is in Records & investigations; the side-by-side viewer shows the original and "Earlier of the same kind"; the review is recorded from the review section; the patient then sees "Reviewed by a doctor" and never the doctor's note.
 
 Not covered here: automatic reading (AI-005, AI-016, AI-024 need a model and, for the last two, an approval first), ECG and imaging routing (proved in the database by `cde5_ecg_imaging_through_intake.sql`), pathology filing (proved by `cde6_pathology_cervical_mammography.sql`), mobile. Not yet in CI's default run: like the other write-capable journeys it needs a local stack.
+
+## 21. CDE-10 as built (2026-11-05): the signed narrative rules act on reports
+
+The CMO decided the rules in chat (CDE-09) and confirmed `documents.narrative_urgent_rules` v1 on the sign-off hub on 2026-11-05.
+Migration `*_cde10_apply_narrative_urgent_rules.sql` makes them act, in the database like every other abnormal-result pathway:
+
+- **Sources.** `pathology_reports` (filed by a doctor), `imaging_reports` (BI-RADS and impression filed by a doctor),
+  `ecg_parameter_readings` (QTc and the machine's rhythm line confirmed by a clinician; seconds converted to ms), and the AI readings
+  `imaging_report_documents.ai_impression_text` (AI-016) and `ecg_report_documents.ai_rhythm_statement`. An HPV genotypes line printed
+  with a negative result does not count.
+- **Only the signed value.** `narrative_urgent_rule_sets` holds the value with the fingerprint the CMO confirmed;
+  `private.narrative_rules_in_force()` returns it only while the newest CMO decision on that key and version confirms exactly that
+  fingerprint. A changed value needs a new row and a new confirmation; until then nothing is raised.
+- **What a match does.** The review alert becomes urgent at the CMO's tier (ECG and radiology `emergency`, the rest
+  `urgent_escalation`), SLA from `escalation_slas` (`screening_abnormal_result`), and the owner is notified with the values-free
+  `abnormal_result_clinician_alert`, which starts the acknowledgement-timeout ladder. The document's own open review alert is raised,
+  never lowered; an open `abnormal_result` alert for the patient inside 24 hours is raised instead of opening a second one (the
+  classifier would suppress it); otherwise a new alert opens. Each finding is recorded in `narrative_urgent_findings` (staff read
+  under `staff_may_read`, with the source's access category).
+- **One matcher, two copies, one set of cases.** `private.match_narrative_rules` mirrors `narrative-rules.ts`; both run the shared
+  `narrative-rules.cases.json`, and Jest checks the database copy and the proof's cases against the registry.
+- **Hub.** A value longer than 400 characters is no longer cut off on the confirm card: it opens in full for the owner.
+- Proof `cde10_apply_narrative_urgent_rules.sql` (sabotage: fingerprint check removed; by hand: always inserting, lowering allowed,
+  negation removed).
+
+
+## 22. CDE-11 (2026-11-05): never notify no one; accented letters
+
+- **Fallback recipients.** When the alert router assigns nobody (every doctor on leave, or none at the tier), the finding now goes to
+  the organisation's active Chief Medical Officer, and with no CMO to every active doctor. The assignment is left to the router and the
+  CMO. Who was told is recorded on `narrative_urgent_findings.notified_profile_ids`; an empty list there means the organisation had no
+  active doctor at all.
+- **Accented letters.** Both matchers now remove accents first ("carcinóma" reads as "carcinoma") and use the same explicit ASCII word
+  boundary, so they can no longer disagree next to an accented letter. Four accented cases were added to the shared cases.
+- Migration `*_cde11_narrative_rules_fallback_and_accents.sql` (both functions redefined from their live bodies); proof step 9 in
+  `cde10_apply_narrative_urgent_rules.sql` (sabotage: CMO fallback removed -> FAIL 9).

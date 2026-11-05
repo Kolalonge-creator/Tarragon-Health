@@ -1,0 +1,305 @@
+[
+  {
+    "name": "BI-RADS 4A raises, 1 does not",
+    "fields": {
+      "birads": [
+        "1",
+        "4A"
+      ]
+    },
+    "expected": [
+      {
+        "rule": "birads",
+        "matched": "4A"
+      }
+    ]
+  },
+  {
+    "name": "BI-RADS 0 raises",
+    "fields": {
+      "birads": [
+        "0"
+      ]
+    },
+    "expected": [
+      {
+        "rule": "birads",
+        "matched": "0"
+      }
+    ]
+  },
+  {
+    "name": "BI-RADS 2 and 3 do not raise",
+    "fields": {
+      "birads": [
+        "2",
+        "3",
+        null
+      ]
+    },
+    "expected": []
+  },
+  {
+    "name": "HSIL raises",
+    "fields": {
+      "cervicalCytology": "High-grade squamous intraepithelial lesion (HSIL)"
+    },
+    "expected": [
+      {
+        "rule": "cervical_cytology",
+        "matched": "HSIL"
+      }
+    ]
+  },
+  {
+    "name": "NILM does not raise",
+    "fields": {
+      "cervicalCytology": "Negative for intraepithelial lesion or malignancy (NILM)"
+    },
+    "expected": []
+  },
+  {
+    "name": "HPV 18 raises",
+    "fields": {
+      "hpvGenotypes": "HPV 18 detected"
+    },
+    "expected": [
+      {
+        "rule": "hpv_genotype",
+        "matched": "18"
+      }
+    ]
+  },
+  {
+    "name": "Other HPV types do not raise",
+    "fields": {
+      "hpvGenotypes": "Other high-risk types (31, 33)"
+    },
+    "expected": []
+  },
+  {
+    "name": "Carcinoma in a diagnosis raises",
+    "fields": {
+      "pathologyDiagnosis": "Invasive ductal carcinoma, grade 2"
+    },
+    "expected": [
+      {
+        "rule": "pathology",
+        "matched": "carcinoma"
+      }
+    ]
+  },
+  {
+    "name": "No evidence of malignancy does not raise",
+    "fields": {
+      "pathologyDiagnosis": "Benign. No evidence of malignancy."
+    },
+    "expected": []
+  },
+  {
+    "name": "Negative for malignancy does not raise",
+    "fields": {
+      "pathologyDiagnosis": "Negative for malignancy"
+    },
+    "expected": []
+  },
+  {
+    "name": "ST elevation raises",
+    "fields": {
+      "ecgInterpretation": "Sinus rhythm. ST elevation in V1-V4."
+    },
+    "expected": [
+      {
+        "rule": "ecg",
+        "matched": "st elevation"
+      }
+    ]
+  },
+  {
+    "name": "QTc 499 and a normal ECG do not raise",
+    "fields": {
+      "ecgInterpretation": "Sinus rhythm. Normal ECG.",
+      "ecgQtcMs": 499
+    },
+    "expected": []
+  },
+  {
+    "name": "QTc 512 raises",
+    "fields": {
+      "ecgQtcMs": 512
+    },
+    "expected": [
+      {
+        "rule": "ecg_qtc",
+        "matched": "QTc 512 ms"
+      }
+    ]
+  },
+  {
+    "name": "QTc 500 exactly raises",
+    "fields": {
+      "ecgQtcMs": 500
+    },
+    "expected": [
+      {
+        "rule": "ecg_qtc",
+        "matched": "QTc 500 ms"
+      }
+    ]
+  },
+  {
+    "name": "Pneumothorax raises",
+    "fields": {
+      "imagingImpression": "Large right pneumothorax."
+    },
+    "expected": [
+      {
+        "rule": "imaging",
+        "matched": "pneumothorax"
+      }
+    ]
+  },
+  {
+    "name": "No pneumothorax, no free air",
+    "fields": {
+      "imagingImpression": "No pneumothorax. No free air."
+    },
+    "expected": []
+  },
+  {
+    "name": "Pulmonary embolism excluded",
+    "fields": {
+      "imagingImpression": "Pulmonary embolism excluded."
+    },
+    "expected": []
+  },
+  {
+    "name": "A negation elsewhere does not hide carcinoma",
+    "fields": {
+      "pathologyDiagnosis": "Lesion is not benign; carcinoma present"
+    },
+    "expected": [
+      {
+        "rule": "pathology",
+        "matched": "carcinoma"
+      }
+    ]
+  },
+  {
+    "name": "A long-range negation does not hide carcinoma",
+    "fields": {
+      "pathologyDiagnosis": "No change since the previous biopsy, which showed carcinoma"
+    },
+    "expected": [
+      {
+        "rule": "pathology",
+        "matched": "carcinoma"
+      }
+    ]
+  },
+  {
+    "name": "Another clause's negation does not hide pneumothorax",
+    "fields": {
+      "imagingImpression": "No effusion. Right pneumothorax."
+    },
+    "expected": [
+      {
+        "rule": "imaging",
+        "matched": "pneumothorax"
+      }
+    ]
+  },
+  {
+    "name": "No change in the known carcinoma still raises",
+    "fields": {
+      "pathologyDiagnosis": "No change in the known carcinoma"
+    },
+    "expected": [
+      {
+        "rule": "pathology",
+        "matched": "carcinoma"
+      }
+    ]
+  },
+  {
+    "name": "No residual carcinoma does not raise",
+    "fields": {
+      "pathologyDiagnosis": "No residual carcinoma"
+    },
+    "expected": []
+  },
+  {
+    "name": "A term inside a longer word does not raise",
+    "fields": {
+      "imagingImpression": "Hydropneumothoraxes not seen; carcinomatosis query"
+    },
+    "expected": []
+  },
+  {
+    "name": "Several rules at once, in rule order",
+    "fields": {
+      "birads": [
+        "5"
+      ],
+      "pathologyDiagnosis": "Metastatic adenocarcinoma",
+      "imagingImpression": "Suspicious for malignancy"
+    },
+    "expected": [
+      {
+        "rule": "birads",
+        "matched": "5"
+      },
+      {
+        "rule": "pathology",
+        "matched": "adenocarcinoma"
+      },
+      {
+        "rule": "imaging",
+        "matched": "suspicious for malignancy"
+      }
+    ]
+  },
+  {
+    "name": "An accented term still matches (accents removed)",
+    "fields": {
+      "pathologyDiagnosis": "Carcinóma ductal infiltrante"
+    },
+    "expected": [
+      {
+        "rule": "pathology",
+        "matched": "carcinoma"
+      }
+    ]
+  },
+  {
+    "name": "An accented letter before 'no' makes it part of a word, not a negation",
+    "fields": {
+      "imagingImpression": "examéno pneumothorax"
+    },
+    "expected": [
+      {
+        "rule": "imaging",
+        "matched": "pneumothorax"
+      }
+    ]
+  },
+  {
+    "name": "An accented negation still negates",
+    "fields": {
+      "imagingImpression": "Ñó pneumothorax"
+    },
+    "expected": []
+  },
+  {
+    "name": "An accented finding in an impression matches",
+    "fields": {
+      "imagingImpression": "Pnéumothorax gauche"
+    },
+    "expected": [
+      {
+        "rule": "imaging",
+        "matched": "pneumothorax"
+      }
+    ]
+  }
+]

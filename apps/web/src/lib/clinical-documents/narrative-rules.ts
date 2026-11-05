@@ -4,9 +4,11 @@ import { getProposedConfig, type ConfigValue } from "@tarragon/shared";
  * The draft urgent-finding rules for narrative reports (CDE-01, clinical document engine step 5b): given fields AS PRINTED on an
  * imaging, mammography, ECG, pathology or cervical report, which rules would raise its doctor review to urgent.
  *
- * INERT: the rule set is PROPOSED and unsigned (OQ-CDE-11), and no code path calls this to escalate anything. It exists so the CMO
- * can see exactly what the rules would do before signing, and so the wiring, once signed, uses a tested matcher. A rule only ever
- * raises priority; no match means routine review, never "normal".
+ * The CMO decided and confirmed the rules (CDE-09, 2026-11-05). They ACT in the database, not here: private.match_narrative_rules and
+ * private.apply_narrative_urgent_rules (migration *_cde10_apply_narrative_urgent_rules.sql) run on pathology, imaging and ECG filings
+ * and on the AI readings, so the pathway fires whichever screen or AI wrote the row. This file is the reference copy: the shared cases
+ * in narrative-rules.cases.json are run against both, and a test keeps the database copy identical to the registry value. A rule only
+ * ever raises priority; no match means routine review, never "normal".
  */
 
 export interface NarrativeRules {
@@ -55,19 +57,26 @@ function escape(s: string): string {
  * phrase straight after it ("pneumothorax excluded"). Anything looser could hide a real finding ("not benign; carcinoma", "no change in
  * the known carcinoma"); on this side of the rules erring toward urgent is the safe direction.
  */
+/** Accents removed (NFD, combining marks stripped): "carcinóma" reads as "carcinoma". The database matcher does the same (CDE-11). */
+function fold(text: string): string {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 function findTerm(text: string, terms: readonly string[], rules: NarrativeRules): string | null {
-  const lower = text.toLowerCase();
+  // One explicit ASCII word boundary, [a-z0-9_], the same as private.narrative_term_found (not \b, which the database spells
+  // differently for accented letters).
+  const lower = fold(text).toLowerCase();
   const alt = (xs: readonly string[]) => xs.map((n) => escape(n.toLowerCase())).join("|");
   const before = new RegExp(
-    `(?:\\b(?:${alt(rules.negation_words_before)})(?:\\s+[a-z0-9-]+)?|\\b(?:${alt(rules.negation_phrases_before)})(?:\\s+[a-z0-9-]+){0,3})\\s*$`,
+    `(?:(?:^|[^a-z0-9_])(?:${alt(rules.negation_words_before)})(?:\\s+[a-z0-9-]+)?|(?:^|[^a-z0-9_])(?:${alt(rules.negation_phrases_before)})(?:\\s+[a-z0-9-]+){0,3})\\s*$`,
   );
-  const after = new RegExp(`^\\s*(?:${rules.negations_after.map((n) => escape(n.toLowerCase())).join("|")})\\b`);
+  const after = new RegExp(`^\\s*(?:${rules.negations_after.map((n) => escape(n.toLowerCase())).join("|")})(?![a-z0-9_])`);
   for (const term of terms) {
-    const re = new RegExp(`(^|[^a-z0-9])${escape(term.toLowerCase())}(?![a-z0-9])`, "g");
+    const re = new RegExp(`(^|[^a-z0-9])${escape(fold(term).toLowerCase())}(?![a-z0-9])`, "g");
     for (const m of lower.matchAll(re)) {
       const start = (m.index ?? 0) + m[1]!.length;
       const clause = lower.slice(0, start).split(/[.;:\n]/).pop() ?? "";
-      const rest = lower.slice(start + term.length);
+      const rest = lower.slice(start + fold(term).length);
       if (!before.test(clause) && !after.test(rest)) return term;
     }
   }
