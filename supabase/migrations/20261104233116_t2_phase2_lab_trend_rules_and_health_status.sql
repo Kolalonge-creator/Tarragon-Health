@@ -84,6 +84,14 @@ create trigger refuse_superseded_activation before update of is_active on public
 alter table public.lab_trend_rule_sets enable row level security;
 revoke all on public.lab_trend_rule_sets from public, anon, authenticated;
 
+-- never live without a signature (the guard every governed table carries, migration 20261029213217)
+create trigger zz_refuse_unsigned_activation_ins before insert on public.lab_trend_rule_sets for each row
+  when (new.is_active and new.approved_by is null and new.approved_at is null)
+  execute function private.refuse_unsigned_activation();
+create trigger zz_refuse_unsigned_activation_upd before update of is_active, approved_at on public.lab_trend_rule_sets for each row
+  when (new.is_active and new.approved_by is null and new.approved_at is null and (not old.is_active or old.approved_at is not null))
+  execute function private.refuse_unsigned_activation();
+
 create function private.lab_trend_rule_sets_immutable() returns trigger
 language plpgsql set search_path = ''
 as $$
@@ -123,6 +131,10 @@ create index lab_trend_detections_alert_idx on public.lab_trend_detections (aler
 comment on table public.lab_trend_detections is 'T2 Phase 2: one row per lab trend the signed rules found, with the rule set version and the points read (the interpreted provenance). Never shown to the patient: RLS on, no policy, no grant; staff reach it through the clinician alert and the worklist.';
 alter table public.lab_trend_detections enable row level security;
 revoke all on public.lab_trend_detections from public, anon, authenticated;
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, notes)
+values ('lab_trend_detections', 'patient_id', 'clinical_record', 'review', true, false,
+        'T2 Phase 2: each lab trend the CMO-signed rules found, with the rule set version and the points read. Class assigned by the migration author, not yet reviewed by the CMO and DPO.')
+on conflict (table_name) do nothing;
 
 create table public.lab_trend_rule_runs (
   id               uuid primary key default gen_random_uuid(),
@@ -470,15 +482,15 @@ begin
     select * into t from private.patient_bp_target(v_patient);
     v_vitals := jsonb_build_object(
       'blood_pressure', (select jsonb_agg(jsonb_build_object('systolic', v.systolic, 'diastolic', v.diastolic, 'taken_at', v.taken_at) order by v.taken_at desc)
-                           from (select * from public.vitals_readings v where v.patient_id = v_patient and v.vital_type = 'blood_pressure'
+                           from (select * from private.vitals_readings_current v where v.patient_id = v_patient and v.vital_type = 'blood_pressure'
                                    and v.correction_status is null and v.source <> 'wearable' and v.systolic is not null and v.diastolic is not null
                                  order by v.taken_at desc limit 2) v),
       'bp_target', jsonb_build_object('systolic', t.sys, 'diastolic', t.dia, 'source', t.source),
       'weight', (select jsonb_agg(jsonb_build_object('kg', v.weight_kg, 'taken_at', v.taken_at) order by v.taken_at desc)
-                   from (select * from public.vitals_readings v where v.patient_id = v_patient and v.vital_type = 'weight'
+                   from (select * from private.vitals_readings_current v where v.patient_id = v_patient and v.vital_type = 'weight'
                            and v.correction_status is null and v.weight_kg is not null order by v.taken_at desc limit 2) v),
       'waist', (select jsonb_agg(jsonb_build_object('cm', v.waist_cm, 'taken_at', v.taken_at) order by v.taken_at desc)
-                  from (select * from public.vitals_readings v where v.patient_id = v_patient and v.vital_type = 'waist_circumference'
+                  from (select * from private.vitals_readings_current v where v.patient_id = v_patient and v.vital_type = 'waist_circumference'
                           and v.correction_status is null and v.waist_cm is not null order by v.taken_at desc limit 2) v),
       'height_cm', (select pr.height_cm from public.profiles pr where pr.id = v_patient));
   end if;
