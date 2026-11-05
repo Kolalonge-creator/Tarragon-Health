@@ -917,6 +917,14 @@
     {
       "file": "apps/web/src/lib/uploads/check-my-upload.ts",
       "category": "Security audit M-4/L-4 (2026-11-05): 'check the file I just uploaded'. The caller is proven from their own session first; the service role then checks only the object that caller wrote (claim_client_upload_checks matches owner_id to the session user) and reports only refused or not."
+    },
+    {
+      "file": "apps/web/src/app/api/cron/storage-deletion-sweep/route.ts",
+      "category": "cron route, CRON_SECRET bearer check before any work (S5, 2026-11-05). Calls only service-role-only storage_deletions_due and mark_storage_deletion_done, and removes each due object through the Storage API. The due list only offers allow-listed subject buckets and never a path a record points at."
+    },
+    {
+      "file": "apps/web/src/lib/uploads/discard-unfiled-upload.ts",
+      "category": "S4 (2026-11-05): server-only clean-up of a file the patient's own session just uploaded when the record insert failed. Patient id comes from the session; refuses paths outside the patient's own folder; deletes only after public.discard_unfiled_clinical_upload (service-role only) confirms the object is the patient's own, unfiled, and no record points at it."
     }
   ],
   "wrappers": [

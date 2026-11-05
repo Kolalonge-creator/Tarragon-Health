@@ -1,4 +1,5 @@
 import { prepareUpload } from "@/lib/uploads/prepare-upload";
+import { discardUnfiledUpload } from "@/lib/uploads/discard-unfiled-upload";
 import { safeErrorMessage } from "@/lib/http/safe-error";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
@@ -131,14 +132,14 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
   if (isDuplicateDocumentError(replaceError)) {
     // The database refused before writing anything: this file is already in the record.
-    await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    await discardUnfiledUpload(RESULT_DOC_BUCKET, path, user.id);
     return NextResponse.json({ error: DUPLICATE_DOCUMENT_MESSAGE }, { status: 409 });
   }
   if (replaceError || !newDocumentId) {
     // Delete the new object only on a clear database refusal; after a timeout the replace may have committed (see
     // replaceResultDocumentAsPatient), and an orphaned object is the harmless side to err on.
     if (replaceError && REPLACE_REFUSAL_CODES.has(replaceError.code)) {
-      await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+      await discardUnfiledUpload(RESULT_DOC_BUCKET, path, user.id);
     }
     return NextResponse.json({ error: safeErrorMessage(replaceError, "mobile/lab-result-replace", "Could not replace that upload.") }, { status: 500 });
   }
