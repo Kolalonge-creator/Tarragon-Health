@@ -19,7 +19,7 @@ $f$
      and has_function_privilege('anon', p.oid, 'EXECUTE')
      and p.proname <> all (array[
        'emergency_card_by_token', 'health_passport_by_serial', 'record_share_peek', 'record_share_by_token', 'pharmacy_snapshot_by_token',
-       'verify_prescription_public', 'record_prescription_supply_public', 'learn_shared_article', 'verify_payer_board_report',
+       'verify_prescription_public', 'record_prescription_supply_public', 'verify_lab_request_public', 'learn_shared_article', 'verify_payer_board_report',
        'public_price_list', 'public_service_coverage', 'public_response_commitments', 'public_partner_locations',
        'platform_switch_is_on', 'membership_auto_renew_enabled',
        -- the founding member offer's public figure: open, places, code, percent; no patient data (founding_member_offer.sql)
