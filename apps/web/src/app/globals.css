@@ -3,38 +3,52 @@
 @source "../../../../packages/ui/src";
 
 /*
- * Public marketing site palette: Evergreen (founder decision W-08,
- * 2026-11-05, docs/plans/website-redesign/00-phase0-plan.md section 5).
+ * Public marketing site palette: Refined Tarragon (founder decision W-09,
+ * 2026-11-05, replacing W-08's Evergreen the same day; plan section 5,
+ * palette C). Tarragon Green deepened for contrast, Clinical Navy for
+ * headings and dark bands, sprout gold as the one accent. Plus Jakarta Sans
+ * headings over Inter body text.
  * Scoped to the marketing layout's wrapper (and the cookie banner, which
  * renders only on marketing paths), so the signed-in app and the staff
  * consoles are untouched. The brand tokens are mapped `@theme inline`, so
  * redefining them here re-colours every existing marketing utility at once.
- * Contrast: forest #0b5d45 on sage #dce8df is about 6.2:1 (the old green on
- * sage was 4.41:1 and failed AA for body-size links).
+ * Contrast: green #0a6b48 on sage #e3ede4 is about 5.4:1 and on the canvas
+ * about 6.3:1 (the old #0e7c52 on sage was 4.41:1 and failed AA for
+ * body-size links).
  */
 /* In `@layer base` so Tailwind utilities still win: unlayered, these rules
    overrode every tracking-* on a heading and the cookie banner's bg-white. */
 @layer base {
   .marketing-scope {
-    --brand-green: #0b5d45;
-    --deep-forest: #0b5d45;
-    --clinical-navy: #0e3b2e;
-    --charcoal-ink: #14231e;
-    --soft-sage: #dce8df;
-    --warm-ivory: #faf7f2;
-    --sprout-gold: #e0a23b;
-    --mk-canvas: #faf7f2;
-    --mk-border: #e3ded5;
-    --mk-muted: #5e6b66;
-    --marketing-heading-font: var(--font-fraunces), Georgia, "Times New Roman", serif;
+    --brand-green: #0a6b48;
+    --deep-forest: #0a6b48;
+    --clinical-navy: #12324b;
+    --charcoal-ink: #12324b;
+    --soft-sage: #e3ede4;
+    --warm-ivory: #fbf8f3;
+    --sprout-gold: #c9962b;
+    --mk-canvas: #fbf8f3;
+    --mk-border: #e5e0d6;
+    /* Darker than the first pass (#5f6a66): about 6.9:1 on the canvas and
+       6.1:1 on sage, so secondary text stays easy to read for older eyes. */
+    --mk-muted: #4d5955;
+    /* Type (founder, 2026-11-05: "legible, good for health care, looks
+       trusted"): Plus Jakarta Sans for headings, Inter for everything people
+       read. Inter is built for small screens and is already self-hosted by
+       the root layout, so body text costs no extra download. */
+    --marketing-heading-font: var(--font-jakarta), system-ui, sans-serif;
+    font-family: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
     background: var(--mk-canvas);
     color: var(--charcoal-ink);
   }
 
-  /* Fraunces reads best a step lighter than the old Sora headings. */
+  /* Plus Jakarta Sans headings sit a little tighter. */
   .marketing-scope .font-heading {
-    font-optical-sizing: auto;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
   }
 
   /* Anchor jumps (/#services, #how) land below the sticky header. */

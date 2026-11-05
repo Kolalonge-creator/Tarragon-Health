@@ -57,6 +57,7 @@ export default function FamiliesPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqPageJsonLd(FAQ) }} />
       <PageHero
+        image={{ src: "/marketing/photos/hero/gift.jpg", alt: "A grandmother, mother and child together outdoors", width: 1400, height: 1750 }}
         eyebrow="For families"
         title="Stay close to the health of the people you love."
         description={`Whether you live in Lagos, London, Houston or Toronto, you can help a parent or relative in Nigeria get ongoing care: pay for their ${name}, and follow the parts of their care they choose to share with you.`}

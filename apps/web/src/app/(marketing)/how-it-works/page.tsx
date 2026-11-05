@@ -6,6 +6,7 @@ import { CtaBand } from "../_components/cta-band";
 import { EmergencyNotice } from "../_components/emergency-notice";
 import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { ExamplePhone } from "../_components/home-example-screens";
+import { ContinuityPath } from "../_components/continuity-path";
 import { SAFETY_STATEMENT } from "../_content/pricing-ladder";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
@@ -127,7 +128,7 @@ export default function HowItWorksPage() {
         <ol className="grid gap-3">
           {list.map((step, i) => (
             <li key={step.title} className="grid gap-2 rounded-2xl bg-white p-5 sm:grid-cols-[4rem_1fr_auto] sm:items-start sm:gap-6 sm:p-6">
-              <span className="font-heading text-3xl text-brand-green" aria-hidden>
+              <span className="font-heading font-bold text-3xl text-brand-green" aria-hidden>
                 {String(i + 1).padStart(2, "0")}
               </span>
               <span className="grid gap-1">
@@ -147,6 +148,12 @@ export default function HowItWorksPage() {
             </li>
           ))}
         </ol>
+      </Section>
+
+      {/* The interactive care loop from the previous site (founder ask, 2026-11-05). */}
+      <Section>
+        <BlockHeading id="hiw-loop-title" eyebrow="The care loop" title="Each step feeds the next." />
+        <ContinuityPath />
       </Section>
 
       <Section labelledBy="hiw-app-title">

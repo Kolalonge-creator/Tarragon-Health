@@ -97,11 +97,11 @@ function Screen({ screen }: { screen: ExampleScreen }) {
               <line x1="24" y1="86" x2="214" y2="86" stroke="#e3e6e4" />
               <text x="0" y="53" fontSize="9" fill="#5e6b66">6.5</text>
               <text x="0" y="89" fontSize="9" fill="#5e6b66">5.7</text>
-              <polyline points="34,80 94,70 154,56 204,42" fill="none" stroke="#0b5d45" strokeWidth="2.5" />
-              <circle cx="34" cy="80" r="3.5" fill="#0b5d45" />
-              <circle cx="94" cy="70" r="3.5" fill="#0b5d45" />
-              <circle cx="154" cy="56" r="3.5" fill="#0b5d45" />
-              <circle cx="204" cy="42" r="4.5" fill="#e0a23b" />
+              <polyline points="34,80 94,70 154,56 204,42" fill="none" stroke="#0a6b48" strokeWidth="2.5" />
+              <circle cx="34" cy="80" r="3.5" fill="#0a6b48" />
+              <circle cx="94" cy="70" r="3.5" fill="#0a6b48" />
+              <circle cx="154" cy="56" r="3.5" fill="#0a6b48" />
+              <circle cx="204" cy="42" r="4.5" fill="#c9962b" />
               <text x="26" y="104" fontSize="9" fill="#5e6b66">Jan</text>
               <text x="86" y="104" fontSize="9" fill="#5e6b66">Apr</text>
               <text x="146" y="104" fontSize="9" fill="#5e6b66">Jul</text>
@@ -135,7 +135,7 @@ function Screen({ screen }: { screen: ExampleScreen }) {
 
 function Top({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="bg-[#0b5d45] px-3 pb-3 pt-4 text-white">
+    <div className="bg-[#0a6b48] px-3 pb-3 pt-4 text-white">
       <p className="text-[13px] font-semibold">{title}</p>
       <p>{subtitle}</p>
     </div>
