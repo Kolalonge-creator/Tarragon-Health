@@ -20,12 +20,12 @@
     "@types/node": "^20.19.43",
     "eslint": "^9",
     "jest": "^30.4.2",
-    "ts-jest": "^29.4.11",
+    "ts-jest": "^29.4.15",
     "typescript": "^5",
     "typescript-eslint": "^8"
   },
   "dependencies": {
     "@noble/ciphers": "^2.4.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   }
 }
