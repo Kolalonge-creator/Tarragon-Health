@@ -41,10 +41,10 @@ export function TwoFactorManager({
     formData.set("doctorTier", group.doctor_tier ?? "");
     formData.set("required", String(required));
     formData.set("note", notes[group.id] ?? "");
-    // The confirmation dialog showed how many accounts have no factor yet, and who; confirming it is the confirmation the
-    // database asks for, but only when the dialog actually showed some. If the counts were stale (somebody removed their
-    // factor since the page loaded), the database refuses and names the new numbers instead of switching on silently.
-    formData.set("confirmUnenrolled", String(group.member_count - group.enrolled_count > 0));
+    // The confirmation dialog showed these numbers; the database switches the group on only if they still match the live ones.
+    formData.set("seenUnenrolled", String(group.member_count - group.enrolled_count));
+    formData.set("seenUnenrolledCmo", String(group.unenrolled_cmo_count));
+    formData.set("seenUnenrolledAdmin", String(group.unenrolled_admin_count));
     startTransition(async () => {
       const result = await setTwoFactorRequirementAction(undefined, formData);
       setFeedback(result ? { id: group.id, ...result } : null);

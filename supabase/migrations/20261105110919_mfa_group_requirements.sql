@@ -28,8 +28,8 @@
 --   * Turning a group ON that includes the caller needs the caller's own session to be AAL2 right now, so an admin can never
 --     require 2FA of themselves before they have proved it works on their own phone. In particular the admin group can only
 --     be switched on by an admin who has already passed 2FA.
---   * Turning a group ON while any account in it has no verified factor needs an explicit confirmation flag, and the refusal
---     names how many, and whether the Chief Medical Officer or an admin is among them.
+--   * Turning a group ON while any account in it has no verified factor needs the admin's confirmation of the exact numbers
+--     they saw (how many, how many of them the CMO, how many admins); stale or missing numbers are refused, naming the live ones.
 --   * Turning a group OFF is never refused to an admin (beyond the change note).
 --   * A member who loses their phone: an admin resets their factors at /admin/settings/two-factor
 --     (public.admin_reset_mfa_factors, below), which also signs them out everywhere and tells them.
@@ -373,7 +373,12 @@ create or replace function public.set_mfa_group_requirement(
   p_doctor_tier public.doctor_tier,
   p_required boolean,
   p_change_note text,
-  p_confirm_unenrolled boolean default false
+  -- What the admin saw on the page when they confirmed: accounts in the group without a factor, of whom the CMO and admins.
+  -- Switching on a group with any such account needs these to match the live counts, so a confirmation given on stale numbers
+  -- is refused and the live numbers shown.
+  p_seen_unenrolled integer default null,
+  p_seen_unenrolled_cmo integer default null,
+  p_seen_unenrolled_admin integer default null
 )
 returns integer
 language plpgsql
@@ -434,8 +439,11 @@ begin
        and (p_doctor_tier is null
             or exists (select 1 from public.clinical_staff cs where cs.profile_id = p.id and cs.doctor_tier = p_doctor_tier))
        and not exists (select 1 from auth.mfa_factors f where f.user_id = p.id and f.status = 'verified' and f.factor_type = 'totp');
-    if v_unenrolled > 0 and not coalesce(p_confirm_unenrolled, false) then
-      raise exception '% account(s) in this group have not set up two-factor sign-in yet (Chief Medical Officer: %, admin: %). They will be sent to set it up at their next sign-in. Confirm to go ahead.',
+    if v_unenrolled > 0
+       and (p_seen_unenrolled is distinct from v_unenrolled::integer
+            or p_seen_unenrolled_cmo is distinct from v_unenrolled_cmo::integer
+            or p_seen_unenrolled_admin is distinct from v_unenrolled_admin::integer) then
+      raise exception '% account(s) in this group have not set up two-factor sign-in yet (Chief Medical Officer: %, admin: %). They will be sent to set it up at their next sign-in. Refresh the page, check the numbers, and confirm again.',
         v_unenrolled, v_unenrolled_cmo, v_unenrolled_admin
         using errcode = 'P0001', hint = 'confirm_unenrolled';
     end if;
@@ -456,12 +464,12 @@ revoke all on function public.my_mfa_requirement() from public, anon;
 revoke all on function public.mfa_any_group_required() from public, anon;
 revoke all on function public.admin_mfa_group_requirements() from public, anon;
 revoke all on function public.admin_mfa_group_requirement_changes(integer) from public, anon;
-revoke all on function public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, boolean) from public, anon;
+revoke all on function public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, integer, integer, integer) from public, anon;
 grant execute on function public.my_mfa_requirement() to authenticated;
 grant execute on function public.mfa_any_group_required() to authenticated;
 grant execute on function public.admin_mfa_group_requirements() to authenticated;
 grant execute on function public.admin_mfa_group_requirement_changes(integer) to authenticated;
-grant execute on function public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, boolean) to authenticated;
+grant execute on function public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, integer, integer, integer) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Reset a lost authenticator: an admin removes another account's two-factor factors so the person can set up a new phone.
@@ -469,8 +477,9 @@ grant execute on function public.set_mfa_group_requirement(public.user_role, pub
 -- Without this, an account whose group requires 2FA and whose phone is lost cannot sign in at all, and turning its own factor off
 -- is refused (Profile & settings). The reset, in one transaction:
 --   * removes every factor the account has (auth.mfa_factors; its challenges and recovery-code sets cascade),
---   * ends every session the account has on every device (auth.sessions), so a stolen phone that was still signed in is cut off,
---     the same as a backup-code recovery does (complete_backup_code_recovery),
+--   * ends every session the account has on every device (auth.sessions), the same as a backup-code recovery does
+--     (complete_backup_code_recovery): no session can be refreshed, and an access token already issued stops working when it
+--     expires (at most the JWT lifetime, one hour), so a stolen phone that was still signed in is cut off within the hour,
 --   * tells the owner in the app and, to a verified address, by email (private.recovery_notice, security.mfa_reset_by_admin),
 --   * records who, whom, when and why (mfa_factor_resets, append-only, and audit_log).
 -- Guards: admin only; never your own account (use Profile & settings); a reason of at least 20 characters; the account must have
@@ -550,7 +559,7 @@ begin
   values (p_profile, v_uid, v_reason, v_factors, v_sessions);
 
   perform private.recovery_notice(p_profile, 'security.mfa_reset_by_admin',
-    'An admin reset the two-factor sign-in on your Tarragon Health account and signed you out on every device. Sign in again and set up your authenticator app in Profile & settings. If you did not ask for this, contact the Tarragon team right away.');
+    'An admin reset the two-factor sign-in on your Tarragon Health account and signed you out on every device (within the hour on a device already open). Sign in again and set up your authenticator app in Profile & settings. If you did not ask for this, contact the Tarragon team right away.');
   perform private.recovery_audit(v_target.organisation_id, v_uid, 'account.mfa_reset_by_admin', 'mfa_factor_resets', null, null, 'success',
     jsonb_build_object('target_profile_id', p_profile, 'factors_removed', v_factors, 'sessions_ended', v_sessions));
 
@@ -636,7 +645,7 @@ begin
   if v_on <> 0 then
     raise exception 'mfa_group_requirements: % group(s) on; every group must ship off', v_on;
   end if;
-  if has_function_privilege('anon', 'public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, boolean)', 'EXECUTE')
+  if has_function_privilege('anon', 'public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, integer, integer, integer)', 'EXECUTE')
      or has_function_privilege('anon', 'public.my_mfa_requirement()', 'EXECUTE')
      or has_function_privilege('anon', 'public.mfa_any_group_required()', 'EXECUTE')
      or has_function_privilege('anon', 'public.admin_mfa_group_requirements()', 'EXECUTE')

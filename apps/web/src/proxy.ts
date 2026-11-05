@@ -17,9 +17,9 @@ import {
   MFA_SETUP_PATH,
   aalFromAccessToken,
   anyMfaGroupRequired,
-  bearerToken,
   isMfaRequiredForCaller,
   readMyMfaRequirement,
+  requestAccessToken,
   mfaEnrolmentVerdict,
 } from "@tarragon/auth/mfa-policy";
 import { createBearerClient } from "@/lib/supabase/bearer";
@@ -80,12 +80,13 @@ export async function proxy(request: NextRequest) {
     // that is most often an expired token, which the route answers with the 401 the app refreshes on. Sending to a safety
     // route is never refused, for the same reason as App Check above. The phone app has no 2FA set-up or challenge screens yet, so while a
     // group is required its members cannot use the phone app beyond its safety features (the admin page says so).
-    const token = bearerToken(request.headers);
-    // The safety exemption covers SENDING something (a reading, a symptom, an emergency) and the emergency card, never reading
-    // history back: GET /api/mobile/vitals is the patient's record, which a required account must not read at AAL1.
-    const safetyExempt =
-      isSafetyRoute(request.nextUrl.pathname) &&
-      (request.method !== "GET" || request.nextUrl.pathname.startsWith("/api/mobile/emergency-card"));
+    // The token is found the way the routes find it: the Authorization header, then ?token= (the PDF and image routes the app
+    // opens in a browser view). Reading only the header let an AAL1 token in the query string skip this gate.
+    const token = requestAccessToken(request.headers, request.nextUrl.searchParams);
+    // Every request to a safety route is exempt, whatever the method: the symptom checker reads its open state and the
+    // check-backs due with a GET, and refusing those would close the checker and hide follow-ups from a held patient. None of
+    // the safety routes returns record history (checked 2026-11-05: vitals, device and CGM readings accept POST only).
+    const safetyExempt = isSafetyRoute(request.nextUrl.pathname);
     if (token && !safetyExempt && aalFromAccessToken(token) !== "aal2") {
       const mustEnrolOrChallenge = await isMfaRequiredForPhoneCaller(token);
       if (mustEnrolOrChallenge) {

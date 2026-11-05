@@ -47,7 +47,7 @@ export default async function AccountPage({
 }: {
   searchParams: Promise<{ mfa?: string; redirect?: string }>;
 }) {
-  const { redirect: redirectParam } = await searchParams;
+  const { redirect: redirectParam, mfa: mfaParam } = await searchParams;
   // Where the 2FA group requirement (proxy.ts) sent the person from, offered back once the factor is on.
   const continueTo = sanitizeRedirect(redirectParam);
   const user = await getCurrentUser();
@@ -88,10 +88,11 @@ export default async function AccountPage({
   const ownFolio = staff ? (ownFolioMap.get(staff.id) ?? null) : null;
   const verifiedFactorId =
     factors?.totp.find((f) => f.status === "verified")?.id ?? null;
-  // Whether an admin has switched on the 2FA requirement for this account's group (/admin/settings/two-factor). An unreadable
-  // answer is shown as required, the same way the proxy treats it, so the page never contradicts where the person was sent.
-  const mfaRequirementUnreadable = mfaRequirement === null;
-  const mfaGroupRequired = mfaRequirement !== false;
+  // Whether an admin has switched on the 2FA requirement for this account's group (/admin/settings/two-factor).
+  // Unreadable is shown as required only when the proxy sent the person here for it (?mfa=required): a brief database fault
+  // must not tell everybody else their account now needs 2FA. Where the proxy did send them, the page agrees with it.
+  const mfaRequirementUnreadable = mfaRequirement === null && mfaParam === "required";
+  const mfaGroupRequired = mfaRequirement === true || mfaRequirementUnreadable;
   const mfaRequiredNow = mfaGroupRequired && !verifiedFactorId;
 
   return (

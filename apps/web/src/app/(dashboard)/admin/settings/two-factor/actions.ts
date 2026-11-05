@@ -13,13 +13,17 @@ const schema = z.object({
   doctorTier: z.union([z.literal(""), z.enum(Constants.public.Enums.doctor_tier)]),
   required: z.enum(["true", "false"]),
   note: z.string().trim().min(20, "Write a change note of at least 20 characters saying why.").max(2000),
-  confirmUnenrolled: z.enum(["true", "false"]).optional(),
+  // The counts the admin saw in the confirmation dialog. The database refuses if they no longer match the live ones.
+  seenUnenrolled: z.coerce.number().int().min(0).optional(),
+  seenUnenrolledCmo: z.coerce.number().int().min(0).optional(),
+  seenUnenrolledAdmin: z.coerce.number().int().min(0).optional(),
 });
 
 /**
  * Thin wrapper over public.set_mfa_group_requirement (migration 20261105110919), which is the authority: admin only, a change
  * note of at least 20 characters, never switches on a group containing the caller unless the caller's own session has passed
- * 2FA, needs `confirmUnenrolled` when any account in the group has no factor yet, versions the row and writes the history.
+ * 2FA, needs the unenrolled counts the admin saw (seenUnenrolled, seenUnenrolledCmo, seenUnenrolledAdmin) to match the live ones
+ * when any account in the group has no factor yet, versions the row and writes the history.
  * This action only shapes the form and refreshes the page.
  */
 export async function setTwoFactorRequirementAction(
@@ -31,12 +35,14 @@ export async function setTwoFactorRequirementAction(
     doctorTier: formData.get("doctorTier") ?? "",
     required: formData.get("required"),
     note: formData.get("note") ?? "",
-    confirmUnenrolled: formData.get("confirmUnenrolled") ?? undefined,
+    seenUnenrolled: formData.get("seenUnenrolled") ?? undefined,
+    seenUnenrolledCmo: formData.get("seenUnenrolledCmo") ?? undefined,
+    seenUnenrolledAdmin: formData.get("seenUnenrolledAdmin") ?? undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
   }
-  const { role, doctorTier, required, note, confirmUnenrolled } = parsed.data;
+  const { role, doctorTier, required, note, seenUnenrolled, seenUnenrolledCmo, seenUnenrolledAdmin } = parsed.data;
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("set_mfa_group_requirement", {
@@ -44,7 +50,9 @@ export async function setTwoFactorRequirementAction(
     p_doctor_tier: doctorTier === "" ? null : doctorTier,
     p_required: required === "true",
     p_change_note: note,
-    p_confirm_unenrolled: confirmUnenrolled === "true",
+    p_seen_unenrolled: seenUnenrolled ?? null,
+    p_seen_unenrolled_cmo: seenUnenrolledCmo ?? null,
+    p_seen_unenrolled_admin: seenUnenrolledAdmin ?? null,
   });
   if (error) {
     return { error: error.message || "That change was not saved. Try again." };

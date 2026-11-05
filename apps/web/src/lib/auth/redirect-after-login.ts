@@ -4,7 +4,7 @@ import type { Database } from "@tarragon/shared";
 import { getRoleHomePath } from "./roles";
 import { sanitizeRedirect } from "./redirect";
 import { recordLoginDevice } from "./record-login-device";
-import { MFA_SETUP_PATH, isMfaRequiredForCaller, mfaEnrolmentVerdict } from "@tarragon/auth/mfa-policy";
+import { MFA_SETUP_PATH, loginGateTarget } from "@tarragon/auth/mfa-policy";
 
 /**
  * Where a just-authenticated user should land: the sanitized intended
@@ -63,18 +63,8 @@ export async function redirectAfterLogin(
  * If the level cannot be read, the destination is kept as before (the proxy decides on the very next request).
  */
 export async function gateLoginDestination(supabase: SupabaseClient<Database>, destination: string): Promise<string> {
-  try {
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
-      return `/login/mfa-challenge?redirect=${encodeURIComponent(destination)}`;
-    }
-    const pathname = destination.split(/[?#]/)[0] ?? destination;
-    const required = await isMfaRequiredForCaller(supabase);
-    if (mfaEnrolmentVerdict({ pathname, required, nextLevel: aal?.nextLevel }) === "setup") {
-      return `${MFA_SETUP_PATH}?mfa=required&redirect=${encodeURIComponent(destination)}`;
-    }
-  } catch {
-    // Unreadable: keep the destination; proxy.ts gates the next request.
-  }
-  return destination;
+  return loginGateTarget(supabase, destination, {
+    challengePath: "/login/mfa-challenge",
+    setupPath: (d) => `${MFA_SETUP_PATH}?mfa=required&redirect=${encodeURIComponent(d)}`,
+  });
 }

@@ -82,11 +82,19 @@ describe("Profile & settings and the 2FA group requirement", () => {
     expect(count(html, "[mfa-card factor=none required=false]")).toBe(1);
   });
 
-  it("an unreadable requirement holds the page in the required state, with the set-up card", async () => {
+  it("an unreadable requirement, when the proxy sent the person here, holds the page in the required state with the card", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "57014" } });
+    listFactors.mockResolvedValue({ data: { totp: [] } });
+    const html = await render({ mfa: "required" });
+    expect(html).toContain("We could not check your sign-in settings");
+    expect(count(html, "[mfa-card factor=none")).toBe(1);
+  });
+
+  it("an unreadable requirement on an ordinary visit tells nobody 2FA is now required", async () => {
     rpc.mockResolvedValue({ data: null, error: { code: "57014" } });
     listFactors.mockResolvedValue({ data: { totp: [] } });
     const html = await render();
-    expect(html).toContain("We could not check your sign-in settings");
-    expect(count(html, "[mfa-card factor=none")).toBe(1);
+    expect(html).not.toContain("Turn on two-factor sign-in to continue");
+    expect(count(html, "[mfa-card factor=none required=false]")).toBe(1);
   });
 });

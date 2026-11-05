@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Database } from "@tarragon/shared";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,22 +28,21 @@ export function MfaResetPanel({
   accounts,
   resets,
   currentUserId,
+  search,
 }: {
   accounts: EnrolledAccountRow[];
   resets: FactorResetRow[];
   currentUserId: string;
+  /** The name searched for, read by the page from ?q= and passed to the database search. */
+  search: string;
 }) {
-  const [filter, setFilter] = useState("");
   const [target, setTarget] = useState<EnrolledAccountRow | null>(null);
   const [reason, setReason] = useState("");
   const [feedback, setFeedback] = useState<{ error?: string; message?: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  const shown = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    return q ? accounts.filter((a) => (a.full_name ?? "").toLowerCase().includes(q)) : accounts;
-  }, [accounts, filter]);
+  const shown = accounts;
 
   function reset(account: EnrolledAccountRow, why: string) {
     const formData = new FormData();
@@ -62,7 +61,7 @@ export function MfaResetPanel({
         <CardTitle as="h2">Reset a lost authenticator</CardTitle>
         <CardDescription>
           For somebody who has lost or replaced the phone with their authenticator app. The reset removes their two-factor
-          sign-in, signs them out on every device, and tells them in the app and by email. They set up a new authenticator at their
+          sign-in, signs them out on every device (a device already open stops working within the hour), and tells them in the app and by email. They set up a new authenticator at their
           next sign-in. Confirm it is really them first (for example by a video call), and say how in the reason. Resetting an admin
           or the Chief Medical Officer needs your own two-factor sign-in. Your own account is reset from Profile &amp; settings.
         </CardDescription>
@@ -75,16 +74,22 @@ export function MfaResetPanel({
           <p role="status" className="rounded-md bg-green-50 px-4 py-2 text-sm text-green-700">{feedback.message}</p>
         ) : null}
 
+        {/* A plain GET form: the search runs in the database, so every account can be found, not just the first 200. */}
+        <form method="get" className="flex gap-2">
+          <Input name="q" aria-label="Search accounts by name" placeholder="Search by name" defaultValue={search} />
+          <Button type="submit" variant="outline">
+            Search
+          </Button>
+        </form>
         {accounts.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/60">Nobody has set up an authenticator yet, so there is nothing to reset.</p>
+          <p className="text-sm text-charcoal-ink/60">
+            {search ? "No account with an authenticator matches that name." : "Nobody has set up an authenticator yet, so there is nothing to reset."}
+          </p>
         ) : (
           <>
-            <Input
-              aria-label="Filter accounts by name"
-              placeholder="Filter by name"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
+            {accounts.length >= 200 ? (
+              <p className="text-xs text-charcoal-ink/60">Showing the first 200. Search by name to find someone else.</p>
+            ) : null}
             <ul className="divide-y divide-charcoal-ink/5">
               {shown.map((a) => (
                 <li key={a.profile_id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
@@ -113,7 +118,6 @@ export function MfaResetPanel({
                   )}
                 </li>
               ))}
-              {shown.length === 0 ? <li className="py-3 text-sm text-charcoal-ink/60">No account matches that name.</li> : null}
             </ul>
           </>
         )}
@@ -136,7 +140,7 @@ export function MfaResetPanel({
       <ConfirmDialog
         open={target !== null}
         title="Reset this person's two-factor sign-in?"
-        description="Their authenticator stops working, they are signed out everywhere, and they are told. This cannot be undone; they set up a new authenticator at their next sign-in."
+        description="Their authenticator stops working, they are signed out everywhere (within the hour on a device already open), and they are told. This cannot be undone; they set up a new authenticator at their next sign-in."
         confirmLabel="Reset two-factor sign-in"
         cancelLabel="Cancel"
         destructive

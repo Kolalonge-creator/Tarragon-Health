@@ -5,6 +5,7 @@ import {
   ANY_GROUP_CACHE_MS,
   aalFromAccessToken,
   bearerToken,
+  requestAccessToken,
   isMfaEnrolmentExemptPath,
   isMfaRequiredForCaller,
   mfaEnrolmentVerdict,
@@ -108,14 +109,30 @@ describe("isMfaRequiredForCaller", () => {
     expect(await isMfaRequiredForCaller(client, 1)).toBe(true);
   });
 
-  it("does not cache a failed 'is any group on' read, and still asks for the caller's own answer", async () => {
+  it("a failed 'is any group on' read with nothing known answers not required (a fault while every group is off)", async () => {
     const { client, calls } = fakeClient({
       mfa_any_group_required: { data: null, error: { code: "08006" } },
       my_mfa_requirement: { data: [{ required: true, has_verified_factor: false }], error: null },
     });
+    expect(await isMfaRequiredForCaller(client, 1)).toBe(false);
+    expect(calls).toEqual(["mfa_any_group_required"]);
+  });
+
+  it("a failed 'is any group on' read after 'a group is on' was seen still asks for the caller's own answer, uncached", async () => {
+    let fail = false;
+    const { client, calls } = fakeClient({
+      mfa_any_group_required: () => (fail ? { data: null, error: { code: "08006" } } : { data: true, error: null }),
+      my_mfa_requirement: { data: [{ required: true, has_verified_factor: false }], error: null },
+    });
     expect(await isMfaRequiredForCaller(client, 1)).toBe(true);
-    expect(await isMfaRequiredForCaller(client, 2)).toBe(true);
-    expect(calls).toEqual(["mfa_any_group_required", "my_mfa_requirement", "mfa_any_group_required", "my_mfa_requirement"]);
+    fail = true;
+    expect(await isMfaRequiredForCaller(client, 1 + ANY_GROUP_CACHE_MS)).toBe(true);
+    expect(await isMfaRequiredForCaller(client, 2 + ANY_GROUP_CACHE_MS)).toBe(true);
+    expect(calls).toEqual([
+      "mfa_any_group_required", "my_mfa_requirement",
+      "mfa_any_group_required", "my_mfa_requirement",
+      "mfa_any_group_required", "my_mfa_requirement",
+    ]);
   });
 
   it("treats an empty answer as not required (no signed-in user)", async () => {
@@ -165,5 +182,14 @@ describe("bearer token helpers", () => {
     expect(bearerToken(new Headers({ authorization: "Bearer abc.def.ghi" }))).toBe("abc.def.ghi");
     expect(bearerToken(new Headers({ authorization: "Basic xyz" }))).toBeNull();
     expect(bearerToken(new Headers())).toBeNull();
+  });
+});
+
+describe("requestAccessToken (the phone-app routes accept the header or ?token=)", () => {
+  it("prefers the Authorization header, then falls back to ?token=", () => {
+    expect(requestAccessToken(new Headers({ authorization: "Bearer h.h.h" }), new URLSearchParams("token=q.q.q"))).toBe("h.h.h");
+    expect(requestAccessToken(new Headers(), new URLSearchParams("token=q.q.q"))).toBe("q.q.q");
+    expect(requestAccessToken(new Headers(), new URLSearchParams("token="))).toBeNull();
+    expect(requestAccessToken(new Headers(), new URLSearchParams())).toBeNull();
   });
 });

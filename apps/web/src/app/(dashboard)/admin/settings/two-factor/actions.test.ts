@@ -24,16 +24,27 @@ describe("setTwoFactorRequirementAction", () => {
     rpc.mockResolvedValue({ data: 2, error: null });
     const r = await setTwoFactorRequirementAction(
       undefined,
-      form({ role: "clinician", doctorTier: "", required: "true", note: NOTE, confirmUnenrolled: "true" }),
+      form({ role: "clinician", doctorTier: "", required: "true", note: NOTE, seenUnenrolled: "3", seenUnenrolledCmo: "1", seenUnenrolledAdmin: "0" }),
     );
     expect(rpc).toHaveBeenCalledWith("set_mfa_group_requirement", {
       p_role: "clinician",
       p_doctor_tier: null,
       p_required: true,
       p_change_note: NOTE,
-      p_confirm_unenrolled: true,
+      p_seen_unenrolled: 3,
+      p_seen_unenrolled_cmo: 1,
+      p_seen_unenrolled_admin: 0,
     });
     expect(r?.message).toContain("now required");
+  });
+
+  it("refuses a malformed count before calling the database", async () => {
+    const r = await setTwoFactorRequirementAction(
+      undefined,
+      form({ role: "clinician", doctorTier: "", required: "true", note: NOTE, seenUnenrolled: "-1" }),
+    );
+    expect(rpc).not.toHaveBeenCalled();
+    expect(r?.error).toBeTruthy();
   });
 
   it("passes a doctor tier through", async () => {
@@ -45,7 +56,7 @@ describe("setTwoFactorRequirementAction", () => {
     expect(rpc).toHaveBeenCalledWith("set_mfa_group_requirement", expect.objectContaining({
       p_doctor_tier: "chief_medical_officer",
       p_required: false,
-      p_confirm_unenrolled: false,
+      p_seen_unenrolled: null,
     }));
   });
 

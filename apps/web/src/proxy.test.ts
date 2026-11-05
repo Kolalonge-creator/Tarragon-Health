@@ -526,9 +526,20 @@ describe("2FA required per group, phone app (/api/mobile/*, bearer token)", () =
     expect((await proxy(mobile("/api/mobile/emergency-card", "aal1"))).status).not.toBe(403);
   });
 
-  it("does refuse READING history back from a safety route", async () => {
+  it("never refuses the safety flows' own reads either (the symptom checker's open state, check-backs due)", async () => {
     answers(true, { data: [{ required: true, has_verified_factor: false }], error: null });
-    expect((await proxy(mobile("/api/mobile/vitals", "aal1", "GET"))).status).toBe(403);
+    expect((await proxy(mobile("/api/mobile/symptom-check", "aal1", "GET"))).status).not.toBe(403);
+    expect((await proxy(mobile("/api/mobile/symptom-checkback", "aal1", "GET"))).status).not.toBe(403);
+  });
+
+  it("finds an AAL1 token in ?token= too, the way the PDF routes do", async () => {
+    answers(true, { data: [{ required: true, has_verified_factor: false }], error: null });
+    const res = await proxy(
+      new NextRequest(new URL(`/api/mobile/prescriptions/pdf?token=${tokenWith("aal1")}`, "https://app.tarragonhealth.ng"), {
+        headers: { host: "app.tarragonhealth.ng" },
+      }),
+    );
+    expect(res.status).toBe(403);
   });
 
   it("passes a failed lookup through, so an expired token still gets the route's 401", async () => {

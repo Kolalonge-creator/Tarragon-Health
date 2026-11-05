@@ -125,23 +125,28 @@ select pg_temp.rec('1 shipped', 'anon cannot read my_mfa_requirement', 'ERR:4250
 -- 2. The switch.
 -- ---------------------------------------------------------------------------
 select pg_temp.rec('2 switch', 'doctor refused', 'ERR:42501', pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal2',
-  $q$select public.set_mfa_group_requirement('clinician', null, true, 'A doctor trying to switch this on', true)$q$));
+  $q$select public.set_mfa_group_requirement('clinician', null, true, 'A doctor trying to switch this on', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null))$q$));
 select pg_temp.rec('2 switch', 'patient refused', 'ERR:42501', pg_temp.as_val(pg_temp.f('pat'), 'authenticated', 'aal1',
-  $q$select public.set_mfa_group_requirement('patient', null, true, 'A patient trying to switch this on', true)$q$));
+  $q$select public.set_mfa_group_requirement('patient', null, true, 'A patient trying to switch this on', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'patient' and g.doctor_tier is null), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'patient' and g.doctor_tier is null), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'patient' and g.doctor_tier is null))$q$));
 select pg_temp.rec('2 switch', 'anon refused', 'ERR:42501', pg_temp.as_val(null, 'anon', null,
-  $q$select public.set_mfa_group_requirement('patient', null, true, 'Anon trying to switch this one on', true)$q$));
+  $q$select public.set_mfa_group_requirement('patient', null, true, 'Anon trying to switch this one on', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'patient' and g.doctor_tier is null), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'patient' and g.doctor_tier is null), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'patient' and g.doctor_tier is null))$q$));
 select pg_temp.rec('2 switch', 'short note refused', 'ERR:22023', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal2',
-  $q$select public.set_mfa_group_requirement('clinician', null, true, 'too short', true)$q$));
+  $q$select public.set_mfa_group_requirement('clinician', null, true, 'too short', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null))$q$));
 select pg_temp.rec('2 switch', 'unenrolled members need confirmation', 'ERR:P0001', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal1',
-  $q$select public.set_mfa_group_requirement('clinician', null, true, 'Doctors must use 2FA from today on', false)$q$));
+  $q$select public.set_mfa_group_requirement('clinician', null, true, 'Doctors must use 2FA from today on')$q$));
+select pg_temp.rec('2 switch', 'stale counts refused (one fewer unenrolled than live)', 'ERR:P0001', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal1',
+  $q$select public.set_mfa_group_requirement('clinician', null, true, 'Doctors must use 2FA from today on',
+     (select (g.member_count - g.enrolled_count - 1)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null),
+     (select g.unenrolled_cmo_count::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null),
+     (select g.unenrolled_admin_count::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null))$q$));
 select pg_temp.rec('2 switch', 'confirmed: version 2', '2', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal1',
-  $q$select public.set_mfa_group_requirement('clinician', null, true, 'Doctors must use 2FA from today on', true)$q$));
+  $q$select public.set_mfa_group_requirement('clinician', null, true, 'Doctors must use 2FA from today on', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null))$q$));
 select pg_temp.rec('2 switch', 'one history row with note and author', '1',
   (select count(*)::text from public.mfa_group_requirement_changes
     where role = 'clinician' and doctor_tier is null and required and version = 2 and changed_by = pg_temp.f('admin')
       and change_note = 'Doctors must use 2FA from today on'));
 select pg_temp.rec('2 switch', 'same value again is a no-op (still version 2)', '2', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal1',
-  $q$select public.set_mfa_group_requirement('clinician', null, true, 'Doctors must use 2FA from today on', true)$q$));
+  $q$select public.set_mfa_group_requirement('clinician', null, true, 'Doctors must use 2FA from today on', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier is null))$q$));
 select pg_temp.rec('2 switch', 'admin cannot UPDATE the table directly', 'ERR:42501', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal2',
   $q$update public.mfa_group_requirements set required = false where role = 'clinician' returning 1$q$));
 
@@ -174,7 +179,7 @@ select pg_temp.rec('3 enforce', 'my_mfa_requirement: coordinator not required', 
 select pg_temp.rec('3 enforce', 'AAL1 admin (not in group) still is_admin', 'true',
   pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1', 'select private.is_admin()'));
 select pg_temp.rec('3 enforce', 'turning OFF needs no confirmation', '3', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal1',
-  $q$select public.set_mfa_group_requirement('clinician', null, false, 'Rolled back, too many doctors without phones', false)$q$));
+  $q$select public.set_mfa_group_requirement('clinician', null, false, 'Rolled back, too many doctors without phones')$q$));
 select pg_temp.rec('3 enforce', 'off again: AAL1 doctor reads the row', '1',
   pg_temp.as_val(pg_temp.f('smo'), 'authenticated', 'aal1', format('select count(*) from public.clinical_incident_reports where id = %L', pg_temp.f('inc'))));
 
@@ -182,7 +187,7 @@ select pg_temp.rec('3 enforce', 'off again: AAL1 doctor reads the row', '1',
 -- 4. Tier group.
 -- ---------------------------------------------------------------------------
 select pg_temp.rec('4 tier', 'CMO tier on', '2', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal1',
-  $q$select public.set_mfa_group_requirement('clinician', 'chief_medical_officer', true, 'The CMO account must use 2FA now', true)$q$));
+  $q$select public.set_mfa_group_requirement('clinician', 'chief_medical_officer', true, 'The CMO account must use 2FA now', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier = 'chief_medical_officer'), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier = 'chief_medical_officer'), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'clinician' and g.doctor_tier = 'chief_medical_officer'))$q$));
 select pg_temp.rec('4 tier', 'AAL1 CMO held', 'false',
   pg_temp.as_val(pg_temp.f('cmo'), 'authenticated', 'aal1', format('select private.is_org_staff(%L)', pg_temp.f('org'))));
 select pg_temp.rec('4 tier', 'AAL1 senior medical officer not held', 'true',
@@ -192,9 +197,9 @@ select pg_temp.rec('4 tier', 'AAL1 senior medical officer not held', 'true',
 -- 5. Lock-out guards.
 -- ---------------------------------------------------------------------------
 select pg_temp.rec('5 lockout', 'AAL1 admin cannot switch on the admin group', 'ERR:42501', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal1',
-  $q$select public.set_mfa_group_requirement('admin', null, true, 'Admins must use 2FA from today on', true)$q$));
+  $q$select public.set_mfa_group_requirement('admin', null, true, 'Admins must use 2FA from today on', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null))$q$));
 select pg_temp.rec('5 lockout', 'AAL2 admin can', '2', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal2',
-  $q$select public.set_mfa_group_requirement('admin', null, true, 'Admins must use 2FA from today on', true)$q$));
+  $q$select public.set_mfa_group_requirement('admin', null, true, 'Admins must use 2FA from today on', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null))$q$));
 select pg_temp.rec('5 lockout', 'AAL1 admin no longer is_admin', 'false',
   pg_temp.as_val(pg_temp.f('admin2'), 'authenticated', 'aal1', 'select private.is_admin()'));
 select pg_temp.rec('5 lockout', 'AAL1 admin has no delegated capability either', 'false',
@@ -282,24 +287,24 @@ update public.mfa_group_requirements set required = false;
 
 -- (b) and (c): patched copies of the switch, from its live body.
 do $$
-declare v_def text := pg_get_functiondef('public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, boolean)'::regprocedure);
+declare v_def text := pg_get_functiondef('public.set_mfa_group_requirement(public.user_role, public.doctor_tier, boolean, text, integer, integer, integer)'::regprocedure);
 declare v_b text; v_c text;
 begin
   v_b := replace(v_def, 'if v_caller_in_group and coalesce', 'if false and v_caller_in_group and coalesce');
-  v_c := replace(v_def, 'if v_unenrolled > 0 and not coalesce', 'if false and v_unenrolled > 0 and not coalesce');
+  v_c := replace(v_def, 'if v_unenrolled > 0' || chr(10), 'if false and v_unenrolled > 0' || chr(10));
   if v_b = v_def or v_c = v_def then raise exception 'sabotage patch did not apply'; end if;
   execute v_b;
   perform pg_temp.rec('7 sabotage', '(b) caught: AAL1 admin switches on the admin group', 'true', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal1',
-    $q$select (public.set_mfa_group_requirement('admin', null, true, 'Admins must use 2FA from today on', true) > 1)::text$q$));
+    $q$select (public.set_mfa_group_requirement('admin', null, true, 'Admins must use 2FA from today on', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null)) > 1)::text$q$));
   update public.mfa_group_requirements set required = false;
   execute v_c;
   perform pg_temp.rec('7 sabotage', '(c) caught: switched on without confirmation', 'true', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal1',
-    $q$select (public.set_mfa_group_requirement('care_coordinator', null, true, 'Coordinators must use 2FA from today', false) > 1)::text$q$));
+    $q$select (public.set_mfa_group_requirement('care_coordinator', null, true, 'Coordinators must use 2FA from today') > 1)::text$q$));
   update public.mfa_group_requirements set required = false;
   execute v_def;
 end $$;
 select pg_temp.rec('7 sabotage', '(b)/(c) restored: refused again', 'ERR:42501', pg_temp.as_val(pg_temp.f('admin'), 'authenticated', 'aal1',
-  $q$select public.set_mfa_group_requirement('admin', null, true, 'Admins must use 2FA from today on', true)$q$));
+  $q$select public.set_mfa_group_requirement('admin', null, true, 'Admins must use 2FA from today on', (select (g.member_count - g.enrolled_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null), (select (g.unenrolled_cmo_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null), (select (g.unenrolled_admin_count)::int from public.admin_mfa_group_requirements() g where g.role = 'admin' and g.doctor_tier is null))$q$));
 
 -- (d) tier ignored.
 update public.mfa_group_requirements set required = true where role = 'clinician' and doctor_tier = 'chief_medical_officer';

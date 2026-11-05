@@ -52716,7 +52716,9 @@ export type Database = {
           p_doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
           p_required: boolean
           p_change_note: string
-          p_confirm_unenrolled?: boolean
+          p_seen_unenrolled?: number | null
+          p_seen_unenrolled_cmo?: number | null
+          p_seen_unenrolled_admin?: number | null
         }
         Returns: number
       }

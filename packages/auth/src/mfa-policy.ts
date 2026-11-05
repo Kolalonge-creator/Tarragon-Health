@@ -59,6 +59,8 @@ export function mfaEnrolmentVerdict(input: {
 /** How long a proxy instance trusts its answer to "is any group on at all". The per-account answer is never cached. */
 export const ANY_GROUP_CACHE_MS = 30_000;
 
+// `at` is when the value was read. The value is kept after the window as the last known answer: a failed read is only
+// treated as "a group may be on" when the last answer this instance saw was that one is.
 let anyGroupCache: { value: boolean; at: number } | null = null;
 
 /** Test hook. */
@@ -76,6 +78,26 @@ export function isMissingFunction(error: { code?: string } | null | undefined): 
 /** What the proxy does when the caller's own answer cannot be read. */
 export type MfaLookupFailure = "required" | "not_required";
 
+type MyRequirement = { required: boolean; hasVerifiedFactor: boolean };
+
+/** The caller's own row from public.my_mfa_requirement: the answer, null when unreadable, or not-required when not deployed. */
+async function readMyRow(supabase: Client): Promise<MyRequirement | null> {
+  const { data, error } = await supabase.rpc("my_mfa_requirement");
+  if (error) return isMissingFunction(error) ? { required: false, hasVerifiedFactor: false } : null;
+  const row = Array.isArray(data) ? data[0] : data;
+  // No row means no signed-in user, which every caller handles before asking.
+  return { required: row?.required === true, hasVerifiedFactor: row?.has_verified_factor === true };
+}
+
+/**
+ * The caller's own answer for a server page or action: `required` true, false, or null when it could not be read. The
+ * functions not existing yet (code deployed before the migration) reads as not required.
+ */
+export async function readMyMfaRequirement(supabase: Client): Promise<boolean | null> {
+  const row = await readMyRow(supabase);
+  return row === null ? null : row.required;
+}
+
 /**
  * Whether the signed-in caller must still SET UP 2FA, read from the database: its group is required AND the database shows no
  * verified factor. An account the database shows WITH a factor is never sent to set-up, even when its session cookie has not
@@ -89,46 +111,72 @@ export type MfaLookupFailure = "required" | "not_required";
  *
  * Failure handling:
  *  - the functions do not exist yet (code deployed before the migration): not required, exactly today's behaviour;
- *  - "is any group on" fails for another reason: not cached, fall through to the caller's own answer;
- *  - the caller's own answer fails: REQUIRED (fail closed). The person lands on Profile & settings, which reads the true state.
- *    The database layer (is_org_staff / is_admin) holds independently of this.
+ *  - "is any group on" fails: not required, unless the last answer this instance saw was "a group is on", in which case the
+ *    caller's own answer is asked (a brief fault while every group is off never sends everybody to set-up);
+ *  - the caller's own answer fails: `onFailure`, REQUIRED by default (fail closed): the person lands on Profile & settings,
+ *    which reads the true state. The mobile API passes "not_required": there a failed lookup is most often an expired token,
+ *    which the route itself must answer with a 401 so the app refreshes.
+ *    The database layer (is_org_staff / is_admin / has_permission) holds independently of this.
  */
-/**
- * The caller's own answer for a server page or action: `required` true, false, or null when it could not be read. The
- * functions not existing yet (code deployed before the migration) reads as not required.
- */
-export async function readMyMfaRequirement(supabase: Client): Promise<boolean | null> {
-  const { data, error } = await supabase.rpc("my_mfa_requirement");
-  if (error) return isMissingFunction(error) ? false : null;
-  const row = Array.isArray(data) ? data[0] : data;
-  return row?.required === true;
-}
-
 export async function isMfaRequiredForCaller(
   supabase: Client,
   now: number = Date.now(),
   onFailure: MfaLookupFailure = "required",
 ): Promise<boolean> {
   if ((await anyMfaGroupRequired(supabase, now)) === false) return false;
-
-  const mine = await supabase.rpc("my_mfa_requirement");
-  if (mine.error) return isMissingFunction(mine.error) ? false : onFailure === "required";
-  const row = Array.isArray(mine.data) ? mine.data[0] : mine.data;
-  // No row means no signed-in user, which the proxies handle before calling this.
-  return row?.required === true && row.has_verified_factor !== true;
+  const row = await readMyRow(supabase);
+  if (row === null) return onFailure === "required";
+  return row.required && !row.hasVerifiedFactor;
 }
 
 /**
- * Is any group on at all: true, false, or null when it could not be read (not cached). Cached per instance for
- * ANY_GROUP_CACHE_MS; the value is platform-wide, never per account. Missing functions (code deployed before the migration)
- * read as false.
+ * Is any group on at all: true or false. Cached per instance for ANY_GROUP_CACHE_MS; the value is platform-wide, never per
+ * account. Missing functions (code deployed before the migration) read as false. A failed read is not cached and answers the
+ * last known value, or false if this instance never read one.
  */
-export async function anyMfaGroupRequired(supabase: Client, now: number = Date.now()): Promise<boolean | null> {
+export async function anyMfaGroupRequired(supabase: Client, now: number = Date.now()): Promise<boolean> {
   if (anyGroupCache && now - anyGroupCache.at < ANY_GROUP_CACHE_MS) return anyGroupCache.value;
   const anyOn = await supabase.rpc("mfa_any_group_required");
-  if (anyOn.error) return isMissingFunction(anyOn.error) ? false : null;
+  if (anyOn.error) return isMissingFunction(anyOn.error) ? false : (anyGroupCache?.value ?? false);
   anyGroupCache = { value: anyOn.data === true, at: now };
   return anyGroupCache.value;
+}
+
+/**
+ * Where a just-signed-in session must go first. A Server Action's redirect() makes Next render the destination INSIDE the same
+ * response, without a new request through the proxy, so neither proxy gate sees the first page after a sign-in. Each app's
+ * login action calls this before redirecting:
+ *  - a verified factor and an AAL1 session: `challengePath?redirect=<destination>`;
+ *  - a required group and no factor: `setupPath`, with the destination kept;
+ *  - otherwise the destination. If the level cannot be read the destination is kept (the proxy gates the next request).
+ */
+export async function loginGateTarget(
+  supabase: Client,
+  destination: string,
+  paths: { challengePath: string; setupPath: (destination: string) => string },
+): Promise<string> {
+  try {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+      return `${paths.challengePath}?redirect=${encodeURIComponent(destination)}`;
+    }
+    const pathname = destination.split(/[?#]/)[0] ?? destination;
+    const required = await isMfaRequiredForCaller(supabase);
+    if (mfaEnrolmentVerdict({ pathname, required, nextLevel: aal?.nextLevel }) === "setup") {
+      return paths.setupPath(destination);
+    }
+  } catch {
+    // Unreadable: keep the destination; the proxy gates the next request.
+  }
+  return destination;
+}
+
+/**
+ * The access token of a phone-app request, found the way the /api/mobile routes find it: the Authorization header, then a
+ * `?token=` query parameter (used by the PDF and image routes the app opens in a browser view).
+ */
+export function requestAccessToken(headers: Headers, searchParams: URLSearchParams): string | null {
+  return bearerToken(headers) ?? (searchParams.get("token") || null);
 }
 
 /** The bearer token of a request, or null. */
