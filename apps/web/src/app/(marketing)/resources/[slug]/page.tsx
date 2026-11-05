@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Section } from "../../_components/section";
 import { CtaBand } from "../../_components/cta-band";
-import { RESOURCE_ARTICLES, RESOURCE_DISCLAIMER } from "../../_content/resources";
+import { DEFAULT_ARTICLE_AUTHOR, RESOURCE_ARTICLES, RESOURCE_DISCLAIMER } from "../../_content/resources";
 import { loadResourceArticle, loadResourceArticles } from "@/lib/marketing/resources-data";
 import { absoluteUrl, SITE, SITE_URL } from "@/lib/marketing/site";
 import { resourceFaqJsonLd } from "@/lib/marketing/resource-faq";
@@ -73,6 +73,10 @@ export default async function ResourceArticlePage({
 
   const isReviewed = Boolean(article.reviewedByName && article.reviewedAt);
   const url = absoluteUrl(`/resources/${article.slug}`);
+  const author = article.authorName?.trim() || DEFAULT_ARTICLE_AUTHOR;
+  const references = article.references ?? [];
+  const date = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-NG", { year: "numeric", month: "long", day: "numeric", timeZone: "Africa/Lagos" });
 
   // MedicalWebPage carries the E-E-A-T signals search engines look for on
   // health content (reviewedBy/lastReviewed); only emitted when a real
@@ -88,7 +92,12 @@ export default async function ResourceArticlePage({
     inLanguage: "en",
     ...(article.publishedAt ? { datePublished: article.publishedAt } : {}),
     ...(article.updatedAt ? { dateModified: article.updatedAt } : {}),
-    author: { "@type": "Organization", name: SITE.name, url: SITE_URL },
+    author: article.authorName?.trim()
+      ? { "@type": "Person", name: article.authorName.trim() }
+      : { "@type": "Organization", name: SITE.name, url: SITE_URL },
+    ...(references.length > 0
+      ? { citation: references.map((r) => ({ "@type": "CreativeWork", name: r.label, url: r.url })) }
+      : {}),
     publisher: {
       "@type": "Organization",
       name: SITE.name,
@@ -112,13 +121,13 @@ export default async function ResourceArticlePage({
         type="application/ld+json"
         // Server-rendered from admin-authored copy + our own fixed fields;
         // no user input reaches this string, safe to inline.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       {faqLd ? (
         <script
           type="application/ld+json"
           // Same provenance as jsonLd above: built from the article's own published sections.
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd).replace(/</g, "\\u003c") }}
         />
       ) : null}
       <Section className="pt-20">
@@ -141,13 +150,44 @@ export default async function ResourceArticlePage({
             {article.title}
           </h1>
           <p className="mt-4 text-lg text-charcoal-ink/70">{article.description}</p>
-          <p className="mt-4 text-xs text-charcoal-ink/65">
-            {isReviewed
-              ? `Medically reviewed by ${article.reviewedByName} on ${new Date(
-                  article.reviewedAt as string
-                ).toLocaleDateString("en-NG", { year: "numeric", month: "long", day: "numeric" })}`
-              : "By the TarragonHealth editorial team"}
-          </p>
+          {/* Provenance (website Phase 4): every line is shown only when the
+              record behind it exists; the reviewer line is null-gated on a
+              recorded review, never typed (CLAUDE.md reviewed_by rule). */}
+          <dl className="mt-5 grid gap-x-6 gap-y-1 border-y border-mk-border py-4 text-sm text-mk-muted sm:grid-cols-2" data-testid="article-provenance">
+            <div className="flex gap-1">
+              <dt>Written by</dt>
+              <dd className="font-medium text-charcoal-ink">{author}</dd>
+            </div>
+            {isReviewed ? (
+              <div className="flex gap-1">
+                <dt>Medically reviewed by</dt>
+                <dd className="font-medium text-charcoal-ink">{article.reviewedByName}</dd>
+              </div>
+            ) : null}
+            {article.publishedAt ? (
+              <div className="flex gap-1">
+                <dt>Published</dt>
+                <dd>{date(article.publishedAt)}</dd>
+              </div>
+            ) : null}
+            {isReviewed ? (
+              <div className="flex gap-1">
+                <dt>Last reviewed</dt>
+                <dd>{date(article.reviewedAt as string)}</dd>
+              </div>
+            ) : article.updatedAt ? (
+              <div className="flex gap-1">
+                <dt>Last updated</dt>
+                <dd>{date(article.updatedAt)}</dd>
+              </div>
+            ) : null}
+            {isReviewed && article.nextReviewAt ? (
+              <div className="flex gap-1">
+                <dt>Next review due</dt>
+                <dd>{date(article.nextReviewAt)}</dd>
+              </div>
+            ) : null}
+          </dl>
           <div className="mt-10 space-y-8">
             {article.sections.map((section, index) => (
               <section key={section.heading}>
@@ -170,7 +210,23 @@ export default async function ResourceArticlePage({
               </section>
             ))}
           </div>
-          <p className="mt-10 rounded-xl border border-charcoal-ink/10 bg-soft-sage/50 p-4 text-sm text-charcoal-ink/70">
+          {references.length > 0 ? (
+            <section className="mt-10" aria-labelledby="article-references">
+              <h2 id="article-references" className="font-heading text-lg font-semibold text-charcoal-ink">
+                References
+              </h2>
+              <ol className="mt-3 list-decimal space-y-2 pl-6 text-sm text-charcoal-ink/80">
+                {references.map((r) => (
+                  <li key={r.url}>
+                    <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-brand-green underline underline-offset-2">
+                      {r.label}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
+          <p className="mt-10 rounded-xl border border-charcoal-ink/10 bg-soft-sage/50 p-4 text-sm text-charcoal-ink/80">
             {RESOURCE_DISCLAIMER}
           </p>
           <div className="mt-6 flex justify-center">

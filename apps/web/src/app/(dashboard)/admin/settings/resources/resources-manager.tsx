@@ -8,6 +8,9 @@ import {
   useDeleteMarketingResource,
   parseSectionsFromText,
   sectionsToText,
+  parseReferenceLines,
+  referencesToLines,
+  resourceSaveErrorMessage,
   type MarketingResource,
 } from "@/lib/queries/marketing-resources";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +35,19 @@ type Draft = {
   sortOrder: string;
   reviewedByName: string;
   reviewedAt: string;
+  authorName: string;
+  references: string;
+  /** yyyy-mm-dd, blank for the default (a year after the review). */
+  nextReviewAt: string;
+  /** Local date-time for a scheduled publish, blank to publish straight away. */
+  publishAt: string;
 };
+
+/** An ISO time as the value a datetime-local input expects, in Lagos time. */
+function toLocalInput(iso: string): string {
+  const d = new Date(new Date(iso).getTime() + 60 * 60 * 1000); // Africa/Lagos is UTC+1 all year
+  return d.toISOString().slice(0, 16);
+}
 
 const EMPTY_DRAFT: Draft = {
   slug: "",
@@ -46,6 +61,10 @@ const EMPTY_DRAFT: Draft = {
   sortOrder: "100",
   reviewedByName: "",
   reviewedAt: "",
+  authorName: "",
+  references: "",
+  nextReviewAt: "",
+  publishAt: "",
 };
 
 function Editor({
@@ -96,6 +115,11 @@ function Editor({
         // the byline, so both travel together — checking the box stamps
         // "now"; clearing the name clears the date too.
         reviewedAt: draft.reviewedByName.trim() ? draft.reviewedAt || new Date().toISOString() : null,
+        authorName: draft.authorName.trim() || null,
+        references: parseReferenceLines(draft.references),
+        nextReviewAt: draft.nextReviewAt ? new Date(`${draft.nextReviewAt}T00:00:00+01:00`).toISOString() : null,
+        // The editor types Lagos time; read it as Lagos time whatever timezone the admin's browser is in.
+        publishAt: draft.publishAt ? new Date(`${draft.publishAt}:00+01:00`).toISOString() : null,
       },
       { onSuccess: onClose }
     );
@@ -176,6 +200,46 @@ function Editor({
             value={draft.reviewedByName}
             onChange={(e) => setDraft({ ...draft, reviewedByName: e.target.value })}
             placeholder="e.g. Dr Jane Okafor, General Practice"
+          />
+          <p className="text-xs text-charcoal-ink/60">
+            An article cannot be published until this is filled in. Drafts can be saved without it.
+          </p>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="res-author">Written by (blank shows &ldquo;Tarragon Health editorial team&rdquo;)</Label>
+          <Input
+            id="res-author"
+            value={draft.authorName}
+            onChange={(e) => setDraft({ ...draft, authorName: e.target.value })}
+            placeholder="e.g. Dr Ada Nwosu"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="res-next-review">Next review due (blank: a year after the review)</Label>
+          <Input
+            id="res-next-review"
+            type="date"
+            value={draft.nextReviewAt}
+            onChange={(e) => setDraft({ ...draft, nextReviewAt: e.target.value })}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="res-publish-at">Publish at (blank: as soon as you publish)</Label>
+          <Input
+            id="res-publish-at"
+            type="datetime-local"
+            value={draft.publishAt}
+            onChange={(e) => setDraft({ ...draft, publishAt: e.target.value })}
+          />
+        </div>
+        <div className="space-y-1 sm:col-span-2">
+          <Label htmlFor="res-references">References, one per line as &ldquo;Label | https://link&rdquo; (NICE and Nigerian guidelines first)</Label>
+          <Textarea
+            id="res-references"
+            rows={4}
+            value={draft.references}
+            onChange={(e) => setDraft({ ...draft, references: e.target.value })}
+            placeholder="NICE NG136 Hypertension in adults | https://www.nice.org.uk/guidance/ng136"
           />
         </div>
       </div>
@@ -269,7 +333,7 @@ function Editor({
       {error && <p className="text-sm text-red-600">{error}</p>}
       {upsert.isError && (
         <p className="text-sm text-red-600">
-          {(upsert.error as Error).message || "Could not save."}
+          {resourceSaveErrorMessage(upsert.error)}
         </p>
       )}
       <div className="flex gap-2">
@@ -313,6 +377,10 @@ export function ResourcesManager() {
       sortOrder: String(r.sort_order),
       reviewedByName: r.reviewed_by_name ?? "",
       reviewedAt: r.reviewed_at ?? "",
+      authorName: r.author_name ?? "",
+      references: referencesToLines(r.source_references),
+      nextReviewAt: r.next_review_at ? r.next_review_at.slice(0, 10) : "",
+      publishAt: r.publish_at ? toLocalInput(r.publish_at) : "",
     });
 
   return (
@@ -335,6 +403,11 @@ export function ResourcesManager() {
         )}
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load the library.</p>}
+        {setPublished.isError && (
+          <p role="alert" className="text-sm text-red-600">
+            {resourceSaveErrorMessage(setPublished.error)}
+          </p>
+        )}
         {!isLoading && !isError && (
           <SearchableList
             items={resources ?? []}
@@ -360,7 +433,8 @@ export function ResourcesManager() {
                   <Badge variant={r.is_published ? "green" : "grey"}>
                     {r.is_published ? "Published" : "Draft"}
                   </Badge>
-                  {r.reviewed_by_name && <Badge variant="green">Reviewed</Badge>}
+                  {r.reviewed_by_name ? <Badge variant="green">Reviewed</Badge> : <Badge variant="amber">No review</Badge>}
+                  {r.publish_at && new Date(r.publish_at) > new Date() ? <Badge variant="blue">Scheduled</Badge> : null}
                   <Button size="sm" variant="outline" onClick={() => startEdit(r)}>
                     Edit
                   </Button>
