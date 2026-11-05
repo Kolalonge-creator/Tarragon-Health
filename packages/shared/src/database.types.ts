@@ -59303,6 +59303,7 @@ export type Database = {
           version: number
           self_reported_supplies: number
           last_self_report_on: string
+          last_self_report_pharmacy: string
           self_report_awaiting_pharmacy: boolean
         }[]
       }
@@ -59353,6 +59354,7 @@ export type Database = {
           p_pharmacy_name: string
           p_pharmacist_name: string
           p_pharmacist_registration: string
+          p_supplied_reported_collection?: boolean
         }
         Returns: {
           outcome: string
@@ -59383,6 +59385,10 @@ export type Database = {
           supplies_permitted: number
           supply_available: boolean
           version: number
+          self_reported_supplies: number
+          last_self_report_on: string
+          last_self_report_pharmacy: string
+          self_report_awaiting_pharmacy: boolean
         }[]
       }
       dispute_prescription_supply: {
@@ -59396,6 +59402,7 @@ export type Database = {
           p_pharmacist_name: string
           p_pharmacist_registration?: string
           p_quantity_supplied?: string
+          p_supplied_reported_collection?: boolean
         }
         Returns: {
           outcome: string

@@ -26,7 +26,7 @@ import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-e
  *
  * T2-11c (2026-11-05): for a signed prescription the same button records a PATIENT-REPORTED SUPPLY through
  * public.confirm_prescription_collected instead. It counts against the prescription, so the QR check shows it used and a second pharmacy
- * cannot fill it, and it is labelled as reported by the patient everywhere. The patient can undo it for 24 hours (prescription-download).
+ * cannot fill it, and it is labelled as reported by the patient everywhere. The patient can undo it for a short window (prescription-download).
  */
 export function isSignedPrescription(medication: Pick<Medication, "source" | "rx_number" | "superseded_at" | "is_active">): boolean {
   return medication.source === "clinician" && !!medication.rx_number && !medication.superseded_at && medication.is_active;

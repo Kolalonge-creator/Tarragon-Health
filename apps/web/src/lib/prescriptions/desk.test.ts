@@ -52,3 +52,15 @@ describe("OQ-276 controlled medicine on the phone desk", () => {
     expect(deskVerdict(controlled)).toMatch(/do not dispense/i);
   });
 });
+
+describe("T2-11c patient-reported collection at the desk", () => {
+  const active = { status: "active" as const, name_checked: true, name_matches: true };
+  it("lets the desk record only for the pharmacy that supplied a reported collection", () => {
+    expect(canRecordFromDesk({ ...active, supply_available: false, self_report_awaiting_pharmacy: true })).toBe(true);
+    expect(canRecordFromDesk({ ...active, supply_available: false, self_report_awaiting_pharmacy: false })).toBe(false);
+    expect(canRecordFromDesk({ ...active, supply_available: false })).toBe(false);
+    expect(deskVerdict({ ...active, supply_available: false, self_report_awaiting_pharmacy: true })).toMatch(
+      /^Do not dispense: the patient reported collecting this supply\. Record it only if this pharmacy is the one that supplied it\./,
+    );
+  });
+});

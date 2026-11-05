@@ -16,7 +16,7 @@ import {
   stripDoctorTitle,
   type PublicPrescriptionProof,
 } from "@/lib/prescriptions/public-verification";
-import { describePatientReportForPharmacist } from "@/lib/prescriptions/patient-supply";
+import { describePatientReportForPharmacist, suppliedReportedCollectionLabel } from "@/lib/prescriptions/patient-supply";
 
 /**
  * "Is this prescription real and still valid?", asked by a pharmacist holding a printed or on-screen
@@ -157,6 +157,13 @@ export default async function VerifyPrescriptionPage({
                           Pharmacist registration number
                           <input name="pharmacistRegistration" required minLength={3} maxLength={40} className="mt-1 w-full rounded border border-gray-300 p-2" />
                         </label>
+                        {p.self_report_awaiting_pharmacy === true && (
+                          // required when the patient report is the only supply in the way; optional when a supply (a repeat) is free anyway
+                          <label className="flex items-start gap-2 rounded-md border border-amber-600 bg-amber-50 p-2 text-sm">
+                            <input type="checkbox" name="suppliedReportedCollection" required={!p.supply_available} className="mt-1" />
+                            <span>{suppliedReportedCollectionLabel(p)}</span>
+                          </label>
+                        )}
                         <label className="flex items-start gap-2 text-sm">
                           <input type="checkbox" name="confirmed" required className="mt-1" />
                           <span>I am a pharmacist or work for a pharmacy, and I am supplying this prescription now.</span>

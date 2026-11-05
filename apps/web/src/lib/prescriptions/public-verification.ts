@@ -31,6 +31,8 @@ export interface PublicPrescriptionProof {
   /** T2-11c: supplies the patient reported themselves (no pharmacy recorded them). Optional so an older response still parses. */
   self_reported_supplies?: number;
   last_self_report_on?: string | null;
+  /** The pharmacy name and town the patient typed for that report, if any. */
+  last_self_report_pharmacy?: string | null;
   /** A patient report from the last 7 days that a pharmacy recording now would confirm rather than add to. */
   self_report_awaiting_pharmacy?: boolean;
 }
@@ -120,7 +122,7 @@ export function describeSupply(
 ): string {
   if (proof.supply_available) return "A supply is available on this prescription.";
   if (proof.self_report_awaiting_pharmacy) {
-    return "No further supply is available. Record a supply below only if your pharmacy is the one that supplied the collection the patient reported.";
+    return "No further supply is available. Record a supply below only if your pharmacy is the one that supplied the collection the patient reported. If it was not you, do not dispense.";
   }
   if (proof.repeats_remaining > 0) {
     return "No supply is available now. The patient can request their next supply in the TarragonHealth app, and a doctor has to approve it.";

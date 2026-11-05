@@ -8,6 +8,8 @@ import {
   describePatientReportForPharmacist,
   isConfirmOutcome,
   isUndoOutcome,
+  suppliedReportedCollectionLabel,
+  UNDO_WINDOW_HOURS,
   type SupplyRecordLike,
 } from "./patient-supply";
 import { describeSupply } from "./public-verification";
@@ -53,6 +55,11 @@ describe("T2-11c patient-reported supply", () => {
     expect(countsAsSupply({ ...confirmation(), source: "pharmacy", recorded_via: "public_verification", disputed_at: "x" })).toBe(false);
   });
 
+  it("reads the undo window from the proposed-config registry (24 hours, as seeded)", () => {
+    expect(UNDO_WINDOW_HOURS).toBe(24);
+    expect(CONFIRM_OUTCOME_MESSAGE.recorded.text).toMatch(/undo this for 24 hours/);
+  });
+
   it("offers undo only within 24 hours and only while unmatched", () => {
     expect(canUndoConfirmation(confirmation(), NOW)).toBe(true);
     expect(canUndoConfirmation(confirmation({ created_at: "2026-11-04T11:59:00Z" }), NOW)).toBe(false);
@@ -62,9 +69,18 @@ describe("T2-11c patient-reported supply", () => {
   });
 
   it("tells a pharmacist it was collected, as reported by the patient, with no identity", () => {
-    const text = describePatientReportForPharmacist({ self_reported_supplies: 1, last_self_report_on: "2026-11-05", self_report_awaiting_pharmacy: true });
-    expect(text).toMatch(/^Collected, as reported by the patient on 5 Nov 2026\./);
-    expect(text).toMatch(/record it below to confirm/);
+    const text = describePatientReportForPharmacist({
+      self_reported_supplies: 1,
+      last_self_report_on: "2026-11-05",
+      last_self_report_pharmacy: "Corner Chemist, Ikeja",
+      self_report_awaiting_pharmacy: true,
+    });
+    expect(text).toMatch(/^Collected, as reported by the patient on 5 Nov 2026 at Corner Chemist, Ikeja\./);
+    expect(text).toMatch(/Only the pharmacy that supplied it may record it/);
+    expect(text).toMatch(/Anyone else: do not dispense/);
+    expect(suppliedReportedCollectionLabel({ last_self_report_on: "2026-11-05", last_self_report_pharmacy: "Corner Chemist, Ikeja" })).toBe(
+      "We supplied this on 5 Nov 2026 (the patient named Corner Chemist, Ikeja). This is the collection the patient reported, not a new supply.",
+    );
     expect(describePatientReportForPharmacist({ self_reported_supplies: 0 })).toBeNull();
     expect(describePatientReportForPharmacist({})).toBeNull();
   });

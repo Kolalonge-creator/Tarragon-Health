@@ -42,7 +42,7 @@ export interface RecordedSupply {
   matched_dispense_id?: string | null;
 }
 
-/** T2-11c: the patient's own confirmation, labelled as theirs, with an undo for 24 hours. */
+/** T2-11c: the patient's own confirmation, labelled as theirs, with an undo for a short window. */
 function PatientConfirmationLine({ supply, patientId }: { supply: RecordedSupply; patientId: string }) {
   const undo = useUndoPrescriptionCollected(patientId);
   const [result, setResult] = useState<UndoOutcome | null>(null);

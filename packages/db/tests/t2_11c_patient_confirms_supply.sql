@@ -2,15 +2,16 @@
 -- Proof: 20261105130145_t2_11c_patient_confirms_supply.sql
 --
 -- Proves: (A) a patient's confirmation of their own signed prescription counts as one supply, so the anonymous QR check shows it used and
--- labelled patient-reported, a repeat tap is a duplicate and a later one finds no supply; (B) a pharmacy recording the same supply within
--- the window is not refused and does not double count: the patient's row is matched and stops counting, and a second pharmacy then finds no
--- supply; (C) a patient confirming after a pharmacy recorded writes a receipt against that record, not a second supply; (D) another patient,
+-- labelled patient-reported, a repeat tap is a duplicate and a later one finds no supply; (B) the double-fill case: another pharmacy that
+-- does not state it supplied the reported collection is refused and writes nothing; the pharmacy that did supply it states so and is
+-- recorded with no double count (the patient's row is matched and stops counting), and a further pharmacy then finds no supply even if it
+-- claims the report; (C) a patient confirming after a pharmacy recorded writes a receipt against that record, not a second supply; (D) another patient,
 -- and anon, cannot confirm; (E) the patient can undo within 24 hours (audited, row kept), not after, not once a pharmacy matched it, and
 -- nobody else can; (F) no client can rewrite the history directly (patient or staff), and a patient can no longer insert or edit a pharmacy
 -- row through the table policy; (G) disputing the pharmacy row that matched a report makes the report count again.
--- SABOTAGE: (1) the shared count reverted to pharmacy rows only makes a patient-confirmed prescription look available; (2) without the
--- matching trigger a pharmacy record after a patient report double counts; (3) without the history guard the patient rewrites their own
--- confirmation directly. Each must flip.
+-- SABOTAGE: (1) the shared count reverted to pharmacy rows only makes a patient-confirmed prescription look available; (2) the report left
+-- out of the check whatever the pharmacy says (the first version's bug) lets a second pharmacy fill it; (3) without the match a confirming
+-- pharmacy record double counts; (4) without the history guard the patient rewrites their own confirmation directly. Each must flip.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures.
 -- ===========================================================================
 
@@ -115,10 +116,23 @@ begin
   if exists (select 1 from public.pharmacy_order_dispenses where medication_id = v_m4) then raise exception 'FAIL D3: refused confirmations wrote a row'; end if;
 
   -- (B) the pharmacy that supplied it records within the window: recorded, no double count, second pharmacy refused -----------
+  -- the double-fill case: the patient collected at a non-scanning pharmacy and confirmed, then takes the paper to another pharmacy.
+  -- That pharmacy does not say it supplied the reported collection, so it is refused, through the QR path and the phone desk alike.
   execute 'set local role anon';
-  select * into r from public.record_prescription_supply_public(v_t1, 'Corner Chemist', 'Ada Pharmacist', 'PCN-123');
+  select * into r from public.record_prescription_supply_public(v_t1, 'Other Pharmacy', 'Eke Pharmacist', 'PCN-999');
   execute 'reset role';
-  if r.outcome <> 'recorded' or r.supplies_dispensed <> 1 then raise exception 'FAIL B1: pharmacy record after patient report: %', r; end if;
+  if r.outcome <> 'no_supply_available' or r.supplies_dispensed <> 1 then raise exception 'FAIL B0: a second pharmacy filled a patient-reported supply: %', r; end if;
+  if exists (select 1 from public.pharmacy_order_dispenses where medication_id = v_m1 and source = 'pharmacy') then
+    raise exception 'FAIL B0b: the refused pharmacy record wrote a row';
+  end if;
+  if (select matched_dispense_id from public.pharmacy_order_dispenses where id = v_c1) is not null then
+    raise exception 'FAIL B0c: a refused pharmacy record matched the patient report';
+  end if;
+  -- the pharmacy that really supplied it states so, and confirms the report: recorded, one supply, not two
+  execute 'set local role anon';
+  select * into r from public.record_prescription_supply_public(v_t1, 'Corner Chemist', 'Ada Pharmacist', 'PCN-123', null, true);
+  execute 'reset role';
+  if r.outcome <> 'recorded' or r.supplies_dispensed <> 1 then raise exception 'FAIL B1: the supplying pharmacy confirming the report: %', r; end if;
   select id into v_p1 from public.pharmacy_order_dispenses where medication_id = v_m1 and source = 'pharmacy';
   select * into r from public.pharmacy_order_dispenses where id = v_c1;
   if r.matched_dispense_id is distinct from v_p1 or r.matched_at is null then raise exception 'FAIL B2: patient report not matched: %', r; end if;
@@ -132,9 +146,9 @@ begin
   end if;
   update public.pharmacy_order_dispenses set created_at = now() - interval '11 minutes' where id = v_p1;
   execute 'set local role anon';
-  select * into r from public.record_prescription_supply_public(v_t1, 'Second Pharmacy', 'Bola Pharmacist', 'PCN-456');
+  select * into r from public.record_prescription_supply_public(v_t1, 'Second Pharmacy', 'Bola Pharmacist', 'PCN-456', null, true);
   execute 'reset role';
-  if r.outcome <> 'no_supply_available' then raise exception 'FAIL B5: second pharmacy supplied: %', r; end if;
+  if r.outcome <> 'no_supply_available' then raise exception 'FAIL B5: second pharmacy supplied (even claiming the report): %', r; end if;
 
   -- (C) patient confirms after a pharmacy recorded: a receipt, not a second supply ----------------------------------------------
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
@@ -280,28 +294,44 @@ begin
   execute 'reset role';
   if r.supply_available is not false then raise exception 'FAIL S1 restore: %', r; end if;
 
-  -- SABOTAGE 2: no matching trigger, a pharmacy record after a patient report double counts ----------------------------------------
+  -- SABOTAGE 2: the first version's bug, a report left out of the check whatever the pharmacy says: the second fill goes through --------
   perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   select * into r from public.confirm_prescription_collected(v_m4, null, 'Corner Chemist');
   execute 'reset role';
   if r.outcome <> 'recorded' then raise exception 'FIXTURE S2: %', r; end if;
-  alter table public.pharmacy_order_dispenses disable trigger pharmacy_order_dispenses_match_patient_report;
+  v_def := pg_get_functiondef('public.record_prescription_supply_public(text,text,text,text,text,boolean)'::regprocedure);
+  if position('v_report := case when coalesce(p_supplied_reported_collection, false) then private.absorbable_patient_report(v_med.id) end;' in v_def) = 0 then
+    raise exception 'FIXTURE S2: record_prescription_supply_public no longer has the statement gate to sabotage';
+  end if;
+  execute replace(v_def, 'v_report := case when coalesce(p_supplied_reported_collection, false) then private.absorbable_patient_report(v_med.id) end;',
+                         'v_report := private.absorbable_patient_report(v_med.id);');
   execute 'set local role anon';
-  select * into r from public.record_prescription_supply_public(v_t4, 'Corner Chemist', 'Ada Pharmacist', 'PCN-123');
+  select * into r from public.record_prescription_supply_public(v_t4, 'Other Pharmacy', 'Eke Pharmacist', 'PCN-999');
   execute 'reset role';
-  alter table public.pharmacy_order_dispenses enable trigger pharmacy_order_dispenses_match_patient_report;
-  select count(*) into v_n from public.pharmacy_order_dispenses d where d.medication_id = v_m4 and private.dispense_counts_as_supply(d);
-  if v_n <> 2 then raise exception 'SABOTAGE 2 did not flip: % counted supplies without the matching trigger', v_n; end if;
+  execute v_def;
+  if r.outcome <> 'recorded' then raise exception 'SABOTAGE 2 did not flip: without the statement gate the second pharmacy was still refused (%)', r.outcome; end if;
 
-  -- SABOTAGE 3: without the history guard the patient rewrites their confirmation ---------------------------------------------------
+  -- SABOTAGE 3: the confirming record does not mark the report matched, so one collection counts twice ------------------------------
+  v_def := pg_get_functiondef('private.match_patient_report(uuid,uuid)'::regprocedure);
+  execute $s$create or replace function private.match_patient_report(p_report uuid, p_dispense uuid) returns void
+    language plpgsql security definer set search_path = '' as $b$ begin return; end $b$ $s$;
+  execute 'set local role anon';
+  select * into r from public.record_prescription_supply_public(v_t3, 'Ward Pharmacy', 'Ada Pharmacist', 'PCN-123', null, true);
+  execute 'reset role';
+  execute v_def;
+  if r.outcome <> 'recorded' then raise exception 'FIXTURE S3: %', r; end if;
+  select count(*) into v_n from public.pharmacy_order_dispenses d where d.medication_id = v_m3 and private.dispense_counts_as_supply(d);
+  if v_n <> 2 then raise exception 'SABOTAGE 3 did not flip: % counted supplies without the match', v_n; end if;
+
+  -- SABOTAGE 4: without the history guard the patient rewrites their confirmation ---------------------------------------------------
   alter table public.pharmacy_order_dispenses disable trigger pharmacy_order_dispenses_guard_history;
   execute 'set local role authenticated';
   update public.pharmacy_order_dispenses set withdrawn_at = now(), withdrawn_by = v_pat where id = v_c3;
   get diagnostics v_n = row_count;
   execute 'reset role';
   alter table public.pharmacy_order_dispenses enable trigger pharmacy_order_dispenses_guard_history;
-  if v_n <> 1 then raise exception 'SABOTAGE 3 did not flip: the direct rewrite was refused without the guard'; end if;
+  if v_n <> 1 then raise exception 'SABOTAGE 4 did not flip: the direct rewrite was refused without the guard'; end if;
 
   raise notice 'PASS: t2_11c patient confirms supply';
 end $$;

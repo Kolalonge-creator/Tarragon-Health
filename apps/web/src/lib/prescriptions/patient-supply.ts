@@ -1,3 +1,5 @@
+import { getProposedConfig } from "@tarragon/shared";
+
 /**
  * T2-11c (founder decision 2026-11-05): a patient can say "I've got this medicine" for their own signed prescription, for the many
  * pharmacies that will not scan the QR or record a supply. The rules live in the database (public.confirm_prescription_collected,
@@ -21,8 +23,12 @@ export interface SupplyRecordLike {
 
 export const PATIENT_CONFIRMATION = "patient_confirmation";
 
-/** How long after confirming the patient may take it back (matches public.undo_prescription_collected). */
-export const UNDO_WINDOW_HOURS = 24;
+/**
+ * How long after confirming the patient may take it back. The database reads the same value from prescription_supply_config
+ * (public.undo_prescription_collected); this mirrors it through the proposed-config registry, never a literal.
+ */
+export const UNDO_WINDOW_HOURS = (getProposedConfig("prescriptions.patient_supply_windows").value as { patient_undo_hours: number })
+  .patient_undo_hours;
 
 export function isPatientConfirmation(row: Pick<SupplyRecordLike, "recorded_via">): boolean {
   return row.recorded_via === PATIENT_CONFIRMATION;
@@ -84,7 +90,7 @@ export type ConfirmOutcome =
 export const CONFIRM_OUTCOME_MESSAGE: Record<ConfirmOutcome, { ok: boolean; text: string }> = {
   recorded: {
     ok: true,
-    text: "Thank you. This supply is now marked as collected on your prescription, so another pharmacy cannot fill it again. You can undo this for 24 hours if you tapped it by mistake.",
+    text: `Thank you. This supply is now marked as collected on your prescription, so another pharmacy cannot fill it again. You can undo this for ${UNDO_WINDOW_HOURS} hours if you tapped it by mistake.`,
   },
   matched_pharmacy_record: {
     ok: true,
@@ -109,7 +115,7 @@ export type UndoOutcome = "undone" | "window_passed" | "confirmed_by_pharmacy" |
 
 export const UNDO_OUTCOME_MESSAGE: Record<UndoOutcome, string> = {
   undone: "Taken back. This supply is available on your prescription again.",
-  window_passed: "This can only be undone within 24 hours. If it is wrong, message your care team in the app.",
+  window_passed: `This can only be undone within ${UNDO_WINDOW_HOURS} hours. If it is wrong, message your care team in the app.`,
   confirmed_by_pharmacy: "A pharmacy has since recorded this supply, so it cannot be undone here. If it is wrong, message your care team in the app.",
   not_found: "This could not be undone. It may already have been taken back.",
 };
@@ -122,12 +128,21 @@ export function isUndoOutcome(value: unknown): value is UndoOutcome {
 export function describePatientReportForPharmacist(proof: {
   self_reported_supplies?: number | null;
   last_self_report_on?: string | null;
+  last_self_report_pharmacy?: string | null;
   self_report_awaiting_pharmacy?: boolean | null;
 }): string | null {
   if (!proof.self_reported_supplies || proof.self_reported_supplies < 1) return null;
   const when = proof.last_self_report_on ? ` on ${formatDay(proof.last_self_report_on)}` : "";
-  const head = `Collected, as reported by the patient${when}. No pharmacy recorded this supply.`;
+  const where = proof.last_self_report_pharmacy?.trim() ? ` at ${proof.last_self_report_pharmacy.trim()}` : "";
+  const head = `Collected, as reported by the patient${when}${where}. No pharmacy recorded this supply.`;
   return proof.self_report_awaiting_pharmacy
-    ? `${head} If your pharmacy supplied it, record it below to confirm it. If you did not supply it, do not dispense.`
+    ? `${head} Only the pharmacy that supplied it may record it below, by ticking "We supplied this". Anyone else: do not dispense.`
     : head;
+}
+
+/** The checkbox a pharmacist ticks to say they supplied the collection the patient reported. */
+export function suppliedReportedCollectionLabel(proof: { last_self_report_on?: string | null; last_self_report_pharmacy?: string | null }): string {
+  const when = proof.last_self_report_on ? ` on ${formatDay(proof.last_self_report_on)}` : "";
+  const where = proof.last_self_report_pharmacy?.trim() ? ` (the patient named ${proof.last_self_report_pharmacy.trim()})` : "";
+  return `We supplied this${when}${where}. This is the collection the patient reported, not a new supply.`;
 }
