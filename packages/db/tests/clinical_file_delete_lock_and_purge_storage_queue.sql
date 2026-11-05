@@ -254,5 +254,9 @@ begin
   if v_caught < 3 then raise exception 'VACUOUS TEST: the sabotage flipped % of 3 checks', v_caught; end if;
 end $$;
 
-select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result from results order by phase, check_name;
+-- A sabotage row passes when the sabotage CHANGED the outcome (it was caught); the runner fails on any trailing FAIL verdict.
+select phase, check_name, expected, actual,
+  case when phase = 'sabotaged' then (case when expected is distinct from actual then 'PASS (caught)' else 'FAIL' end)
+       when expected = actual then 'PASS' else 'FAIL' end as result
+from results order by phase, check_name;
 rollback;
