@@ -3,6 +3,9 @@
 export const MARKETING_ROUTES = {
   home: "/",
   services: "/services",
+  howItWorks: "/how-it-works",
+  membership: "/membership",
+  clinicalApproach: "/clinical-approach",
   chronicCare: "/chronic-care",
   careCoordination: "/care-coordination",
   whoItsFor: "/who-its-for",
@@ -56,6 +59,13 @@ export type MarketingRouteKey = keyof typeof MARKETING_ROUTES;
 export const MARKETING_ROUTES_BUILT: MarketingRouteKey[] = [
   "home",
   "services",
+  "howItWorks",
+  "membership",
+  "clinicalApproach",
+  // In the nav and footer but missing from the sitemap until 2026-11-05 (live audit).
+  "monitoring",
+  "resultInterpretation",
+  "therapy",
   "chronicCare",
   "careCoordination",
   "whoItsFor",

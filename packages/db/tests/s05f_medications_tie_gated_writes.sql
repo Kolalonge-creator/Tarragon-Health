@@ -12,6 +12,8 @@
 -- ===========================================================================
 
 begin;
+-- T2-11b: signing now needs a signed interaction dataset and rule set; a fresh replay has none, so sign them inside this transaction.
+\ir _fixtures/signed_interaction_sets.sql
 
 -- The prescribing guard (S37 enforcement) is off by default; this proof is about something else, so switch it on inside the rolled-back test.
 insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note) select 'prescribing_enabled', 'switched_on', id, 'cmo', 'proof setup' from public.profiles limit 1;
@@ -60,12 +62,13 @@ begin
     (v_cg,         v_org,  'patient',    'S05fC2 Caregiver',    '+2348058880009')
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
   insert into public.patient_allergies (organisation_id, patient_id, allergen, source) values (v_org, v_pat, 'proof-allergen-none', 'clinician');
+  -- T2-11b: signing needs a verified licence with a real credential number (private.prescriber_licence_ok)
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier,
-                                     indemnity_insurer, indemnity_policy_number, indemnity_expires_at) values
-    (v_org,  v_tied_smo,   'S05fC2 Tied SMO',      true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S05F-1', now() + interval '1 year'),
-    (v_org,  v_tied_mo,    'S05fC2 Tied MO',       true, now(), 'senior_medical_officer',        'Probe Indemnity', 'S05F-2', now() + interval '1 year'),
-    (v_org,  v_untied_smo, 'S05fC2 Untied SMO',    true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S05F-3', now() + interval '1 year'),
-    (v_org2, v_other,      'S05fC2 Other Org SMO', true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S05F-4', now() + interval '1 year');
+                                     indemnity_insurer, indemnity_policy_number, indemnity_expires_at, credential_type, credential_number) values
+    (v_org,  v_tied_smo,   'S05fC2 Tied SMO',      true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S05F-1', now() + interval '1 year', 'MDCN', 'S05F-C1'),
+    (v_org,  v_tied_mo,    'S05fC2 Tied MO',       true, now(), 'senior_medical_officer',        'Probe Indemnity', 'S05F-2', now() + interval '1 year', 'MDCN', 'S05F-C2'),
+    (v_org,  v_untied_smo, 'S05fC2 Untied SMO',    true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S05F-3', now() + interval '1 year', 'MDCN', 'S05F-C3'),
+    (v_org2, v_other,      'S05fC2 Other Org SMO', true, now(), 'senior_medical_officer', 'Probe Indemnity', 'S05F-4', now() + interval '1 year', 'MDCN', 'S05F-C4');
   -- tie: the care team's clinician slot holds the SMO and its second slot holds the MO (both are tied by care_team_assignment)
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, clinical_director_id, assigned_at)
   values (v_org, v_pat, v_tied_smo, v_tied_mo, now())

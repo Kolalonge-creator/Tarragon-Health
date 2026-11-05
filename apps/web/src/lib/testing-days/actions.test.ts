@@ -90,7 +90,7 @@ describe("recordMeasurements", () => {
 });
 
 describe("recordEcg", () => {
-  const pdf = () => new File([new Uint8Array([1, 2, 3])], "trace.pdf", { type: "application/pdf" });
+  const pdf = () => new File([new TextEncoder().encode("%PDF-1.7\n1 0 obj\n")], "trace.pdf", { type: "application/pdf" });
 
   it("stores nothing when the caller may not run a station", async () => {
     rpc.mockResolvedValueOnce({ data: null, error: { message: "not authorised" } });
@@ -104,6 +104,14 @@ describe("recordEcg", () => {
     const r = await recordEcg(undefined, form({ bookingId: BOOKING, eventId: EVENT, file: exe }));
     expect(r?.error).toMatch(/PDF, PNG, JPG or XML/);
     expect(rpc).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("refuses a file whose bytes are not the trace it claims to be, before anything is stored", async () => {
+    const fake = new File([new TextEncoder().encode("<html><script>x</script>")], "trace.pdf", { type: "application/pdf" });
+    rpc.mockResolvedValueOnce({ data: [], error: null });
+    const r = await recordEcg(undefined, form({ bookingId: BOOKING, eventId: EVENT, file: fake }));
+    expect(r?.error).toBeTruthy();
     expect(upload).not.toHaveBeenCalled();
   });
 

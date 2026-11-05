@@ -31,6 +31,23 @@ export function SafetyFindingsPrompt({
   onOverrideReasonChange: (value: string) => void;
 }) {
   if (error.kind === "blocked") {
+    // T2-11b: a contraindicated pair in the signed interaction rules is also a hard stop, with its own words.
+    if (error.interactions && error.interactions.length > 0) {
+      return (
+        <div role="alert" className="space-y-2 rounded-md border border-red-200 bg-red-50/60 p-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+          <p>This medicine must not be given with a medicine the patient already takes, so it cannot be signed:</p>
+          <ul className="list-inside list-disc space-y-1">
+            {error.interactions.map((item, index) => (
+              <li key={`${item.withDrug}-${index}`}>
+                {item.withDrug}
+                {item.title ? `: ${item.title}` : ""}
+              </li>
+            ))}
+          </ul>
+          <p>Stop or change the other medicine first, or choose a different one.</p>
+        </div>
+      );
+    }
     return (
       <div role="alert" className="rounded-md border border-red-200 bg-red-50/60 p-3 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
         {CONTROLLED_MEDICINE_MESSAGE} It cannot be signed here.

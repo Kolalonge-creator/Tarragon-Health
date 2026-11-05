@@ -121,3 +121,53 @@ describe("isPrescribingSwitchedOff (T2-11)", () => {
     expect(PRESCRIBING_SWITCHED_OFF_MESSAGE).not.toMatch(/\u2014|_/);
   });
 });
+
+describe("T2-11b: interactions, class allergy, unavailable check and licence", () => {
+  const m = jest.requireActual("./parse-safety-error") as typeof import("./parse-safety-error");
+  const blockedHint = JSON.stringify([
+    { code: "interaction", source: "dataset", severity: "contraindicated", title: "Dual blockade of the renin-angiotensin system", with: "Lisinopril", blocking: true },
+    { code: "interaction", source: "rule_set", severity: "contraindicated", title: null, with: "Lisinopril", blocking: true },
+  ]);
+
+  it("a contraindicated pair is a hard stop that names the other medicine, once per title", () => {
+    expect(m.parseSafetyError({ code: "P0001", details: "SAFETY_BLOCKED", hint: blockedHint, message: "x" })).toEqual({
+      kind: "blocked",
+      interactions: [
+        { withDrug: "Lisinopril", title: "Dual blockade of the renin-angiotensin system" },
+        { withDrug: "Lisinopril", title: null },
+      ],
+    });
+  });
+
+  it("a controlled medicine keeps its own stop even when an interaction is also present", () => {
+    const hint = JSON.stringify([{ code: "controlled_medicine", blocking: true }, { code: "interaction", with: "X", blocking: true }]);
+    expect(m.parseSafetyError({ code: "P0001", details: "SAFETY_BLOCKED", hint, message: "x" })).toEqual({ kind: "blocked" });
+  });
+
+  it("reads a caution interaction and a class allergy as findings that need a reason", () => {
+    const hint = JSON.stringify([
+      { code: "interaction", severity: "caution", title: "Kidney injury risk", with: "Lisinopril" },
+      { code: "allergy_class_match", allergen: "Penicillin", drug_class: "penicillin" },
+    ]);
+    const parsed = m.parseSafetyError({ code: "P0001", details: "SAFETY_FINDINGS", hint, message: "x" });
+    expect(parsed).toEqual({
+      kind: "findings",
+      findings: [
+        { code: "interaction", withDrug: "Lisinopril", severity: "caution", title: "Kidney injury risk" },
+        { code: "allergy_class_match", allergen: "Penicillin", drugClass: "penicillin" },
+      ],
+    });
+    if (parsed?.kind !== "findings") throw new Error("expected findings");
+    expect(m.needsOverrideReason(parsed)).toBe(true);
+    expect(m.describeFinding(parsed.findings[0]!)).toMatch(/interacts with Lisinopril/);
+    expect(m.describeFinding(parsed.findings[1]!)).toMatch(/allergy to Penicillin.*same group \(penicillin\)/);
+  });
+
+  it("names the unavailable check and the licence refusal plainly, and nothing else", () => {
+    expect(m.describePrescribingRefusal({ code: "P0001", details: "SAFETY_CHECK_UNAVAILABLE", message: "x" })).toBe(m.INTERACTION_CHECK_UNAVAILABLE_MESSAGE);
+    expect(m.describePrescribingRefusal({ code: "42501", message: "prescriber_licence_not_verified" })).toBe(m.PRESCRIBER_LICENCE_MESSAGE);
+    expect(m.describePrescribingRefusal({ code: "55000", message: "prescribing_guard_off" })).toBe(m.PRESCRIBING_SWITCHED_OFF_MESSAGE);
+    expect(m.describePrescribingRefusal({ code: "42501", message: "Not authorised to prescribe for this patient" })).toBeNull();
+    for (const text of [m.INTERACTION_CHECK_UNAVAILABLE_MESSAGE, m.PRESCRIBER_LICENCE_MESSAGE]) expect(text).not.toMatch(/\u2014|_/);
+  });
+});

@@ -15,6 +15,8 @@
 -- BEGIN/ROLLBACK; own fixtures.
 -- ===========================================================================
 begin;
+-- T2-11b: signing now needs a signed interaction dataset and rule set; a fresh replay has none, so sign them inside this transaction.
+\ir _fixtures/signed_interaction_sets.sql
 
 create temp table results (kind text, check_name text, expected text, observed text) on commit drop;
 grant all on results to authenticated, anon;

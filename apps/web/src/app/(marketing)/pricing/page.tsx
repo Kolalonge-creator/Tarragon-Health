@@ -11,6 +11,7 @@ import { FaqAccordion } from "../_components/marketing-faq-accordion";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { faqPageJsonLd } from "@/lib/marketing/faq-json-ld";
 import { FoundingMembersStrip } from "../_components/founding-members-strip";
 import { LAB_TESTS_WHERE, planCards, planFaq, SAFETY_STATEMENT } from "../_content/pricing-ladder";
 import { ALWAYS_FREE, ALWAYS_FREE_NOTE, EMPLOYER_HMO_NOTE, NAIRA_ONLY_STATEMENT } from "../_content/pricing";
@@ -37,19 +38,9 @@ export default async function PricingPage() {
   const cards = planCards({ membership: `₦${price}` });
   const faq = planFaq(refundDays, autoRenews);
   /** FAQPage structured data for the pricing questions; eligible for rich results. */
-  const pricingFaqJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faq.map((f) => ({
-      "@type": "Question",
-      name: f.question,
-      acceptedAnswer: { "@type": "Answer", text: f.answer },
-    })),
-  };
-
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingFaqJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqPageJsonLd(faq) }} />
       <Section className="pt-20">
         <SectionHeading
           as="h1"

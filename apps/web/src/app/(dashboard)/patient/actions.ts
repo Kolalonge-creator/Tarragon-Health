@@ -1,5 +1,6 @@
 "use server";
 
+import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import { HELD_READING_COPY, isLabelGuardRefusal, withoutPharmacyLabel } from "@tarragon/shared";
 import { DEFAULT_LOCALE, t } from "@tarragon/i18n";
 import { readDeviceFlags } from "@/lib/devices/flags";
@@ -419,9 +420,12 @@ export async function uploadPatientAvatar(formData: FormData): Promise<UploadAva
   // storage own-folder policy checks.
   const path = `${user.id}/${randomUUID()}.${ext}`;
 
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file, { requireClean: true });
+  if (!prepared.ok) return { error: prepared.error };
   const { error: uploadError } = await supabase.storage
     .from(AVATAR_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
   const publicUrl = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;

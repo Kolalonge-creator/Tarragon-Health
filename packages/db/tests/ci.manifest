@@ -1240,6 +1240,8 @@ sr1_platform_health_snapshot.sql
 sr5_alert_rules_and_operations_wall.sql
 # Ops alert ai_call_failures (2026-11-05): the AI vendor was the one outside service with no ops rule. Per vendor over 60 min: 3 failures with none reaching the model breach; 2 is under minimum volume; 1 in 10 is clean; a degraded fallback carrying an error_message counts, a kill-switch fallback does not; test subjects excluded unless p_include_test; the evaluator opens one alert and, at sev3, no incident; anon/authenticated cannot execute. Sabotage x2: every fallback counted as a failure; test-subject exclusion dropped.
 ops_alert_ai_call_failures.sql
+# Security audit H-7 (2026-11-05): every sign-in now writes patient.logged_in or clinician.logged_in, and four security alert rules (failed sign-in spike, staff bulk record access, privileged change, patient data export) breach at their thresholds and not below, skip test accounts, never output a patient reference, and the evaluator opens the alert. Sabotage: the old trigger body (patients skipped) and an empty spike check.
+security_sign_in_logging_and_alerts.sql
 # Two-tier integration: the final patient_has_feature_access (add-on retirement, sorts after the Free red-event path) carries the union of both definitions: the red-event feature and the doctor-time features follow one Member rule (grace included, a lapsed person and a Free person refused, an unknown patient pages), and patient_is_member agrees. Sabotage: a function without the Member block flips the doctor-time check.
 two_tier_integration_feature_gate_union.sql
 # Two-tier code-review decisions: refund window (21 days) and immediate end, legacy holders converted and one meaning of Member, a Member in the grace books exactly one follow-up (month 13), renewals included in the year with a 28 day spacing, second opinion at 500,000 kobo for Members only; six sabotage steps each flip their check.
@@ -1907,3 +1909,5 @@ t2_lab_request_form_verification.sql
 t2_screening_reminder_cadence_and_defer.sql
 # T2 Phase 3: baseline assessment for a new Member: Free refused, missing items named, one row and one doctor review task per membership, codes only stored, RLS, coordinator and untied doctor refused, adjusted needs a note. Sabotage: Members-only check removed; coordinator admitted to review.
 t2_preventive_baseline_assessment.sql
+# T2-11b (2026-11-05): signing checks the new drug against the patient's list with the SIGNED interaction dataset and rule set (contraindicated hard stop, caution needs a reason that is stored and audited, info advisory), a penicillin-class allergy match, fail closed with no signed set, a lapsed or placeholder licence refused, and the /verify-rx code lookup with its ten-wrong-codes lock. Sabotage x3: interaction findings emptied, licence test made true, lock removed.
+t2_11b_prescribing_safety_gaps.sql

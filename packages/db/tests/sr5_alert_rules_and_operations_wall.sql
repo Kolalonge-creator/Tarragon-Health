@@ -89,7 +89,9 @@ begin
     has_function_privilege('authenticated', 'private.ops_incident_set_sla()', 'EXECUTE')::text);
 
   -- 2. The rules -----------------------------------------------------------------------------------------------
-  perform pg_temp.rec('15 rules (the 14 of SR5 plus ai_call_failures)', '15', (select count(*)::text from public.ops_alert_rules));
+  -- 19 since 2026-11-05: the 14 SR5 rules, the four security rules (*_security_sign_in_logging_and_alerts.sql) and
+  -- ai_call_failures (*_ops_alert_ai_call_failures.sql).
+  perform pg_temp.rec('19 rules', '19', (select count(*)::text from public.ops_alert_rules));
   perform pg_temp.rec('every rule has a check function', '0',
     (select count(*)::text from public.ops_alert_rules r where to_regproc('private.ops_check_' || r.code) is null));
   perform pg_temp.rec('the three rules with no feed ship off, each with a reason', '3|3',
