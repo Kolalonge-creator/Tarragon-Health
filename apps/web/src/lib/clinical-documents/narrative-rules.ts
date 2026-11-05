@@ -57,19 +57,26 @@ function escape(s: string): string {
  * phrase straight after it ("pneumothorax excluded"). Anything looser could hide a real finding ("not benign; carcinoma", "no change in
  * the known carcinoma"); on this side of the rules erring toward urgent is the safe direction.
  */
+/** Accents removed (NFD, combining marks stripped): "carcinóma" reads as "carcinoma". The database matcher does the same (CDE-11). */
+function fold(text: string): string {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 function findTerm(text: string, terms: readonly string[], rules: NarrativeRules): string | null {
-  const lower = text.toLowerCase();
+  // One explicit ASCII word boundary, [a-z0-9_], the same as private.narrative_term_found (not \b, which the database spells
+  // differently for accented letters).
+  const lower = fold(text).toLowerCase();
   const alt = (xs: readonly string[]) => xs.map((n) => escape(n.toLowerCase())).join("|");
   const before = new RegExp(
-    `(?:\\b(?:${alt(rules.negation_words_before)})(?:\\s+[a-z0-9-]+)?|\\b(?:${alt(rules.negation_phrases_before)})(?:\\s+[a-z0-9-]+){0,3})\\s*$`,
+    `(?:(?:^|[^a-z0-9_])(?:${alt(rules.negation_words_before)})(?:\\s+[a-z0-9-]+)?|(?:^|[^a-z0-9_])(?:${alt(rules.negation_phrases_before)})(?:\\s+[a-z0-9-]+){0,3})\\s*$`,
   );
-  const after = new RegExp(`^\\s*(?:${rules.negations_after.map((n) => escape(n.toLowerCase())).join("|")})\\b`);
+  const after = new RegExp(`^\\s*(?:${rules.negations_after.map((n) => escape(n.toLowerCase())).join("|")})(?![a-z0-9_])`);
   for (const term of terms) {
-    const re = new RegExp(`(^|[^a-z0-9])${escape(term.toLowerCase())}(?![a-z0-9])`, "g");
+    const re = new RegExp(`(^|[^a-z0-9])${escape(fold(term).toLowerCase())}(?![a-z0-9])`, "g");
     for (const m of lower.matchAll(re)) {
       const start = (m.index ?? 0) + m[1]!.length;
       const clause = lower.slice(0, start).split(/[.;:\n]/).pop() ?? "";
-      const rest = lower.slice(start + term.length);
+      const rest = lower.slice(start + fold(term).length);
       if (!before.test(clause) && !after.test(rest)) return term;
     }
   }
