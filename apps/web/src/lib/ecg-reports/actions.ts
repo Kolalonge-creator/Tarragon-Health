@@ -1,5 +1,6 @@
 "use server";
 
+import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import { randomUUID } from "crypto";
 import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { revalidatePath } from "next/cache";
@@ -116,9 +117,12 @@ export async function uploadEcgReportForPatient(formData: FormData): Promise<Ecg
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   const path = `${patientId}/${randomUUID()}.${ext}`;
 
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return { error: prepared.error };
   const { error: uploadError } = await service.storage
     .from(ECG_REPORT_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
   const { data: inserted, error: insertError } = await service
@@ -212,9 +216,12 @@ export async function uploadEcgReportAsPatient(formData: FormData): Promise<EcgU
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   const path = `${user.id}/${randomUUID()}.${ext}`;
 
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return { error: prepared.error };
   const { error: uploadError } = await supabase.storage
     .from(ECG_REPORT_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
   const { data: inserted, error: insertError } = await supabase

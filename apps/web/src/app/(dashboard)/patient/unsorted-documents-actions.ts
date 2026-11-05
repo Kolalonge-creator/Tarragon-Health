@@ -1,5 +1,6 @@
 "use server";
 
+import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import { randomUUID } from "crypto";
 import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { revalidatePath } from "next/cache";
@@ -56,9 +57,12 @@ export async function uploadUnsortedDocument(formData: FormData): Promise<Unsort
   const contentSha256 = await fileSha256(file);
   // The leading folder must be the caller's own id: the bucket's own-folder policy checks it, and so does the database function.
   const path = `${user.id}/${randomUUID()}.${EXT_BY_MIME[file.type] ?? "bin"}`;
+  // Bytes must match the declared type, and photo location data is removed (security audit 2026-11-05, M-4/L-4).
+  const prepared = await prepareUpload(file);
+  if (!prepared.ok) return { ok: false, error: prepared.error };
   const { error: uploadError } = await supabase.storage
     .from(RESULT_DOC_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, prepared.upload.body, { contentType: prepared.upload.contentType, upsert: false });
   if (uploadError) return { ok: false, error: "The file could not be stored. Please try again." };
 
   const { data: documentId, error } = await supabase.rpc("submit_unsorted_document", {
