@@ -24,7 +24,8 @@ export function SuggestPlacePanel({ kind, orderId, patientId, patientState, pati
   tests: { id: string; display: string }[];
   current: SuggestedPlace | null;
 }) {
-  const [conceptId, setConceptId] = useState(tests[0]?.id ?? "");
+  // One test (imaging: the ordered study) is preselected; a choice among many starts empty so nothing is suggested by accident.
+  const [conceptId, setConceptId] = useState(tests.length === 1 ? tests[0].id : "");
   const [state, setState] = useState(patientState ?? "");
   const [lga, setLga] = useState(patientLga ?? "");
   const [rows, setRows] = useState<SearchRow[] | null>(null);
@@ -76,7 +77,8 @@ export function SuggestPlacePanel({ kind, orderId, patientId, patientState, pati
         <p className="text-charcoal-ink/60">{t("dxsearch.suggest.hint", locale)}</p>
         <div className="grid gap-2 sm:grid-cols-3">
           <label className="block">{t("dxsearch.suggest.test", locale)}
-            <select value={conceptId} onChange={(e) => setConceptId(e.target.value)} className={field}>
+            <select value={conceptId} onChange={(e) => setConceptId(e.target.value)} className={field} required>
+              {tests.length !== 1 && <option value="">{t("dxsearch.suggest.choose_test", locale)}</option>}
               {tests.map((o) => <option key={o.id} value={o.id}>{o.display}</option>)}
             </select>
           </label>

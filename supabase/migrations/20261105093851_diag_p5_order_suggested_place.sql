@@ -10,8 +10,9 @@
 --                                  earlier suggestion (the old one is kept, withdrawn).
 --   clinician_withdraw_place(suggestion, reason)
 --   order_suggested_place(kind, order)  the suggestion with public branch fields and whether it is still recommendable today.
---                                  The patient (first call stamps viewed_at), org staff, and the service role (request PDFs,
---                                  no stamp) may read it.
+--                                  The patient (first call stamps viewed_at), results-scoped staff, a consented reader or a
+--                                  caregiver with view_results, and the service role (request PDFs) may read it; only the
+--                                  patient's own read stamps viewed_at.
 --
 -- The patient stays free to go anywhere: the copy says so, and lab_orders.location_id (the patient's own choice) is untouched.
 
@@ -43,8 +44,10 @@ comment on table public.diagnostic_order_suggestions is
   'Diagnostic directory P5: a doctor''s suggestion of where to have an ordered test done. Advice only: never changes fulfilment, provider, location, price or payment. The patient may go anywhere.';
 
 alter table public.diagnostic_order_suggestions enable row level security;
+-- Same category scope as lab_orders and the lab_request folio: a suggestion names the test, so it is a results read.
 create policy diagnostic_order_suggestions_select_staff on public.diagnostic_order_suggestions
-  for select to authenticated using (private.is_org_staff(organisation_id));
+  for select to authenticated
+  using (private.staff_may_read(patient_id, organisation_id, 'labs_results'::public.care_access_category));
 grant select on public.diagnostic_order_suggestions to authenticated;
 revoke insert, update, delete, truncate on public.diagnostic_order_suggestions from authenticated, anon;
 
@@ -76,8 +79,9 @@ begin
     raise exception 'kind must be lab or imaging' using errcode = '22023';
   end if;
   if v_org is null then raise exception 'order not found' using errcode = '22023'; end if;
-  if auth.uid() is null or not private.is_active_clinical_staff(v_org) then
-    raise exception 'only active clinical staff of this organisation can suggest a place' using errcode = '42501';
+  if auth.uid() is null or not private.is_active_clinical_staff(v_org)
+     or not private.staff_may_read(v_patient, v_org, 'labs_results'::public.care_access_category) then
+    raise exception 'only active clinical staff who may read this patient''s results can suggest a place' using errcode = '42501';
   end if;
   if v_status in ('cancelled', 'resulted', 'result_returned', 'reviewed', 'reported') then
     raise exception 'this order is closed' using errcode = '22023';
@@ -172,7 +176,13 @@ begin
     raise exception 'kind must be lab or imaging' using errcode = '22023';
   end if;
   if v_org is null then return null; end if;
-  if not (v_service or (v_uid is not null and (v_uid = v_patient or private.is_org_staff(v_org)))) then
+  -- Who may read: the same rule as the lab_request folio (patient, results-scoped staff, a consented clinical reader or a
+  -- caregiver with view_results), plus the service role for request PDFs.
+  if not (v_service or (v_uid is not null and (
+            v_uid = v_patient
+            or private.staff_may_read(v_patient, v_org, 'labs_results'::public.care_access_category)
+            or private.can_read_clinical(v_patient, 'labs_results'::public.care_access_category)
+            or private.can_read_clinical(v_patient, 'view_results'::public.caregiver_permission)))) then
     raise exception 'not your order' using errcode = '42501';
   end if;
 

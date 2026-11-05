@@ -32,6 +32,7 @@ export const diagnosticSearchCopy = {
   "dxsearch.suggest.stale": "This branch no longer passes the directory checks for this test. Suggest another.",
   "dxsearch.suggest.none": "No place suggested yet.",
   "dxsearch.suggest.test": "Test",
+  "dxsearch.suggest.choose_test": "Choose the test this is for",
   "dxsearch.suggest.state": "Patient's state",
   "dxsearch.suggest.lga": "LGA (optional)",
   "dxsearch.suggest.find": "Find places",

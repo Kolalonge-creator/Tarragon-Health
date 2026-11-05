@@ -65,7 +65,7 @@ do $$
 declare
   v_org uuid := (select id from public.organisations order by created_at limit 1);
   v_org2 uuid;
-  v_admin uuid; v_clin uuid; v_clin2 uuid; v_pat uuid; v_pat2 uuid;
+  v_admin uuid; v_clin uuid; v_clin2 uuid; v_clin3 uuid; v_pat uuid; v_pat2 uuid;
   v_lab uuid; v_pl uuid; v_cred uuid; v_loc uuid; v_bl uuid; v_bl_draft uuid;
   v_hba1c uuid := (select id from public.reference_concepts where code = 'inv.hba1c');
   v_xray uuid := (select id from public.reference_concepts where modality = 'xray' and not is_ambiguous and investigation_category is not null order by code limit 1);
@@ -77,6 +77,7 @@ begin
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_clin := pg_temp.mkuser(v_org, 'clin', 'clinician');
   v_clin2 := pg_temp.mkuser(v_org2, 'clin2', 'clinician');
+  v_clin3 := pg_temp.mkuser(v_org, 'clin3', 'clinician');
   v_pat := pg_temp.mkuser(v_org, 'pat', 'patient');
   v_pat2 := pg_temp.mkuser(v_org, 'pat2', 'patient');
 
@@ -84,7 +85,10 @@ begin
   set local session_replication_role = replica;
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, is_test, doctor_tier, employment_type, license_verified_at)
   values (v_org, v_clin, 'Dxp Clin', true, true, 'senior_medical_officer', 'employed', now()),
-         (v_org2, v_clin2, 'Dxp Clin2', true, true, 'senior_medical_officer', 'employed', now());
+         (v_org2, v_clin2, 'Dxp Clin2', true, true, 'senior_medical_officer', 'employed', now()),
+         (v_org, v_clin3, 'Dxp Clin3', true, true, 'senior_medical_officer', 'employed', now());
+  -- Tied staff reads (S39b): the clinician is on the patient's care team, so results-scoped reads are open to them.
+  insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at) values (v_org, v_pat, v_clin, now());
   insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, total_kobo, status, origin, clinical_indication)
   values (v_org, v_pat, v_bundle, 0, 'ordered', 'clinically_triggered', 'Proof indication') returning id into v_lab_order;
   insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, total_kobo, status, origin, clinical_indication)
@@ -130,6 +134,10 @@ begin
   v_s := pg_temp.try_suggest('lab', v_lab_order, v_bl, v_hba1c);
   perform pg_temp.as_postgres();
   insert into results values ('A2 a clinician of another organisation cannot', v_s = '42501', v_s);
+  perform pg_temp.as_user(v_clin3);
+  v_s := pg_temp.try_suggest('lab', v_lab_order, v_bl, v_hba1c);
+  perform pg_temp.as_postgres();
+  insert into results values ('A3 a clinician of the same organisation who is not on the care team cannot (tied reads)', v_s = '42501', v_s);
 
   -- C, D, H
   perform pg_temp.as_user(v_clin);
@@ -231,6 +239,42 @@ begin
   perform pg_temp.as_postgres();
   insert into results values ('K3 a forged service_role claim does not read another patient''s suggestion', v_s = '42501', v_s);
 
+  -- L: a caregiver with view_results reads it, without stamping viewed_at; a caregiver with other permissions only is refused
+  -- The patient shares the labs_results category with pat2 (the consent model since S04b-1), which carries view_results.
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by, permissions)
+  values (v_pat, v_pat2, 'view', v_pat, array['view_results']::public.caregiver_permission[])
+  on conflict (profile_id, grantee_user_id) do update
+    set permission_level = 'view', permissions = array['view_results']::public.caregiver_permission[];
+  -- Inserted directly: the patient-only sharing flow is proved elsewhere, not here.
+  set local session_replication_role = replica;
+  insert into public.profile_access_categories (profile_access_id, category)
+  select id, 'labs_results'::public.care_access_category from public.profile_access where profile_id = v_pat and grantee_user_id = v_pat2;
+  set local session_replication_role = origin;
+  perform pg_temp.as_user(v_pat2);
+  begin
+    v_j := public.order_suggested_place('lab', v_lab_order);
+    v_s := 'returned';
+  exception when others then v_s := sqlstate;
+  end;
+  perform pg_temp.as_postgres();
+  insert into results values ('L1 a caregiver with view_results reads the suggestion without stamping it',
+    v_s = 'returned' and v_j ->> 'branch_name' = 'Listed branch' and v_j ->> 'viewed_at' is null, v_s);
+  -- Stop sharing results (the category, and view_results): the same caregiver is then refused.
+  set local session_replication_role = replica;
+  delete from public.profile_access_categories
+   where profile_access_id = (select id from public.profile_access where profile_id = v_pat and grantee_user_id = v_pat2);
+  update public.profile_access set permissions = array['book_appointments']::public.caregiver_permission[]
+   where profile_id = v_pat and grantee_user_id = v_pat2;
+  set local session_replication_role = origin;
+  perform pg_temp.as_user(v_pat2);
+  begin
+    perform public.order_suggested_place('lab', v_lab_order);
+    v_s := 'returned';
+  exception when others then v_s := sqlstate;
+  end;
+  perform pg_temp.as_postgres();
+  insert into results values ('L2 once results are no longer shared, the caregiver is refused', v_s = '42501', v_s);
+
   -- Sabotage: eligibility always true -> the draft branch is accepted
   create or replace function private.diagnostic_service_eligible(p_service_id uuid) returns boolean language sql stable as $s$ select true $s$;
   perform pg_temp.as_user(v_clin);
@@ -248,7 +292,7 @@ begin
     if not r.ok then v_fail := v_fail + 1; end if;
   end loop;
   if v_fail > 0 then raise exception '% check(s) failed', v_fail; end if;
-  if (select count(*) from results) < 20 then raise exception 'expected at least 20 checks, ran %', (select count(*) from results); end if;
+  if (select count(*) from results) < 23 then raise exception 'expected at least 23 checks, ran %', (select count(*) from results); end if;
 end;
 $$;
 
