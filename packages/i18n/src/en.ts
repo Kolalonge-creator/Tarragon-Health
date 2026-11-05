@@ -2744,6 +2744,8 @@ export const en = {
   "task.system_closed.red_event_unacknowledged_link": "Open On call",
   "task.system_closed.symptom_review": "This task finishes when you sign your note for the review.",
   "task.system_closed.symptom_review_link": "Open consultations",
+  "task.system_closed.consultation_note": "This task finishes when you sign the note for this video consultation.",
+  "task.system_closed.consultation_note_link": "Open consultations",
   "task.system_closed.results_hint": "A result that is released from the results page closes its task by itself.",
   "scribe.review.empty_summary": "No patient summary was drafted. Write one, or confirm there is none.",
   "scribe.gate.checking": "Checking whether the patient has allowed AI note-taking...",

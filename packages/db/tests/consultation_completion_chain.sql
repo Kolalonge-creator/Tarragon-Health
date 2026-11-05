@@ -15,9 +15,14 @@
 --     the task for the finaliser (the offer / the other claim ended by a recorded system move);
 --  5. a signed-in staff member cannot set clinician_id directly; an ordinary update still works;
 --  6. the timeline row is a sensitive source for a 10-17-year-old (hidden from caregiver reads), not for an adult;
---  8. closing the task by hand as "action taken" needs the finalised note; any other outcome needs a written reason.
+--  8. closing the task by hand as "action taken" needs the finalised note; any other outcome needs a written reason;
+--  R1. an appointment cannot hand the consultation a clinician who is not active clinical staff fitting the booking type;
+--  R2. a task closed by hand without a signed note adds that to the consultation's incident (R4: appended, not overwritten);
+--  6 also reads patient_timeline as a simulated caregiver: hidden for a 14-year-old, visible for an adult control;
+--  B also checks the note's reason text and that the timeline row has no actor (trust tier 'system').
 -- Sabotage (each in a rolled-back sub-block): the pre-fix resolver -> B flips; the note-owed rule forced true -> 1 flips;
--- an incident writer that raises -> 2 flips; the earlier finaliser-only close -> 3 flips; the guard dropped -> 5 flips.
+-- an incident writer that raises -> 2 flips; the earlier finaliser-only close -> 3 flips; the guard dropped -> 5 flips;
+-- the unchecked booking copy -> R1 flips; the closed-without-note trigger dropped -> R2 flips.
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/consultation_completion_chain.sql (nothing persists: begin/rollback)
 
@@ -89,7 +94,7 @@ end $f$;
 
 do $proof$
 declare
-  v_org uuid; v_pat uuid; v_pat2 uuid; v_pat3 uuid; v_pat4 uuid; v_pat5 uuid; v_pat6 uuid; v_teen uuid;
+  v_org uuid; v_pat uuid; v_pat2 uuid; v_pat3 uuid; v_pat4 uuid; v_pat5 uuid; v_pat6 uuid; v_teen uuid; v_guard uuid; v_pa uuid; v_vcx uuid; v_vcy uuid;
   v_doc uuid; v_doc2 uuid; v_diet uuid; v_admin uuid; v_staff uuid; v_staff2 uuid;
   v_vc uuid; v_vc2 uuid; v_vc3 uuid; v_vc4 uuid; v_vc5 uuid; v_vc6 uuid; v_vcd uuid; v_vct uuid;
   v_note uuid; v_task uuid; v_task2 uuid; v_n integer; r text; tk public.clinical_tasks%rowtype;
@@ -103,6 +108,7 @@ begin
   v_pat5 := pg_temp.mkuser(v_org, 'pat5', 'patient');
   v_pat6 := pg_temp.mkuser(v_org, 'pat6', 'patient');
   v_teen := pg_temp.mkuser(v_org, 'teen', 'patient');
+  v_guard := pg_temp.mkuser(v_org, 'guardian', 'patient');
   v_admin := pg_temp.mkuser(v_org, 'admin', 'admin');
   v_doc := pg_temp.mkuser(v_org, 'doc', 'clinician');
   v_doc2 := pg_temp.mkuser(v_org, 'doc2', 'clinician');
@@ -127,6 +133,11 @@ begin
   end if;
   select id into v_note from public.clinical_encounter_notes where video_consultation_id = v_vc and auto_generated and authored_by_staff = v_staff;
   if v_note is null then raise exception 'FAIL B: no auto-drafted note authored by the doctor who ran the call'; end if;
+  if (select reason_for_encounter from public.clinical_encounter_notes where id = v_note) <> 'Video consultation'
+     or not exists (select 1 from pg_proc where proname = 'consultation_completion_chain'
+                     and prosrc like '%Pre-referral triage video consultation%' and prosrc like '%Specialist video consultation%') then
+    raise exception 'FAIL B: the note reason is not the context-specific text the live trigger wrote';
+  end if;
   select * into tk from public.clinical_tasks
    where dedup_key = 'consult_note:' || v_vc and type = 'consultation_note' and state = 'offered_to_lead' and lead_clinician_id = v_doc;
   if tk.id is null then
@@ -143,7 +154,7 @@ begin
   end if;
   if (select count(*) from public.patient_timeline where source_table = 'video_consultations' and source_id = v_vc
         and title = 'Video consultation completed' and summary = 'Video consultation' and metadata ->> 'kind' = 'consultation_completed'
-        and not (metadata ? 'context') and actor_clinical_staff_id = v_staff) <> 1 then
+        and not (metadata ? 'context') and actor_clinical_staff_id is null and trust_tier = 'system') <> 1 then
     raise exception 'FAIL B: no single generic timeline row for the completed call';
   end if;
   if exists (select 1 from public.ops_incidents where external_reference = 'consultation_completion:' || v_vc) then
@@ -261,12 +272,26 @@ begin
   -- (today a dependant under 18 cannot hold a video consultation at all, guard_minor_dependant_scope; the gate is defence in
   -- depth, so the fixture books an adult and then makes the profile a 14-year-old dependant)
   v_vct := pg_temp.book(v_org, v_teen, null);
+  perform private.record_timeline_event(v_org, v_teen, 'encounter_documented', 'video_consultations', v_vct,
+    'Video consultation completed', 'Video consultation', now(), null, jsonb_build_object('kind', 'consultation_completed'));
   update public.profiles set date_of_birth = (current_date - interval '14 years')::date, is_dependent_account = true,
          dependent_kind = 'minor_child' where id = v_teen;
   if not private.timeline_source_is_sensitive_order('video_consultations', v_vct)
      or private.timeline_source_is_sensitive_order('video_consultations', v_vc) then
     raise exception 'FAIL 6: the adolescent gate is wrong';
   end if;
+  -- the same, read as a caregiver: a manage grant on the 14-year-old sees nothing; a medical_history grant on an adult sees the row
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_teen, v_guard, 'manage', v_teen);
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by) values (v_pat, v_guard, 'view', v_pat)
+    returning id into v_pa;
+  -- only the record's owner may grant a category
+  perform set_config('request.jwt.claims', json_build_object('sub', v_pat, 'role', 'authenticated')::text, true);
+  insert into public.profile_access_categories (profile_access_id, category) values (v_pa, 'medical_history');
+  perform set_config('request.jwt.claims', '', true);
+  r := pg_temp.as_user(v_guard, format('select count(*)::text from public.patient_timeline where source_table = %L and source_id = %L', 'video_consultations', v_vct));
+  if r <> '0' then raise exception 'FAIL 6: a caregiver read the 14-year-old''s consultation row (%)', r; end if;
+  r := pg_temp.as_user(v_guard, format('select count(*)::text from public.patient_timeline where source_table = %L and source_id = %L', 'video_consultations', v_vc));
+  if r <> '1' then raise exception 'FAIL 6: the adult control is not visible to the caregiver (%) so the check cannot discriminate', r; end if;
 
   -- 2. ops_incidents refuses every insert: a no-clinician call still completes, with its task and timeline row
   create function pg_temp.refuse_incident() returns trigger language plpgsql as $r$ begin raise exception 'ccc: incident refused'; end $r$;
@@ -278,6 +303,39 @@ begin
     raise exception 'FAIL 2: a failed incident write undid the call ending or the steps that worked';
   end if;
   drop trigger ccc_refuse_incident on public.ops_incidents;
+
+  -- R1. an appointment cannot hand the consultation a clinician who does not fit: a non-clinician profile, or a dietitian on a
+  --     doctor (telemedicine) booking, is not copied; the call then reports no clinician
+  v_vcx := pg_temp.book(v_org, v_pat2, v_admin);
+  v_vcy := pg_temp.book(v_org, v_pat2, v_diet, 'telemedicine');
+  if (select clinician_id from public.video_consultations where id = v_vcx) is not null
+     or (select clinician_id from public.video_consultations where id = v_vcy) is not null then
+    raise exception 'FAIL R1: an appointment set an unfit clinician on the consultation';
+  end if;
+  perform pg_temp.complete(v_vcx);
+  if (select clinician_id from public.video_consultations where id = v_vcx) is not null
+     or not exists (select 1 from public.ops_incidents where external_reference = 'consultation_completion:' || v_vcx
+                     and summary like '%no clinician is recorded for the call%') then
+    raise exception 'FAIL R1: the unfit booking clinician was picked up at completion, or no incident was opened';
+  end if;
+
+  -- R2 + R4. closing the note task by hand without a signed note adds to the consultation's incident (never overwriting it)
+  select * into tk from public.clinical_tasks where id = v_task2;
+  if tk.state = 'offered_to_lead' then
+    perform private.apply_task_transition(v_task2, 'open', 'system', null, 'fixture: back to the pool');
+  end if;
+  insert into public.task_claims (organisation_id, task_id, clinician_id, expires_at, is_test)
+  values (v_org, v_task2, v_doc2, now() + interval '30 minutes', true);
+  perform private.apply_task_transition(v_task2, 'claimed', 'clinician', v_doc2, 'fixture claim', v_doc2, now() + interval '30 minutes');
+  r := pg_temp.as_user(v_doc2, format('select public.queue_complete(%L, %L::jsonb)::text', v_task2,
+         jsonb_build_object('code', 'completed_no_action_needed', 'note', 'Patient did not join the call')::text));
+  if r not in ('ok', '') then raise exception 'fixture FAIL R2: queue_complete refused a reasoned close: %', r; end if;
+  if not exists (select 1 from public.ops_incidents where external_reference = 'consultation_completion:' || v_vc2
+                  and summary like '%no clinician is recorded for the call%'
+                  and summary like '%was completed with no signed note%') then
+    raise exception 'FAIL R2/R4: closing the task without a signed note did not add to the incident (%)',
+      (select summary from public.ops_incidents where external_reference = 'consultation_completion:' || v_vc2);
+  end if;
 
   -- G. the live 11-03 call (present only on the live project; skipped on a fresh replay)
   if exists (select 1 from public.video_consultations where id = '80d9ca01-4def-4b38-b7b9-2a3dbfb664a8') then
@@ -386,11 +444,50 @@ begin
   if v_sab_r like '42501:%' then raise exception 'SABOTAGE S-5 did not flip check 5: %', v_sab_r; end if;
   insert into ccc_result values ('sabotage S-5: without the guard a staff member sets clinician_id directly (5 flips)');
 
+  -- S-R1: the unchecked booking copy (and resolver) -> the non-clinician profile lands on the consultation
+  begin
+    create or replace function private.video_consultation_booking_clinician_ok(p_clinician uuid, p_org uuid, p_type text) returns boolean
+    language sql stable security definer set search_path to '' as $sab$ select p_clinician is not null $sab$;
+    v_vc := pg_temp.book(v_org, v_pat2, v_admin);
+    select clinician_id into v_sab_clin from public.video_consultations where id = v_vc;
+    raise exception 'sabotage_rollback';
+  exception when others then
+    if sqlerrm <> 'sabotage_rollback' then raise exception 'sabotage S-R1 failed unexpectedly: %', sqlerrm; end if;
+  end;
+  if v_sab_clin is distinct from v_admin then raise exception 'SABOTAGE S-R1 did not flip check R1'; end if;
+  insert into ccc_result values ('sabotage S-R1: without the booking check a non-clinician profile becomes the call''s clinician (R1 flips)');
+
+  -- S-R2: without the closed-without-note trigger the hand close leaves no trace on the incident
+  v_sab_inc := null;
+  begin
+    drop trigger clinical_tasks_consultation_note_closed_without_note on public.clinical_tasks;
+    v_vc := pg_temp.book_and_complete(v_org, v_pat2, null);
+    select id into v_task from public.clinical_tasks where dedup_key = 'consult_note:' || v_vc;
+    select * into tk from public.clinical_tasks where id = v_task;
+    if tk.state = 'offered_to_lead' then
+      perform private.apply_task_transition(v_task, 'open', 'system', null, 'fixture: back to the pool');
+    end if;
+    insert into public.task_claims (organisation_id, task_id, clinician_id, expires_at, is_test)
+    values (v_org, v_task, v_doc2, now() + interval '30 minutes', true);
+    perform private.apply_task_transition(v_task, 'claimed', 'clinician', v_doc2, 'fixture claim', v_doc2, now() + interval '30 minutes');
+    v_sab_r := pg_temp.as_user(v_doc2, format('select public.queue_complete(%L, %L::jsonb)::text', v_task,
+                 jsonb_build_object('code', 'completed_no_action_needed', 'note', 'Patient did not join the call')::text));
+    v_sab_inc := exists (select 1 from public.ops_incidents where external_reference = 'consultation_completion:' || v_vc
+                          and summary like '%was completed with no signed note%');
+    raise exception 'sabotage_rollback';
+  exception when others then
+    if sqlerrm <> 'sabotage_rollback' then raise exception 'sabotage S-R2 failed unexpectedly: %', sqlerrm; end if;
+  end;
+  if v_sab_r not in ('ok', '') or coalesce(v_sab_inc, true) then raise exception 'SABOTAGE S-R2 did not flip check R2 (%)', v_sab_r; end if;
+  insert into ccc_result values ('sabotage S-R2: without the trigger a task closed with no signed note leaves the incident unchanged (R2 flips)');
+
   -- every sabotage really was rolled back
   if not exists (select 1 from pg_trigger where tgname = 'appointments_video_consultation_clinician')
      or not exists (select 1 from pg_trigger where tgname = '00000_guard_clinician')
      or private.video_consultation_needs_doctor_note(v_vcd)
-     or exists (select 1 from pg_trigger where tgname = 'ccc_refuse_incident') then
+     or exists (select 1 from pg_trigger where tgname = 'ccc_refuse_incident')
+     or not exists (select 1 from pg_trigger where tgname = 'clinical_tasks_consultation_note_closed_without_note')
+     or private.video_consultation_booking_clinician_ok(v_admin, v_org, 'telemedicine') then
     raise exception 'a sabotage was not rolled back';
   end if;
 

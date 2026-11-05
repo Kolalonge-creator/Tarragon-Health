@@ -14,7 +14,8 @@
 --
 -- What this migration does.
 --   1. video_consultations.clinician_id (profiles.id, the same key appointments.clinician_id and encounters.clinician_id use).
---      Filled by an AFTER trigger on appointments and on encounters (a reassignment before the call follows it) and by a BEFORE
+--      Filled by an AFTER trigger on appointments and on encounters (a reassignment before the call follows it; only an active
+--      clinical_staff member whose care_role fits the booking type, private.clinician_matches_booking_type) and by a BEFORE
 --      UPDATE fill from the resolver (slot and visit-request paths). The resolver reads the column first, then slots, visit
 --      requests, appointments and encounters. Only triggers and definer functions may write it: a direct write by a signed-in
 --      user (any org staff role) is refused, because the column drives note authorship, consult time and the timeline trust tier.
@@ -25,11 +26,13 @@
 --        b. the draft note (as before) when a doctor note is owed and the doctor is known;
 --        c. a consultation_note task, offered through the queue's normal offer rules (eligible, offerable: leave, post-call rest,
 --           declared hours; no conflict; the lead_window_cap_fraction cap) to the doctor who ran the call, else routed normally;
---        d. one patient_timeline row (generic wording, no consultation context in the text or metadata);
+--        d. one patient_timeline row (generic wording, no consultation context in the text or metadata, no actor: trust tier
+--           'system');
 --        e. anything owed that could not be done opens an ops incident (sev2, clinical). The incident write itself can fail
 --           (for example an SLA trigger); it then falls back to a WARNING and never aborts the status update.
 --   3. Task type consultation_note (PROPOSED values; an operational setting, not on the CMO's patient-harm list). queue_complete
---      with "completed_action_taken" needs the consultation's note finalised; any other outcome needs a written reason.
+--      with "completed_action_taken" needs the consultation's note finalised; any other outcome needs a written reason, and a
+--      task closed or cancelled while the note is still unsigned adds to (or opens) the consultation's ops incident.
 --   4. Finalising the note completes the task for the finalising doctor, whoever holds it: an offer to someone else is returned
 --      to the pool, another doctor's claim is ended (system moves, reasons recorded), then the finaliser claims and completes
 --      exactly as queue_complete does (task_claims row, reliability event, audit, clinical_task.completed and
@@ -54,6 +57,22 @@ comment on column public.video_consultations.clinician_id is
   'The clinician (profiles.id) who runs the call. Written only by triggers and definer functions (from the booking, the slot or the '
   'visit request); a direct write by a signed-in user is refused. Read by the completion chain. 20261105164409.';
 
+-- A booking's clinician is only taken onto the consultation when it is an active clinical_staff member of the same organisation
+-- whose care_role fits the booking type (private.clinician_matches_booking_type, the S64 rule bookings already use). Org staff can
+-- write appointments, so without this an appointment would be a way round the guard on video_consultations.clinician_id below.
+create function private.video_consultation_booking_clinician_ok(p_clinician uuid, p_org uuid, p_type text)
+returns boolean
+language sql
+stable security definer
+set search_path to ''
+as $function$
+  select p_clinician is not null
+     and exists (select 1 from public.clinical_staff cs
+                  where cs.profile_id = p_clinician and cs.organisation_id = p_org and cs.active and cs.status = 'active')
+     and private.clinician_matches_booking_type(p_clinician, coalesce(p_type, 'telemedicine'));
+$function$;
+revoke all on function private.video_consultation_booking_clinician_ok(uuid, uuid, text) from public, anon, authenticated;
+
 -- The resolver: the column first, then every place a booking records the clinician. Same signature, redefined from the live body.
 create or replace function private.video_consultation_clinician(p_consultation_id uuid)
 returns uuid
@@ -75,11 +94,14 @@ as $function$
     (select a.clinician_id
      from public.appointments a
      where a.video_consultation_id = p_consultation_id and a.clinician_id is not null
+       and private.video_consultation_booking_clinician_ok(a.clinician_id, a.organisation_id, a.appointment_type::text)
      order by a.created_at desc
      limit 1),
     (select e.clinician_id
      from public.encounters e
+     left join public.appointments ea on ea.id = e.appointment_id
      where e.video_consultation_id = p_consultation_id and e.clinician_id is not null
+       and private.video_consultation_booking_clinician_ok(e.clinician_id, e.organisation_id, ea.appointment_type::text)
      order by e.created_at desc
      limit 1)
   );
@@ -137,8 +159,19 @@ language plpgsql
 security definer
 set search_path to ''
 as $function$
+declare
+  v_type text;
 begin
   if new.video_consultation_id is null or new.clinician_id is null then
+    return null;
+  end if;
+  if tg_table_name = 'appointments' then
+    v_type := new.appointment_type::text;
+  else
+    select a.appointment_type::text into v_type from public.appointments a where a.id = new.appointment_id;
+  end if;
+  -- not a clinician who fits this booking: leave the consultation as it is (the chain reports a call with no clinician)
+  if not private.video_consultation_booking_clinician_ok(new.clinician_id, new.organisation_id, v_type) then
     return null;
   end if;
   update public.video_consultations v
@@ -378,10 +411,20 @@ declare
   v_ref text := 'consultation_completion:' || p_consultation;
   v_summary text := format('Video consultation %s: part of what should follow it did not happen: %s. Ids only.',
                            p_consultation, array_to_string(p_problems, '; '));
+  v_new text;
 begin
   begin
     if exists (select 1 from public.ops_incidents where external_reference = v_ref and status not in ('resolved', 'closed')) then
-      update public.ops_incidents set summary = v_summary where external_reference = v_ref and status not in ('resolved', 'closed');
+      -- a later problem is added to what the incident already says, never written over it
+      select string_agg(x, '; ') into v_new
+        from unnest(p_problems) x
+       where not exists (select 1 from public.ops_incidents i
+                          where i.external_reference = v_ref and i.status not in ('resolved', 'closed')
+                            and position(x in coalesce(i.summary, '')) > 0);
+      if v_new is not null then
+        update public.ops_incidents set summary = coalesce(summary, '') || ' Also: ' || v_new || '.'
+         where external_reference = v_ref and status not in ('resolved', 'closed');
+      end if;
     else
       insert into public.ops_incidents (organisation_id, category, severity, title, summary, external_reference, ack_due_at, resolve_due_at)
       values (p_org, 'clinical', 'sev2', 'A finished video consultation is missing its note, task or timeline entry', v_summary, v_ref,
@@ -429,7 +472,7 @@ declare
   vc public.video_consultations%rowtype;
   v_clin uuid;
   v_staff uuid;        -- a doctor record at a tier that can write the note
-  v_actor_staff uuid;  -- any active clinical_staff row, for attribution on the timeline
+  v_reason text;
   v_owed boolean := true;
   v_problems text[] := '{}';
 begin
@@ -442,8 +485,6 @@ begin
     v_clin := coalesce(vc.clinician_id, private.video_consultation_clinician(vc.id));
     v_owed := private.video_consultation_needs_doctor_note(vc.id);
     if v_clin is not null then
-      select id into v_actor_staff from public.clinical_staff
-       where profile_id = v_clin and organisation_id = vc.organisation_id and active limit 1;
       select id into v_staff from public.clinical_staff
        where profile_id = v_clin and organisation_id = vc.organisation_id and active and care_role = 'doctor'
          and doctor_tier in ('senior_medical_officer', 'chief_medical_officer')
@@ -451,6 +492,13 @@ begin
     end if;
   exception when others then
     v_problems := v_problems || ('the clinician could not be looked up (' || sqlstate || ': ' || left(sqlerrm, 200) || ')');
+  end;
+
+  -- the note's reason, as the live trigger wrote it before this migration (the note is staff-facing)
+  v_reason := case vc.context
+    when 'pre_referral_triage' then 'Pre-referral triage video consultation'
+    when 'specialist_consult' then 'Specialist video consultation'
+    else 'Video consultation'
   end;
 
   if v_owed then
@@ -470,7 +518,7 @@ begin
             reason_for_encounter, call_started_at, call_ended_at
           ) values (
             vc.organisation_id, vc.patient_id, vc.id, 'video_consult',
-            'Video consultation', vc.started_at, vc.ended_at
+            v_reason, vc.started_at, vc.ended_at
           );
           perform set_config('app.trusted_clinical_staff_author', '', true);
         end if;
@@ -491,12 +539,13 @@ begin
     end;
   end if;
 
-  -- 6c. one timeline row per consultation; generic wording, no consultation context
+  -- 6c. one timeline row per consultation; generic wording, no consultation context, and no actor: the system wrote it, so the
+  --     trust tier is 'system', not 'clinician'
   begin
     if not exists (select 1 from public.patient_timeline where source_table = 'video_consultations' and source_id = vc.id) then
       perform private.record_timeline_event(
         vc.organisation_id, vc.patient_id, 'encounter_documented', 'video_consultations', vc.id,
-        'Video consultation completed', 'Video consultation', coalesce(vc.ended_at, now()), v_actor_staff,
+        'Video consultation completed', 'Video consultation', coalesce(vc.ended_at, now()), null,
         jsonb_build_object('kind', 'consultation_completed', 'video_consultation_id', vc.id));
     end if;
   exception
@@ -623,6 +672,38 @@ create trigger clinical_encounter_notes_complete_consultation_task
   for each row
   when (old.status is distinct from 'finalized' and new.status = 'finalized')
   execute function private.complete_consultation_note_task();
+
+-- A consultation_note task closed (completed or cancelled) while the consultation still has no finalised note keeps the obligation
+-- visible: the consultation's incident is opened (or added to). The close itself is never blocked.
+create function private.consultation_note_task_closed_without_note()
+returns trigger
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+  v_vc uuid := private.try_uuid(substring(new.dedup_key from '^consult_note:([0-9a-fA-F-]{36})'));
+begin
+  if v_vc is not null
+     and not exists (select 1 from public.clinical_encounter_notes n
+                      where n.video_consultation_id = v_vc and n.status = 'finalized') then
+    perform private.consultation_completion_incident(new.organisation_id, v_vc,
+      array['its note task ' || new.id || ' was ' || new.state || ' with no signed note (outcome '
+            || coalesce(new.outcome ->> 'code', new.cancel_reason, 'none') || ')']);
+  end if;
+  return null;
+exception when others then
+  raise warning 'consultation_note_task_closed_without_note: task %: %', new.id, sqlerrm;
+  return null;
+end;
+$function$;
+revoke all on function private.consultation_note_task_closed_without_note() from public, anon, authenticated;
+
+create trigger clinical_tasks_consultation_note_closed_without_note
+  after update of state on public.clinical_tasks
+  for each row
+  when (new.type = 'consultation_note' and new.state in ('completed', 'cancelled') and old.state is distinct from new.state)
+  execute function private.consultation_note_task_closed_without_note();
 
 -- ---------------------------------------------------------------------------
 -- 8. Timeline: one row per consultation, and hidden from caregiver reads for a patient aged 10 to 17. Redefined from the live
