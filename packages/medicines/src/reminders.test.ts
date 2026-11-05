@@ -35,6 +35,15 @@ describe("planDoseNotifications", () => {
     const later = planDoseNotifications(meds, new Set(), Date.parse("2026-10-05T10:00:00Z"), cfg);
     expect(later[0].slotKeys).toEqual(["a|2026-10-05|20:00"]);
   });
+  it("T2-15: plans nothing before a prescription's start (collection, or the fallback day)", () => {
+    const startsAtMs = Date.parse("2026-10-07T00:00:00+01:00");
+    const plan = planDoseNotifications([{ id: "rx", active: true, spec: daily(["08:00"]), startsAtMs }], new Set(), now, cfg);
+    expect(plan.length).toBeGreaterThan(0);
+    expect(plan[0].slotKeys).toEqual(["rx|2026-10-07|08:00"]);
+    expect(plan.every((p) => p.fireAtMs >= startsAtMs)).toBe(true);
+    const unlimited = planDoseNotifications([{ id: "rx", active: true, spec: daily(["08:00"]) }], new Set(), now, cfg);
+    expect(unlimited[0].slotKeys).toEqual(["rx|2026-10-05|08:00"]);
+  });
   it("stays inside the horizon", () => {
     const plan = planDoseNotifications(meds, new Set(), now, { maxPending: 1000, horizonDays: 2, followUpMinWindowMinutes: 30, maxFollowUps: 8 });
     expect(plan.every((p) => p.fireAtMs <= now + 2 * 86400000)).toBe(true);

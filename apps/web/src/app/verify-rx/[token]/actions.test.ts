@@ -50,6 +50,16 @@ describe("recordSupplyAction", () => {
     });
   });
 
+  it("T2-11c: passes the pharmacy's statement that it supplied the reported collection only when ticked", async () => {
+    rpcMock.mockResolvedValue({ data: [{ outcome: "recorded", supplies_dispensed: 1, supplies_permitted: 1 }], error: null });
+    await run({ ...valid, suppliedReportedCollection: "on" });
+    expect(rpcMock).toHaveBeenCalledWith("record_prescription_supply_public", expect.objectContaining({ p_supplied_reported_collection: true }));
+    rpcMock.mockClear();
+    await run(valid);
+    expect(rpcMock.mock.calls[0][1]).not.toHaveProperty("p_supplied_reported_collection");
+    expect(await run({ ...valid, suppliedReportedCollection: "yes" })).toBe(`REDIRECT:/verify-rx/${TOKEN}?result=invalid`);
+  });
+
   it("requires the confirmation box, a name of at least two letters, and never calls the database otherwise", async () => {
     expect(await run({ ...valid, confirmed: "" })).toBe(`REDIRECT:/verify-rx/${TOKEN}?result=invalid`);
     expect(await run({ ...valid, pharmacyName: "A" })).toBe(`REDIRECT:/verify-rx/${TOKEN}?result=invalid`);

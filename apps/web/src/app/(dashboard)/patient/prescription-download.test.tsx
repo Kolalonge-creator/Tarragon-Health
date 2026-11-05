@@ -11,7 +11,9 @@ const partnerHook = jest.fn((enabled: boolean) => ({ data: enabled ? partnerAvai
 jest.mock("@/lib/queries/medications", () => ({
   useDisputePrescriptionSupply: () => ({ mutate: jest.fn(), isPending: false, isError: false, error: null }),
   usePartnerCollectionAvailable: (enabled: boolean) => partnerHook(enabled),
+  useUndoPrescriptionCollected: () => ({ mutate: undoMutate, isPending: false, isError: false }),
 }));
+const undoMutate = jest.fn();
 
 import { PrescriptionDownload } from "./prescription-download";
 
@@ -56,5 +58,35 @@ describe("PrescriptionDownload (T2-11 take anywhere)", () => {
     render(<PrescriptionDownload {...PROPS} prescriptionId={null} />);
     expect(partnerHook).toHaveBeenCalledWith(false);
     expect(screen.getByRole("link", { name: /Download prescription \(PDF\)/ })).toBeTruthy();
+  });
+
+  it("T2-11c: labels the patient's own confirmation and offers undo for 24 hours", () => {
+    const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const base = {
+      dispensed_on: "2026-11-05",
+      pharmacy_name: "Corner Chemist",
+      pharmacist_name: null,
+      pharmacist_registration: null,
+      pharmacist_registration_verified: false,
+      disputed_at: null,
+      source: "patient" as const,
+      recorded_via: "patient_confirmation",
+      pharmacy_town: "Ikeja",
+    };
+    render(
+      <PrescriptionDownload
+        {...PROPS}
+        supplies={[
+          { ...base, id: "c1", created_at: recent },
+          { ...base, id: "c2", created_at: "2026-10-01T10:00:00Z", dispensed_on: "2026-10-01" },
+        ]}
+      />
+    );
+    expect(screen.getByText("You told us you collected this on 5 Nov 2026 at Corner Chemist, Ikeja.")).toBeTruthy();
+    const undo = screen.getAllByRole("button", { name: /Undo, I tapped this by mistake/ });
+    expect(undo).toHaveLength(1);
+    undo[0].click();
+    expect(undoMutate).toHaveBeenCalledWith({ dispenseId: "c1" }, expect.any(Object));
+    expect(screen.queryByRole("button", { name: /This wasn't me/ })).toBeNull();
   });
 });

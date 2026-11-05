@@ -263,7 +263,7 @@ do $$
 declare v_def text; v_out text; v_code text; v_rx uuid;
 begin
   -- (1) the counter check removed from the dispense function: a controlled medicine must now be RECORDED (the test would catch the hole)
-  select pg_get_functiondef('public.pharmacist_dispense_prescription(uuid,text,text,boolean,text,text,date,text,text)'::regprocedure) into v_def;
+  select pg_get_functiondef('public.pharmacist_dispense_prescription(uuid,text,text,boolean,text,text,date,text,text,boolean)'::regprocedure) into v_def;
   v_def := replace(v_def, 'if private.prescription_has_controlled_item(v_med.drug_name, rx.items) then', 'if false then');
   execute v_def;
   v_rx := pg_temp.mkrx(pg_temp.f('org'), pg_temp.f('pat'), pg_temp.f('doc'), 'Tramadol 100mg', 'signed');

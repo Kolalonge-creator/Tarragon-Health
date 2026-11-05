@@ -27,6 +27,12 @@ export interface DeskLookup {
   prescriber_credential: string | null;
   name_checked: boolean;
   name_matches: boolean;
+  /** T2-11c: collections the patient reported themselves (no pharmacy recorded them). Optional so an older answer still parses. */
+  self_reported_supplies?: number;
+  last_self_report_on?: string | null;
+  last_self_report_pharmacy?: string | null;
+  /** A recent patient report that only the pharmacy which supplied it may confirm. */
+  self_report_awaiting_pharmacy?: boolean;
 }
 
 export type DeskResult = { kind: "found"; lookup: DeskLookup } | { kind: "not_found" } | { kind: "error"; message: string };
@@ -58,13 +64,18 @@ export function describeNameCheck(lookup: Pick<DeskLookup, "name_checked" | "nam
     : { tone: "bad", text: "The name does NOT match the patient this prescription was issued to. Tell the pharmacist not to dispense and to check the person's identity." };
 }
 
-/** Whether the staff member may record a supply for this lookup: only an active prescription with a supply available. */
-export function canRecordFromDesk(lookup: Pick<DeskLookup, "status" | "supply_available">): boolean {
-  return lookup.status === "active" && lookup.supply_available;
+/**
+ * Whether the staff member may record a supply for this lookup: an active prescription with a supply available, or (T2-11c) one whose
+ * only obstacle is a recent patient-reported collection, which the pharmacy that supplied it may confirm (the form then requires that).
+ */
+export function canRecordFromDesk(lookup: Pick<DeskLookup, "status" | "supply_available" | "self_report_awaiting_pharmacy">): boolean {
+  return lookup.status === "active" && (lookup.supply_available || lookup.self_report_awaiting_pharmacy === true);
 }
 
 /** The sentence to read back to the pharmacist. */
-export function deskVerdict(lookup: Pick<DeskLookup, "status" | "supply_available" | "name_checked" | "name_matches">): string {
+export function deskVerdict(
+  lookup: Pick<DeskLookup, "status" | "supply_available" | "name_checked" | "name_matches" | "self_report_awaiting_pharmacy">,
+): string {
   if (lookup.status !== "active") {
     if (lookup.status === "controlled_medicine") {
       return "Do not dispense: this medicine is on the controlled medicines list, and Tarragon does not supply controlled medicines. Nothing can be recorded.";
@@ -73,7 +84,11 @@ export function deskVerdict(lookup: Pick<DeskLookup, "status" | "supply_availabl
     return `Do not dispense: this prescription ${why}.`;
   }
   if (lookup.name_checked && !lookup.name_matches) return "Do not dispense: the name does not match.";
-  if (!lookup.supply_available) return "Do not dispense: every available supply has already been dispensed.";
+  if (!lookup.supply_available) {
+    return lookup.self_report_awaiting_pharmacy
+      ? "Do not dispense: the patient reported collecting this supply. Record it only if this pharmacy is the one that supplied it."
+      : "Do not dispense: every available supply has already been dispensed.";
+  }
   return lookup.name_checked
     ? "This prescription is genuine, valid, the name matches and a supply is available."
     : "This prescription is genuine, valid and a supply is available. The patient's name has not been checked yet.";

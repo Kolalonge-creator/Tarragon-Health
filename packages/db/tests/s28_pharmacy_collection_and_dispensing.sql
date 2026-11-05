@@ -289,7 +289,7 @@ do $$
 declare v_def text; v_tok text; v_out text; v_rx uuid;
 begin
   -- (2) the shared supply count removed from the partner path: after a QR supply the partner path must NOT refuse any more
-  select pg_get_functiondef('public.pharmacist_dispense_prescription(uuid,text,text,boolean,text,text,date,text,text)'::regprocedure) into v_def;
+  select pg_get_functiondef('public.pharmacist_dispense_prescription(uuid,text,text,boolean,text,text,date,text,text,boolean)'::regprocedure) into v_def;
   v_def := replace(v_def, 'if v_disp >= v_perm then return query select ''no_supply_available''::text, v_disp, v_perm; return; end if;', '');
   execute v_def;
   v_out := pg_temp.disp_as(pg_temp.f('phA'), pg_temp.f('rx2'), pg_temp.t('code2'), false, null, 'PCN12345');

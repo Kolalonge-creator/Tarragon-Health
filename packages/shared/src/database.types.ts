@@ -12518,12 +12518,17 @@ export type Database = {
           kind_confirmed_at: string | null
           kind_confirmed_by: string | null
           kind_source: string | null
+          lab_order_id: string | null
+          lab_order_link_source: string | null
+          lab_order_linked_at: string | null
+          lab_order_linked_by: string | null
           last_error: string | null
           mime_type: string | null
           organisation_id: string
           original_filename: string | null
           patient_id: string
           patient_note: string | null
+          resulted_lab_order_id: string | null
           routed_id: string | null
           routed_table: string | null
           scan_attempts: number
@@ -12565,12 +12570,17 @@ export type Database = {
           kind_confirmed_at?: string | null
           kind_confirmed_by?: string | null
           kind_source?: string | null
+          lab_order_id?: string | null
+          lab_order_link_source?: string | null
+          lab_order_linked_at?: string | null
+          lab_order_linked_by?: string | null
           last_error?: string | null
           mime_type?: string | null
           organisation_id: string
           original_filename?: string | null
           patient_id: string
           patient_note?: string | null
+          resulted_lab_order_id?: string | null
           routed_id?: string | null
           routed_table?: string | null
           scan_attempts?: number
@@ -12612,12 +12622,17 @@ export type Database = {
           kind_confirmed_at?: string | null
           kind_confirmed_by?: string | null
           kind_source?: string | null
+          lab_order_id?: string | null
+          lab_order_link_source?: string | null
+          lab_order_linked_at?: string | null
+          lab_order_linked_by?: string | null
           last_error?: string | null
           mime_type?: string | null
           organisation_id?: string
           original_filename?: string | null
           patient_id?: string
           patient_note?: string | null
+          resulted_lab_order_id?: string | null
           routed_id?: string | null
           routed_table?: string | null
           scan_attempts?: number
@@ -12659,6 +12674,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "clinical_documents_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_lab_order_linked_by_fkey"
+            columns: ["lab_order_linked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "clinical_documents_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
@@ -12670,6 +12699,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_resulted_lab_order_id_fkey"
+            columns: ["resulted_lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
             referencedColumns: ["id"]
           },
           {
@@ -27651,13 +27687,46 @@ export type Database = {
           },
         ]
       }
+      marketing_resource_revisions: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: string
+          operation: string
+          resource_id: string
+          slug: string
+          snapshot: Json
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          operation: string
+          resource_id: string
+          slug: string
+          snapshot: Json
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          operation?: string
+          resource_id?: string
+          slug?: string
+          snapshot?: Json
+        }
+        Relationships: []
+      }
       marketing_resources: {
         Row: {
+          author_name: string | null
           category: string
           created_at: string
           description: string
           id: string
           is_published: boolean
+          next_review_at: string | null
+          publish_at: string | null
           read_minutes: number
           related_href: string | null
           related_label: string | null
@@ -27666,16 +27735,20 @@ export type Database = {
           sections: Json
           slug: string
           sort_order: number
+          source_references: Json
           title: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          author_name?: string | null
           category: string
           created_at?: string
           description: string
           id?: string
           is_published?: boolean
+          next_review_at?: string | null
+          publish_at?: string | null
           read_minutes?: number
           related_href?: string | null
           related_label?: string | null
@@ -27684,16 +27757,20 @@ export type Database = {
           sections?: Json
           slug: string
           sort_order?: number
+          source_references?: Json
           title: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          author_name?: string | null
           category?: string
           created_at?: string
           description?: string
           id?: string
           is_published?: boolean
+          next_review_at?: string | null
+          publish_at?: string | null
           read_minutes?: number
           related_href?: string | null
           related_label?: string | null
@@ -27702,6 +27779,7 @@ export type Database = {
           sections?: Json
           slug?: string
           sort_order?: number
+          source_references?: Json
           title?: string
           updated_at?: string
           updated_by?: string | null
@@ -29031,6 +29109,47 @@ export type Database = {
           },
         ]
       }
+      medication_schedule_starts: {
+        Row: {
+          collected_on: string
+          from_dispense_id: string | null
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          source: string
+          starts_at: string
+          updated_at: string
+        }
+        Insert: {
+          collected_on: string
+          from_dispense_id?: string | null
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          source: string
+          starts_at: string
+          updated_at?: string
+        }
+        Update: {
+          collected_on?: string
+          from_dispense_id?: string | null
+          medication_id?: string
+          organisation_id?: string
+          patient_id?: string
+          source?: string
+          starts_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_schedule_starts_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: true
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medications: {
         Row: {
           added_by: string | null
@@ -29064,6 +29183,7 @@ export type Database = {
           rx_number: string | null
           schedule_times: Json
           schedule_effective_from: string | null
+          schedule_starts_on_collection: boolean
           schedule_spec: Json | null
           search_vector: unknown
           source: Database["public"]["Enums"]["medication_source"]
@@ -29106,6 +29226,7 @@ export type Database = {
           rx_number?: string | null
           schedule_times?: Json
           schedule_effective_from?: string | null
+          schedule_starts_on_collection?: boolean
           schedule_spec?: Json | null
           search_vector?: unknown
           source?: Database["public"]["Enums"]["medication_source"]
@@ -29148,6 +29269,7 @@ export type Database = {
           rx_number?: string | null
           schedule_times?: Json
           schedule_effective_from?: string | null
+          schedule_starts_on_collection?: boolean
           schedule_spec?: Json | null
           search_vector?: unknown
           source?: Database["public"]["Enums"]["medication_source"]
@@ -36573,6 +36695,13 @@ export type Database = {
           pharmacist_name: string | null
           pharmacist_registration: string | null
           pharmacy_name: string | null
+          pharmacy_town: string | null
+          reported_by_relationship: string | null
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+          withdraw_reason: string | null
+          matched_dispense_id: string | null
+          matched_at: string | null
           pharmacy_order_id: string | null
           quantity: string | null
           quantity_prescribed: string | null
@@ -36606,6 +36735,13 @@ export type Database = {
           pharmacist_name?: string | null
           pharmacist_registration?: string | null
           pharmacy_name?: string | null
+          pharmacy_town?: string | null
+          reported_by_relationship?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdraw_reason?: string | null
+          matched_dispense_id?: string | null
+          matched_at?: string | null
           pharmacy_order_id?: string | null
           quantity?: string | null
           quantity_prescribed?: string | null
@@ -36639,6 +36775,13 @@ export type Database = {
           pharmacist_name?: string | null
           pharmacist_registration?: string | null
           pharmacy_name?: string | null
+          pharmacy_town?: string | null
+          reported_by_relationship?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdraw_reason?: string | null
+          matched_dispense_id?: string | null
+          matched_at?: string | null
           pharmacy_order_id?: string | null
           quantity?: string | null
           quantity_prescribed?: string | null
@@ -53670,6 +53813,23 @@ export type Database = {
           latest_result_id: string | null;
         }[];
       };
+      lab_order_link_candidates: {
+        Args: { p_document: string };
+        Returns: {
+          lab_order_id: string;
+          order_number: string | null;
+          label: string;
+          status: Database["public"]["Enums"]["lab_order_status"];
+          ordered_at: string;
+          test_codes: string[];
+          tests_match: boolean;
+          is_linked: boolean;
+        }[];
+      };
+      link_clinical_document_to_lab_order: {
+        Args: { p_document: string; p_lab_order: string | null };
+        Returns: Json;
+      };
       lab_partner_submit_correction: {
         Args: { p_corrects: string; p_file?: Json; p_items: Json; p_kind: string; p_order: string; p_panel: string; p_reason: string };
         Returns: Json;
@@ -59283,6 +59443,10 @@ export type Database = {
           signed_at: string
           status: string
           version: number
+          self_reported_supplies: number
+          last_self_report_on: string
+          last_self_report_pharmacy: string
+          self_report_awaiting_pharmacy: boolean
         }[]
       }
       verify_lab_request_public: {
@@ -59306,6 +59470,26 @@ export type Database = {
       submit_my_preventive_baseline: { Args: never; Returns: Json }
       clinician_preventive_baseline: { Args: { p_patient: string }; Returns: Json }
       review_preventive_plan: { Args: { p_baseline: string; p_decision: string; p_note?: string }; Returns: string }
+      confirm_prescription_collected: {
+        Args: {
+          p_medication_id: string
+          p_collected_on?: string
+          p_pharmacy_name?: string
+          p_pharmacy_town?: string
+          p_quantity?: string
+          p_for_patient?: string
+        }
+        Returns: {
+          outcome: string
+          dispense_id: string
+          supplies_dispensed: number
+          supplies_permitted: number
+        }[]
+      }
+      undo_prescription_collected: {
+        Args: { p_dispense_id: string; p_reason?: string }
+        Returns: string
+      }
       desk_record_prescription_supply: {
         Args: {
           p_rx_number: string
@@ -59313,6 +59497,7 @@ export type Database = {
           p_pharmacy_name: string
           p_pharmacist_name: string
           p_pharmacist_registration: string
+          p_supplied_reported_collection?: boolean
         }
         Returns: {
           outcome: string
@@ -59343,6 +59528,10 @@ export type Database = {
           supplies_permitted: number
           supply_available: boolean
           version: number
+          self_reported_supplies: number
+          last_self_report_on: string
+          last_self_report_pharmacy: string
+          self_report_awaiting_pharmacy: boolean
         }[]
       }
       dispute_prescription_supply: {
@@ -59356,6 +59545,7 @@ export type Database = {
           p_pharmacist_name: string
           p_pharmacist_registration?: string
           p_quantity_supplied?: string
+          p_supplied_reported_collection?: boolean
         }
         Returns: {
           outcome: string

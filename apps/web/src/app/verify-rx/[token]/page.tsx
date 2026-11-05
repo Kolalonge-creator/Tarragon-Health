@@ -16,6 +16,7 @@ import {
   stripDoctorTitle,
   type PublicPrescriptionProof,
 } from "@/lib/prescriptions/public-verification";
+import { describePatientReportForPharmacist, suppliedReportedCollectionLabel } from "@/lib/prescriptions/patient-supply";
 
 /**
  * "Is this prescription real and still valid?", asked by a pharmacist holding a printed or on-screen
@@ -136,8 +137,11 @@ export default async function VerifyPrescriptionPage({
                       Supplied {p.supplies_dispensed} of {p.supplies_permitted} permitted
                       {p.last_supplied_on ? `, last on ${formatDate(p.last_supplied_on)}` : ""}.
                     </p>
+                    {describePatientReportForPharmacist(p) && (
+                      <p className="mt-2 rounded-md border-l-4 border-amber-600 bg-amber-50 p-3 text-sm">{describePatientReportForPharmacist(p)}</p>
+                    )}
                     <p className="mt-1 text-sm">{describeSupply(p)}</p>
-                    {p.supply_available && (
+                    {(p.supply_available || p.self_report_awaiting_pharmacy === true) && (
                       <form action={recordSupplyAction} className="mt-4 space-y-3">
                         <input type="hidden" name="token" value={token} />
                         <p className="text-sm font-medium">Record that you are supplying this now</p>
@@ -153,6 +157,13 @@ export default async function VerifyPrescriptionPage({
                           Pharmacist registration number
                           <input name="pharmacistRegistration" required minLength={3} maxLength={40} className="mt-1 w-full rounded border border-gray-300 p-2" />
                         </label>
+                        {p.self_report_awaiting_pharmacy === true && (
+                          // required when the patient report is the only supply in the way; optional when a supply (a repeat) is free anyway
+                          <label className="flex items-start gap-2 rounded-md border border-amber-600 bg-amber-50 p-2 text-sm">
+                            <input type="checkbox" name="suppliedReportedCollection" required={!p.supply_available} className="mt-1" />
+                            <span>{suppliedReportedCollectionLabel(p)}</span>
+                          </label>
+                        )}
                         <label className="flex items-start gap-2 text-sm">
                           <input type="checkbox" name="confirmed" required className="mt-1" />
                           <span>I am a pharmacist or work for a pharmacy, and I am supplying this prescription now.</span>

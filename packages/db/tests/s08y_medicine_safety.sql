@@ -289,6 +289,9 @@ begin
   -- 4. The NAFDAC number note ------------------------------------------------------------------------------------------------------
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, schedule_times, source, is_active, created_at)
     values (v_org, v_pat, 'S08y Daily', '10 mg', 'daily', '["00:01","23:59"]', 'clinician', true, now() - interval '2 days') returning id into v_med;
+  -- T2-15: a new prescription's doses start at its first collection (or 3 days after signing); this one was collected the day it was signed
+  insert into public.pharmacy_order_dispenses (organisation_id, patient_id, medication_id, drug_name, dispensed_on, source, recorded_via)
+  values (v_org, v_pat, v_med, 'S08y Daily', ((now() - interval '2 days') at time zone 'Africa/Lagos')::date, 'pharmacy', 'app');
   perform pg_temp.as_user(v_pat);
   v_res := v_res || jsonb_build_array(jsonb_build_array('the person stores a number (canonicalised)', 'ok',
     pg_temp.attempt(format('select public.set_medication_nafdac_number(%L, %L)', v_med, ' a4-1234 '))));

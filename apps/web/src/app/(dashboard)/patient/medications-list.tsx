@@ -29,6 +29,7 @@ import {
 import { requestMedicationChangeSchema } from "@/lib/validation/medications";
 import { Textarea } from "@/components/ui/textarea";
 import { MedicationCollectionForm } from "./medication-collection-form";
+import { describeForCareTeam, isPatientConfirmation } from "@/lib/prescriptions/patient-supply";
 import { AmendMedicationForm } from "@/app/(dashboard)/clinician/patients/[patientId]/amend-medication-form";
 import { MedicationIssueReportForm } from "./medication-issue-report-form";
 import { PrescriptionDownload } from "./prescription-download";
@@ -279,7 +280,11 @@ export function MedicationsList({
                           verificationCode={medication.verification_code}
                           expiresAt={medication.expires_at}
                           supplies={(collections ?? [])
-                            .filter((c) => c.medication_id === medication.id && c.source === "pharmacy")
+                            .filter(
+                              (c) =>
+                                c.medication_id === medication.id &&
+                                (c.source === "pharmacy" || isPatientConfirmation(c)),
+                            )
                             .sort((a, b) => (a.dispensed_on < b.dispensed_on ? 1 : -1))}
                           patientId={patientId}
                           prescriptionId={(medication as { prescription_id?: string | null }).prescription_id ?? null}
@@ -553,8 +558,9 @@ function PrescriptionStatusTrail({
   canAmend: boolean;
 }) {
   const [amending, setAmending] = useState(false);
+  // T2-11c: a confirmation the patient took back is not a collection; one a pharmacy later matched is shown by the pharmacy row.
   const latestCollection = collections
-    .filter((c) => c.medication_id === medication.id)
+    .filter((c) => c.medication_id === medication.id && !c.withdrawn_at && !c.matched_dispense_id)
     .sort((a, b) => (a.dispensed_on < b.dispensed_on ? 1 : -1))[0];
 
   const signedBy = medication.added_by_profile?.full_name
@@ -581,18 +587,7 @@ function PrescriptionStatusTrail({
     {
       label: "Collected",
       done: !!latestCollection,
-      detail: latestCollection
-        ? [
-            new Date(latestCollection.dispensed_on).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            }),
-            latestCollection.pharmacy_name,
-          ]
-            .filter(Boolean)
-            .join(" · ")
-        : "Not yet recorded",
+      detail: latestCollection ? describeForCareTeam(latestCollection) : "Not yet recorded",
     },
   ];
 

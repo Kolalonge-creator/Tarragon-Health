@@ -16,6 +16,7 @@ import {
 } from "@/lib/prescriptions/desk";
 import { SUPPLY_OUTCOME_MESSAGE, isSupplyOutcome, presentStatus } from "@/lib/prescriptions/public-verification";
 import { stripDoctorTitle } from "@/lib/prescriptions/doctor-name";
+import { describePatientReportForPharmacist, suppliedReportedCollectionLabel } from "@/lib/prescriptions/patient-supply";
 
 const TONE_CLASS = {
   good: "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/30",
@@ -41,6 +42,7 @@ export function PrescriptionDeskConsole() {
   const [pharmacist, setPharmacist] = useState("");
   const [registration, setRegistration] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const [suppliedReported, setSuppliedReported] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordMessage, setRecordMessage] = useState<{ tone: "good" | "bad"; text: string } | null>(null);
 
@@ -86,6 +88,7 @@ export function PrescriptionDeskConsole() {
       p_pharmacy_name: pharmacy.trim(),
       p_pharmacist_name: pharmacist.trim(),
       p_pharmacist_registration: registration.trim(),
+      ...(suppliedReported ? { p_supplied_reported_collection: true } : {}),
     });
     setRecording(false);
     const outcome = Array.isArray(data) ? data[0]?.outcome : undefined;
@@ -95,6 +98,7 @@ export function PrescriptionDeskConsole() {
     }
     setRecordMessage(SUPPLY_OUTCOME_MESSAGE[outcome]);
     if (outcome === "recorded") {
+      setSuppliedReported(false);
       setPharmacy("");
       setPharmacist("");
       setRegistration("");
@@ -145,6 +149,9 @@ export function PrescriptionDeskConsole() {
           <CardContent className="space-y-4">
             <p role="status" className={`rounded-md border-l-4 p-3 text-sm font-medium ${TONE_CLASS[status.tone]}`}>{deskVerdict(lookup)}</p>
             <p className={`rounded-md border-l-4 p-3 text-sm ${TONE_CLASS[nameCheck.tone]}`}>{nameCheck.text}</p>
+            {describePatientReportForPharmacist(lookup) && (
+              <p className={`rounded-md border-l-4 p-3 text-sm ${TONE_CLASS.bad}`}>{describePatientReportForPharmacist(lookup)}</p>
+            )}
             <dl className="grid gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
               {[
                 ["Rx number", lookup.rx_number],
@@ -190,11 +197,17 @@ export function PrescriptionDeskConsole() {
                     <Input id="desk-registration" required minLength={3} maxLength={40} value={registration} onChange={(e) => setRegistration(e.target.value)} />
                   </div>
                 </div>
+                {lookup.self_report_awaiting_pharmacy === true && (
+                  <label className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" checked={suppliedReported} onChange={(e) => setSuppliedReported(e.target.checked)} className="mt-1" />
+                    <span>The pharmacist says: {suppliedReportedCollectionLabel(lookup)}</span>
+                  </label>
+                )}
                 <label className="flex items-start gap-2 text-sm">
                   <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1" />
                   <span>The pharmacist told me on the phone that they are supplying this prescription now.</span>
                 </label>
-                <Button type="submit" variant="outline" disabled={recording || !confirmed}>
+                <Button type="submit" variant="outline" disabled={recording || !confirmed || (!lookup.supply_available && !suppliedReported)}>
                   {recording ? "Recording…" : "Record this supply"}
                 </Button>
               </form>

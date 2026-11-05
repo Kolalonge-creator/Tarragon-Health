@@ -23,6 +23,8 @@ const inputSchema = z.object({
     .trim()
     .regex(/^[A-Za-z0-9][A-Za-z0-9 /.-]{1,38}[A-Za-z0-9]$/),
   confirmed: z.literal("on"),
+  /** T2-11c: "We supplied this on <date>", the collection the patient reported. Absent means no. */
+  suppliedReportedCollection: z.literal("on").optional(),
 });
 
 function back(token: string, outcome: SupplyOutcome): never {
@@ -36,6 +38,7 @@ export async function recordSupplyAction(formData: FormData): Promise<void> {
     pharmacistName: formData.get("pharmacistName"),
     pharmacistRegistration: formData.get("pharmacistRegistration"),
     confirmed: formData.get("confirmed"),
+    suppliedReportedCollection: formData.get("suppliedReportedCollection") ?? undefined,
   });
   const rawToken = String(formData.get("token") ?? "");
   if (!parsed.success) {
@@ -57,6 +60,7 @@ export async function recordSupplyAction(formData: FormData): Promise<void> {
     p_pharmacy_name: input.pharmacyName,
     p_pharmacist_name: input.pharmacistName,
     p_pharmacist_registration: input.pharmacistRegistration,
+    ...(input.suppliedReportedCollection === "on" ? { p_supplied_reported_collection: true } : {}),
   });
   const outcome = Array.isArray(data) ? data[0]?.outcome : undefined;
   if (error || !isSupplyOutcome(outcome)) back(input.token, "error");
