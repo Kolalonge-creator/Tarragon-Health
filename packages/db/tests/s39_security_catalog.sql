@@ -38,6 +38,8 @@ insert into allow values
   -- S10z: the pharmacy-counter view opens by token and PIN through the share door's own lockout, expiry and failure logging, behind its own go-live guard
   ('anon_fn', 'public.pharmacy_snapshot_by_token'),
   ('anon_fn', 'public.verify_prescription_public'), ('anon_fn', 'public.verify_lab_request_public'), ('anon_fn', 'public.record_prescription_supply_public'),
+  -- T2-11b: the Rx number and code typed at /verify-rx give the same QR token; a per-number lock after ten wrong codes in an hour
+  ('anon_fn', 'public.verify_prescription_by_code'),
   -- S55: a learning item whose sharing is switched on opens by its code without signing in; it returns the article text only, no personal data
   ('anon_fn', 'public.learn_shared_article'),
   -- views that run with their owner's rights on purpose (each carries its own caller predicate, or is a public directory, or is not granted)

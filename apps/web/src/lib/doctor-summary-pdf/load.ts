@@ -306,14 +306,13 @@ export async function recordSummaryGeneration(
   actor: { id: string; organisationId: string },
   request: { days: number; sections: readonly SectionKey[] },
 ): Promise<{ ok: true } | { ok: false }> {
-  const { error } = await supabase.from("audit_log").insert({
-    organisation_id: actor.organisationId,
-    actor_id: actor.id,
-    action: "patient.doctor_summary_requested",
-    entity_type: "profiles",
-    entity_id: actor.id,
-    subject_patient_id: actor.id,
-    event: { sections: [...request.sections], period_days: request.days, config_key: "record.doctor_summary_pdf" },
+  // record_audit_event stamps the actor and organisation from the session itself (S2): the client can no longer name either.
+  const { error } = await supabase.rpc("record_audit_event", {
+    p_action: "patient.doctor_summary_requested",
+    p_entity_type: "profiles",
+    p_entity_id: actor.id,
+    p_subject_patient_id: actor.id,
+    p_event: { sections: [...request.sections], period_days: request.days, config_key: "record.doctor_summary_pdf" },
   });
   return error ? { ok: false } : { ok: true };
 }

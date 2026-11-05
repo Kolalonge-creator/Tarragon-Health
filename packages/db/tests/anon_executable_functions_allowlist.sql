@@ -20,6 +20,8 @@ $f$
      and p.proname <> all (array[
        'emergency_card_by_token', 'health_passport_by_serial', 'record_share_peek', 'record_share_by_token', 'pharmacy_snapshot_by_token',
        'verify_prescription_public', 'record_prescription_supply_public', 'verify_lab_request_public', 'learn_shared_article', 'verify_payer_board_report',
+        -- T2-11b: the Rx number and code typed at /verify-rx return the same QR token; ten wrong codes lock a number for the hour
+        'verify_prescription_by_code',
        'public_price_list', 'public_service_coverage', 'public_response_commitments', 'public_partner_locations',
        'platform_switch_is_on', 'membership_auto_renew_enabled',
        -- the founding member offer's public figure: open, places, code, percent; no patient data (founding_member_offer.sql)

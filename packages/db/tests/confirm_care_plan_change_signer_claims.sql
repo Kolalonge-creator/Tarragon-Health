@@ -24,6 +24,8 @@
 --   Note on the error path: PostgreSQL itself reverts a transaction-local setting made inside a rolled-back savepoint, so the error-path checks pin the
 --      observable result (session, flag, nothing applied, change still waiting, retry works). Sabotage E shows they notice a handler that swallows the error.
 begin;
+-- T2-11b: signing now needs a signed interaction dataset and rule set; a fresh replay has none, so sign them inside this transaction.
+\ir _fixtures/signed_interaction_sets.sql
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
@@ -342,7 +344,7 @@ end $$;
 -- Each sabotage re-runs the same probe on a fresh change. The rows go in as phase 'sabotaged' (never printed) and must differ from what the real body gives.
 do $$
 declare v_smo uuid := pg_temp.f('smo'); v_smo2 uuid := pg_temp.f('smo2'); v_pat uuid := pg_temp.f('pat'); v_pat2 uuid := pg_temp.f('pat2');
-  v_orig text; v_def text; c uuid; r text;
+  v_orig text; v_def text; v_lic text; c uuid; r text;
   restore3 text := E'  perform set_config(''request.jwt.claim.sub'', v_save_sub, true);\n  perform set_config(''request.jwt.claims'', v_save_claims, true);\n  perform set_config(''tarragon.change_apply'', '''', true);\n';
   auth_restore text := E'    perform set_config(''request.jwt.claim.sub'', v_save_sub, true);\n    perform set_config(''request.jwt.claims'', v_save_claims, true);\n    perform set_config(''tarragon.change_apply'', '''', true);\n    update public.care_plan_changes set state = ''expired'', expired_at = now() where id = p_change;\n    perform private.written_care_notify(c.signed_by, c.organisation_id, ''care_change_expired_staff'', jsonb_build_object(''care_plan_change_id'', p_change, ''reason'', ''authority''));\n';
   stale_restore text := E'\n        perform set_config(''request.jwt.claim.sub'', v_save_sub, true);\n        perform set_config(''request.jwt.claims'', v_save_claims, true);\n        perform set_config(''tarragon.change_apply'', '''', true);\n        update public.care_plan_changes set state = ''expired'', expired_at = now() where id = p_change;\n        perform private.written_care_notify(c.signed_by, c.organisation_id, ''care_change_expired_staff'', jsonb_build_object(''care_plan_change_id'', p_change, ''reason'', ''stale''));\n        return jsonb_build_object(''outcome'', ''needs_review'');';
@@ -382,7 +384,12 @@ begin
   execute v_def;
   c := pg_temp.draft_sign(v_smo, v_pat, 'SabC');
   update public.clinical_staff set license_expires_at = now() - interval '1 day' where profile_id = v_smo;
+  -- T2-11b: signing itself now refuses a lapsed licence (private.prescriber_licence_ok in the signing trigger), a second layer under
+  -- this function's own check. To show THIS check still discriminates, the second layer is lifted for the sabotage and put back after.
+  v_lic := pg_get_functiondef('private.prescriber_licence_ok(uuid)'::regprocedure);
+  execute $l$create or replace function private.prescriber_licence_ok(p_profile uuid) returns boolean language sql stable security definer set search_path = '' as $b$ select true $b$ $l$;
   r := pg_temp.confirm_probe(v_pat, c);
+  execute v_lic;
   if split_part(r, '#', 1) <> 'applied' then raise exception 'SABOTAGE C flipped for another reason: %', r; end if;
   insert into results values ('sabotaged', 'C: a signer with an expired licence is sent back', 'needs_review', split_part(r, '#', 1));
   insert into results values ('sabotaged', 'C: ...and nothing is applied', '0', pg_temp.pcount(v_pat, 'SabC')::text);

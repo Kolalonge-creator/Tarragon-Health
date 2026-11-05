@@ -28,6 +28,8 @@
 -- ===========================================================================
 
 begin;
+-- T2-11b: signing now needs a signed interaction dataset and rule set; a fresh replay has none, so sign them inside this transaction.
+\ir _fixtures/signed_interaction_sets.sql
 
 -- The prescribing guard (S37 enforcement) is off by default; this proof is about something else, so switch it on inside the rolled-back test.
 insert into public.go_live_guard_log (guard_key, action, actor_id, actor_role, note) select 'prescribing_enabled', 'switched_on', id, 'cmo', 'proof setup' from public.profiles limit 1;
@@ -94,9 +96,10 @@ begin
     (v_sup2,   v_org, 'patient',    'S05 Supporter Two','+2348051110009')
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier) values
-    (v_org, v_tied,   'S05 Tied Doctor',   true, now(), 'senior_medical_officer'),
-    (v_org, v_untied, 'S05 Untied Doctor', true, now(), 'senior_medical_officer');
+  -- T2-11b: signing needs a verified licence with a real credential number (private.prescriber_licence_ok)
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, credential_type, credential_number) values
+    (v_org, v_tied,   'S05 Tied Doctor',   true, now(), 'senior_medical_officer', 'MDCN', 'S05-C1'),
+    (v_org, v_untied, 'S05 Untied Doctor', true, now(), 'senior_medical_officer', 'MDCN', 'S05-C2');
   insert into public.care_team_assignment (organisation_id, patient_id, clinician_id, assigned_at)
   values (v_org, v_pat, v_tied, now())
   on conflict (patient_id) do update set clinician_id = v_tied;

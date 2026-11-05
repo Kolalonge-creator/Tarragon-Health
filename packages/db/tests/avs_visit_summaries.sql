@@ -13,6 +13,8 @@
 --   6. Events and notifications carry ids only; staff reads are audited; anon has no execute on anything.
 --   7. SABOTAGE: the amendment guard and the protected-release guard are removed; both checks must flip.
 begin;
+-- T2-11b: signing now needs a signed interaction dataset and rule set; a fresh replay has none, so sign them inside this transaction.
+\ir _fixtures/signed_interaction_sets.sql
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;

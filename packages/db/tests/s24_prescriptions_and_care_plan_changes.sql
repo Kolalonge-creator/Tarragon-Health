@@ -14,6 +14,8 @@
 --   6. Referrals: consent before a clinician-initiated referral leaves draft; a chase date.
 --   7. SABOTAGE: the medicine signature trigger dropped, and the signature CHECK dropped; both checks must flip.
 begin;
+-- T2-11b: signing now needs a signed interaction dataset and rule set; a fresh replay has none, so sign them inside this transaction.
+\ir _fixtures/signed_interaction_sets.sql
 
 create temp table results(phase text, check_name text, expected text, actual text) on commit drop;
 grant all on results to public;
@@ -331,25 +333,27 @@ begin
   perform pg_temp.ck('a stop needs a current prescription', 'true',
     (pg_temp.propose_med(v_doc, v_pat, jsonb_build_object('action', 'stop', 'medication_id', new_row.id)) like 'ERR:That is not a current prescription%')::text);
 
+  -- T2-11b: the starts below were ACE inhibitors, which the signed interaction rules now stop as a duplicate of the patient's lisinopril;
+  -- they use medicines with no rule against her list, since this block is about the patient's answer, not the drug.
   -- decline: nothing changes, the signer is told
-  r := pg_temp.propose_med(v_doc, v_pat, jsonb_build_object('action', 'start', 'item', '{"drug_name":"Ramipril","dose":"2.5 mg","frequency":"daily","duration_days":30,"quantity":"30 tablets"}'::jsonb));
+  r := pg_temp.propose_med(v_doc, v_pat, jsonb_build_object('action', 'start', 'item', '{"drug_name":"Folic acid","dose":"2.5 mg","frequency":"daily","duration_days":30,"quantity":"30 tablets"}'::jsonb));
   c := r::uuid; perform pg_temp.setf('c_decl', c);
   perform pg_temp.sign_as(v_doc, c, 'Your care team would like to start a new tablet.', true, null);
   perform pg_temp.ck('the patient can decline', 'ok', pg_temp.try_as(v_pat, format($q$select public.decline_care_plan_change(%L, 'I would like to talk first')$q$, c)));
-  perform pg_temp.ck('...declined, nothing changed', 'declined|0', pg_temp.state_of(c) || '|' || pg_temp.pz(v_pat, 'Ramipril'));
+  perform pg_temp.ck('...declined, nothing changed', 'declined|0', pg_temp.state_of(c) || '|' || pg_temp.pz(v_pat, 'Folic acid'));
   perform pg_temp.ck('...the signer is told neutrally', 'true',
     ((select count(*) from public.notifications where recipient_id = v_doc and template = 'care_change_declined_staff') = 1)::text);
   perform pg_temp.ck('...a declined change cannot then be confirmed', 'not_available|true', pg_temp.confirm_as(v_pat, c));
   perform pg_temp.ck('someone else cannot decline it', 'true', (pg_temp.try_as(pg_temp.f('pat2'), format($q$select public.decline_care_plan_change(%L)$q$, c)) like 'Not authorised%')::text);
 
   -- expiry through the sweep
-  r := pg_temp.propose_med(v_doc, v_pat, jsonb_build_object('action', 'start', 'item', '{"drug_name":"Perindopril","dose":"4 mg","frequency":"daily","duration_days":30,"quantity":"30 tablets"}'::jsonb));
+  r := pg_temp.propose_med(v_doc, v_pat, jsonb_build_object('action', 'start', 'item', '{"drug_name":"Cetirizine","dose":"4 mg","frequency":"daily","duration_days":30,"quantity":"30 tablets"}'::jsonb));
   c := r::uuid;
   perform pg_temp.sign_as(v_doc, c, 'Your care team would like to start a new tablet.', true, null);
   update public.care_plan_changes set expires_at = now() - interval '1 hour' where id = c;
   perform pg_temp.ck('a signed change past its date: confirming it lapses it and applies nothing', 'expired|true', pg_temp.confirm_as(v_pat, c));
-  perform pg_temp.ck('...nothing on the list', '0', pg_temp.pz(v_pat, 'Perindopril'));
-  r := pg_temp.propose_med(v_doc, v_pat, jsonb_build_object('action', 'start', 'item', '{"drug_name":"Enalapril","dose":"5 mg","frequency":"daily","duration_days":30,"quantity":"30 tablets"}'::jsonb));
+  perform pg_temp.ck('...nothing on the list', '0', pg_temp.pz(v_pat, 'Cetirizine'));
+  r := pg_temp.propose_med(v_doc, v_pat, jsonb_build_object('action', 'start', 'item', '{"drug_name":"Vitamin D3","dose":"5 mg","frequency":"daily","duration_days":30,"quantity":"30 tablets"}'::jsonb));
   c := r::uuid;
   perform pg_temp.sign_as(v_doc, c, 'Your care team would like to start a new tablet.', true, null);
   update public.care_plan_changes set expires_at = now() - interval '1 hour' where id = c;
