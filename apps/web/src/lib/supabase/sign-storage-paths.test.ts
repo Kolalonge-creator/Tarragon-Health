@@ -9,9 +9,11 @@
  */
 
 const createSignedUrls = jest.fn();
+const rpc = jest.fn(async () => ({ data: [] as string[], error: null }));
 
 jest.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: () => ({
+    rpc: (...a: unknown[]) => rpc(...(a as [])),
     storage: {
       from: (bucket: string) => ({
         createSignedUrls: (paths: string[], ttl: number) => createSignedUrls(bucket, paths, ttl),
@@ -80,5 +82,18 @@ describe("signStoragePaths", () => {
     expect(message).toEqual(expect.stringContaining("2"));
     expect(message).toEqual(expect.stringContaining("my-bucket"));
     consoleError.mockRestore();
+  });
+
+  it("T2-08: never signs a file held for the malware scan in a scanned bucket, and leaves other buckets alone", async () => {
+    rpc.mockResolvedValueOnce({ data: ["held.pdf"], error: null });
+    createSignedUrls.mockResolvedValue({ data: [{ path: "ok.pdf", signedUrl: "https://signed/ok" }], error: null });
+    const result = await signStoragePaths("lab-result-documents", ["ok.pdf", "held.pdf"], 300);
+    expect(createSignedUrls).toHaveBeenCalledWith("lab-result-documents", ["ok.pdf"], 300);
+    expect(result.get("held.pdf")).toBeNull();
+    expect(result.get("ok.pdf")).toBe("https://signed/ok");
+
+    rpc.mockClear();
+    await signStoragePaths("vaccination-certificates", ["v.pdf"], 300);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

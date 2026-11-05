@@ -131,7 +131,7 @@ describe("enterResultsByHand", () => {
     const original = new File([new Uint8Array([37, 80, 68, 70])], "synlab.pdf", { type: "application/pdf" });
     await enterResultsByHand(undefined, form({}, original));
     expect(renderManualEntryPdf).not.toHaveBeenCalled();
-    expect(storeResultDocument).toHaveBeenCalledWith(PATIENT, original);
+    expect(storeResultDocument).toHaveBeenCalledWith(PATIENT, original, "coord-1");
     expect(rpc).toHaveBeenCalledWith("coordinator_submit_manual_results", expect.objectContaining({ p_original_attached: true }));
   });
 

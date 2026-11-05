@@ -138,7 +138,7 @@ export async function uploadLabReportForPatient(_prev: UploadState, formData: Fo
   const allowed = await checkUploader(supabase, user.id, v.patientId);
   if ("error" in allowed) return allowed;
 
-  const stored = await storeFile(v.patientId, file);
+  const stored = await storeFile(v.patientId, file, user.id);
   if ("error" in stored) return { error: stored.error };
 
   const { error } = await supabase.rpc("coordinator_submit_lab_report", {
@@ -282,7 +282,7 @@ export async function enterResultsByHand(_prev: UploadState, formData: FormData)
   // CDE-02: worked out before saving and passed in, so the database raises the doctor's alert to urgent in the same transaction.
   const criticalReason = criticalReasonFor(draft.rows, { sex: allowed.patientSex, date_of_birth: allowed.patientDob });
 
-  const stored = await storeResultDocument(v.patientId, source);
+  const stored = await storeResultDocument(v.patientId, source, user.id);
   if ("error" in stored) return { error: stored.error };
 
   const { error } = await supabase.rpc("coordinator_submit_manual_results", {

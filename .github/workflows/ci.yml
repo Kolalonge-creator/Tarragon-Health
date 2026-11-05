@@ -283,6 +283,41 @@ jobs:
       - name: Pytest
         run: uv run pytest
 
+  # T2-08 upload malware scanner (ClamAV front). Unit tests mock clamd; the integration tests skip unless CLAMD_INTEGRATION=1.
+  python-scanner:
+    name: Python upload scanner
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/scanner
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Audit dependencies (pip-audit)
+        run: |
+          uv pip install pip-audit
+          uv run pip-audit
+
+      - name: Ruff
+        run: uv run ruff check . && uv run ruff format --check .
+
+      - name: Mypy (strict)
+        run: uv run mypy .
+
+      - name: Pytest
+        run: uv run pytest
+
   # Real-browser E2E (Playwright), distinct from the Jest `e2e/` suite (which
   # hits the live project's DB/Edge Functions directly, bypassing the UI).
   # Runs against a fresh LOCAL Supabase stack, never the live production

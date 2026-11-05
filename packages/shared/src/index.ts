@@ -7,6 +7,7 @@
  */
 
 export * from "./ml-client";
+export * from "./scanner-client";
 export * from "./ai-coach-types";
 export * from "./device-readings";
 export * from "./bp-estimate";
