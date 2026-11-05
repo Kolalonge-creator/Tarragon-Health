@@ -34,7 +34,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { refuseUnlessSender } from "./sender-auth.ts";
 import webpush from "npm:web-push@3.6.7";
-import { describePushError } from "./push-error-text.ts";
+import { describePushError, isDeadWebPushSubscription } from "./push-error-text.ts";
 import { appUrl, substituteTemplatePlaceholders, TEMPLATE_MAP } from "./templates.ts";
 import type { TemplateRender } from "./templates.ts";
 import { describeViolations, lintRenderFn, lintText } from "../_shared/notifications/neutral.ts";
@@ -294,8 +294,7 @@ async function sendWebPush(
       }
       anyOk = true;
     } catch (err) {
-      const statusCode = (err as { statusCode?: number })?.statusCode;
-      if (statusCode === 404 || statusCode === 410) {
+      if (isDeadWebPushSubscription(err)) {
         goneSubscriptionIds.push(sub.id);
       }
       lastError = describePushError(err);
