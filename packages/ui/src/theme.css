@@ -14,6 +14,15 @@
   --warm-ivory: #faf7f0;
   --deep-forest: #0b5c3e;
 
+  /* Marketing-site surface tokens (Evergreen palette, founder decision W-08,
+     2026-11-05). Defined here so the utilities exist everywhere; the real
+     Evergreen values are applied only inside `.marketing-scope` (the public
+     site's layout) in apps/web/src/app/globals.css, so the patient app and
+     the staff consoles keep the standard brand palette. */
+  --mk-canvas: #ffffff;
+  --mk-border: rgba(23, 23, 23, 0.1);
+  --mk-muted: #5e6b66;
+
   /* Vitals trend chart series — distinct from the brand/dashboard-status
      colour systems (docs/BRAND_GUIDE.md §5), used only inside chart.tsx. */
   --chart-systolic: #b91c1c;
@@ -56,6 +65,9 @@
   --color-soft-sage: var(--soft-sage);
   --color-warm-ivory: var(--warm-ivory);
   --color-deep-forest: var(--deep-forest);
+  --color-mk-canvas: var(--mk-canvas);
+  --color-mk-border: var(--mk-border);
+  --color-mk-muted: var(--mk-muted);
   --color-chart-systolic: var(--chart-systolic);
   --color-chart-diastolic: var(--chart-diastolic);
   --color-chart-glucose: var(--chart-glucose);
@@ -72,7 +84,8 @@
   --color-cycle-follicular: var(--cycle-follicular);
   --color-cycle-predicted: var(--cycle-predicted);
   --font-sans: var(--font-inter);
-  --font-heading: var(--font-sora);
+  /* The public site swaps its heading face (Fraunces) via --marketing-heading-font inside .marketing-scope. */
+  --font-heading: var(--marketing-heading-font, var(--font-sora));
 }
 
 /* Dark theme history: a prior bare `prefers-color-scheme: dark` override

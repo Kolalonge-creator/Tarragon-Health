@@ -12,7 +12,7 @@ export const metadata: Metadata = pageMetadata({
   path: MARKETING_ROUTES.cookies,
 });
 
-const LAST_UPDATED = "30 July 2026";
+const LAST_UPDATED = "5 November 2026";
 
 export default function CookiesPage() {
   return (
@@ -33,8 +33,8 @@ export default function CookiesPage() {
               We use one required cookie to keep you securely signed in, plus an anonymous,
               first-party analytics beacon so our team can see which pages help people find care.
               We do not run advertising cookies, third-party trackers, ad pixels, or session
-              recording of any kind, anywhere on TarragonHealth. The banner you see on your first
-              visit to our public site is how you tell us to turn the analytics part off, and you
+              recording of any kind, anywhere on TarragonHealth. On our public website the analytics
+              part is off until you say yes on the banner you see on your first visit, and you
               can change your answer at any time below.
             </p>
           </section>
@@ -61,11 +61,12 @@ export default function CookiesPage() {
 
           <section>
             <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
-              Anonymous analytics: on by default, easy to turn off
+              Anonymous analytics: only with your permission on our website
             </h2>
             <p className="mt-3 leading-relaxed text-charcoal-ink/80">
-              By default, your browser stores a random, anonymous identifier (not a cookie, just
-              browser local storage) and sends us, on each page you visit: the page path, which
+              On our public website, nothing is recorded until you press &quot;Accept&quot; on the
+              banner. If you do, your browser stores a random, anonymous identifier (not a cookie,
+              just browser local storage) and sends us, on each page you visit: the page path, which
               site referred you, any campaign tags in the link you followed, your approximate
               country/region/city (derived from network routing, rather than your exact location or IP
               address), and your device type (mobile, tablet, desktop). If you are signed in,
@@ -73,16 +74,17 @@ export default function CookiesPage() {
               many people are actively using TarragonHealth week to week, and not to build an
               advertising profile of you. Because this is ordinary first-party product analytics
               and not third-party tracking, it also runs while you are signed in to the app
-              itself, without repeating the banner on every page.
+              itself, as our Terms explain, without repeating the banner on every page. You can
+              still turn it off there with the button below.
             </p>
             <p className="mt-3 leading-relaxed text-charcoal-ink/80">
               This data stays inside TarragonHealth, for our own product and clinical-operations
               team. We do not sell it, share it with advertisers, or hand it to a third-party
               analytics or ad network, because there is not one plugged in. If your browser
               sends a &quot;Do Not Track&quot; signal, we record nothing at all, immediately,
-              regardless of anything else. Choosing &quot;Reject Non-Essential&quot; on the banner
-              (or the button below) turns it off just as immediately: no identifier is created
-              from that point on, and no further data leaves your browser.
+              regardless of anything else. Choosing &quot;No, thanks&quot; on the banner (or the
+              button below) turns it off just as immediately: no identifier is created from that
+              point on, and no further data leaves your browser.
             </p>
           </section>
 

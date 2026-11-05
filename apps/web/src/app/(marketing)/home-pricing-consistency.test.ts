@@ -16,9 +16,9 @@ const read = (rel: string) => stripComments(readFileSync(join(__dirname, rel), "
 const HOME_FILES = [
   "page.tsx",
   "_components/home-plan-compare.tsx",
-  "_components/home-entry-chips.tsx",
-  "_components/home-business-door.tsx",
   "_content/channel-heroes.ts",
+  "_components/home-hero.tsx",
+  "_components/home-sections.tsx",
 ];
 
 describe("homepage pricing copy", () => {

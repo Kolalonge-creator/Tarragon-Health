@@ -35,10 +35,21 @@ export const PARTNER_LOGOS: PartnerLogo[] = [
   {
     name: "Synlab",
     logoSrc: "/marketing/logos/partners/synlab.svg",
-    summary:
-      "Our contracted laboratory partner. You can take a test request to Synlab or to any other laboratory you choose, and you pay the laboratory directly.",
+    summary: "Our laboratory partner. Take your request form to any Synlab branch, or to another eligible laboratory in our directory. You pay the laboratory directly.",
   },
 ];
+
+/**
+ * The one sentence used wherever the public site names Synlab (founder
+ * decision W-06, 2026-11-05). Names the partnership to build on the trust
+ * people already have in Synlab, while making clear it is one choice among
+ * eligible laboratories. Never "contracted", "approved" or "accredited":
+ * partner status is not a quality accreditation. Placement is limited to the
+ * homepage's diagnostic section, the /labs partner panel and one Membership
+ * FAQ answer (plan section 4.4); not the hero, nav, footer or trust strip.
+ */
+export const SYNLAB_PARTNER_LINE =
+  "Take your request form to any Synlab branch, or to another eligible laboratory in our directory.";
 
 /**
  * How we decide who appears above. Written for the /partners page, but kept
