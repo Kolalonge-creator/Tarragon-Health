@@ -235,7 +235,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
       { label: "Claims impact", value: "Reporting live" },
     ],
     statsNote: EXAMPLE_DATA_NOTE,
-    cta: { label: "See HMO support", href: MARKETING_ROUTES.hmo },
+    cta: { label: "See HMO support", href: `${MARKETING_ROUTES.corporate}#insurers` },
   },
 ];
 
