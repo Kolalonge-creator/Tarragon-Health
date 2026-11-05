@@ -15,6 +15,8 @@ export interface HelpAlertResult {
   alreadySent: boolean;
   recipientsTold: number;
   locationShared: boolean;
+  /** Care Circle P1: the circle is paused, but a help alert still reaches the people who can receive alerts. */
+  circlePaused: boolean;
 }
 
 export type HelpAlertOutcome = { ok: true; result: HelpAlertResult } | { ok: false; notOpen: boolean; tooMany: boolean };
@@ -28,8 +30,11 @@ export function parseHelpAlert(data: unknown): HelpAlertResult | null {
   if (typeof data !== "object" || data === null) return null;
   const d = data as Record<string, unknown>;
   if (typeof d.already_sent !== "boolean") return null;
-  return { alreadySent: d.already_sent, recipientsTold: num(d.recipients_told), locationShared: d.location_shared === true };
+  return { alreadySent: d.already_sent, recipientsTold: num(d.recipients_told), locationShared: d.location_shared === true, circlePaused: d.circle_paused === true };
 }
+
+/** "Your circle is paused, but this alert was still sent": only when it was paused AND someone was actually told (same rule as the web). */
+export const showSentPaused = (r: HelpAlertResult): boolean => r.circlePaused && r.recipientsTold > 0;
 
 export async function sendHelpAlert(): Promise<HelpAlertOutcome> {
   const { data, error } = await supabase.rpc("send_circle_help_alert", {});

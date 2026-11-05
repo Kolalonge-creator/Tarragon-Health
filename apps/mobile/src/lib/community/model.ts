@@ -232,6 +232,8 @@ export interface FeedPost {
   support_count: number;
   reply_count?: number;
   i_supported: boolean;
+  /** Whether this member saved the post. Only top-level feed posts carry it (not replies); absent from an older database. */
+  i_saved?: boolean;
   pending_review: boolean;
   /** One picture per post. Loaded through /api/community/images/{id}; never a URL. */
   image?: { id: string; width: number; height: number } | null;
@@ -249,6 +251,7 @@ const feedPostParser: Parser<FeedPost> = object({
   support_count: nonNegativeInt,
   reply_count: optional(nonNegativeInt),
   i_supported: boolean,
+  i_saved: optional(boolean),
   pending_review: boolean,
   image: optional(nullable(object({ id: string, width: int, height: int }))),
   qa_session_id: optional(nullable(string)),
@@ -270,6 +273,56 @@ const repliesParser: Parser<Replies> = (u) => {
   return object({ ok: literal(true), replies: array(feedPostParser) })(u);
 };
 export const parseReplies = (data: unknown): Replies | undefined => parse(repliesParser, data);
+
+// ---------------------------------------------------------------------------
+// Feed order and saved posts (COM-30)
+// ---------------------------------------------------------------------------
+/** The two orders a group's posts can be read in. 'discussed' is the last 30 days by visible replies, one page. */
+export const FEED_SORTS = ["latest", "discussed"] as const;
+export type FeedSort = (typeof FEED_SORTS)[number];
+
+/** A post the member saved. Private: nobody else is told. Same fields as the web's savedPostSchema. */
+export interface SavedPost {
+  id: string;
+  group_slug: string;
+  group_name: string;
+  author_handle: string;
+  author_avatar: string | null;
+  is_mine: boolean;
+  body: string;
+  created_at: string;
+  saved_at: string;
+  reply_count: number;
+  pending_review: boolean;
+}
+export type SavedList = { ok: false; reason: string } | { ok: true; posts: SavedPost[]; has_more: boolean };
+const savedPostParser: Parser<SavedPost> = object({
+  id: string,
+  group_slug: string,
+  group_name: string,
+  author_handle: string,
+  author_avatar: nullable(string),
+  is_mine: boolean,
+  body: string,
+  created_at: string,
+  saved_at: string,
+  reply_count: nonNegativeInt,
+  pending_review: boolean,
+});
+const savedListParser: Parser<SavedList> = (u) => {
+  if (!isRecord(u)) return { ok: false };
+  if (u["ok"] === false) return object({ ok: literal(false), reason: string })(u);
+  return object({ ok: literal(true), posts: array(savedPostParser), has_more: boolean })(u);
+};
+export const parseSavedList = (data: unknown): SavedList | undefined => parse(savedListParser, data);
+
+export type SetSaved = { ok: false; reason: string } | { ok: true; saved: boolean };
+const setSavedParser: Parser<SetSaved> = (u) => {
+  if (!isRecord(u)) return { ok: false };
+  if (u["ok"] === false) return object({ ok: literal(false), reason: string })(u);
+  return object({ ok: literal(true), saved: boolean })(u);
+};
+export const parseSetSaved = (data: unknown): SetSaved | undefined => parse(setSavedParser, data);
 
 // ---------------------------------------------------------------------------
 // Replies to actions

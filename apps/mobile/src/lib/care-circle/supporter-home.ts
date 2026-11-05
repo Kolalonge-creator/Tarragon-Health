@@ -1,5 +1,5 @@
 import { circleMonthlyLines, type Locale } from "@tarragon/i18n";
-import type { SupportedPerson as CirclePerson, SupporterView } from "./parse";
+import type { ResultRow, SupportedPerson as CirclePerson, SupporterView } from "./parse";
 import type { SupportedPerson as ManagedPerson } from "@/lib/acting";
 
 /**
@@ -24,9 +24,25 @@ export function mergePeople(circle: readonly CirclePerson[], managed: readonly M
   return [...rows.values()];
 }
 
-/** True when at least one health block would render. A person who shared only check-in requests or paying has none. */
-export function hasSharedBlocks(view: Pick<SupporterView, "adherence" | "bpTrend" | "appointments" | "monthly" | "doctorNote">, locale: Locale): boolean {
+/** Every block SupporterBlocks can draw. A block added there must be added here and to hasSharedBlocks. */
+export type SupporterBlockFields =
+  | "adherence" | "bpTrend" | "appointments" | "monthly" | "doctorNote" | "investigations" | "results" | "weightTrend" | "planProgress";
+
+/**
+ * True when at least one health block would render. A person who shared only check-in requests or paying has none. The Care Circle
+ * P2 blocks (tests, reviewed results, weight, yearly check-ups) count as soon as they are shared, even while empty, the same as the web.
+ */
+export function hasSharedBlocks(view: Pick<SupporterView, SupporterBlockFields>, locale: Locale): boolean {
   const monthly = (view.monthly ?? []).filter((r) => circleMonthlyLines(r, locale).length > 0);
   // a doctor's note the patient released counts too, or a page whose only shared item is that note would show the empty state
-  return Boolean(view.adherence || view.bpTrend || view.appointments || monthly.length > 0 || view.doctorNote != null);
+  return Boolean(view.adherence || view.bpTrend || view.appointments || monthly.length > 0 || view.doctorNote != null
+    || view.investigations || view.results || view.weightTrend || view.planProgress);
 }
+
+/** One reviewed result's value as written on the web: the number and its unit, or the lab's own words when there is no number. */
+export function resultValueText(r: Pick<ResultRow, "value" | "valueText" | "unit">): string {
+  return r.value !== null ? `${r.value} ${r.unit}` : (r.valueText ?? "");
+}
+
+/** Care Circle P2 (spec 5.1): the person switcher appears only for someone who supports two or more people. */
+export const showPersonSwitcher = (people: readonly unknown[]): boolean => people.length >= 2;

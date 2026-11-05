@@ -13,7 +13,7 @@ describe("MSG-1 membership gate", () => {
 
   it("matches the category list in the database rule", () => {
     const sql = readFileSync(
-      join(__dirname, "../../../../../supabase/migrations/20261104225703_msg1_free_members_no_clinical_threads.sql"),
+      join(__dirname, "../../../../../supabase/migrations/20261105092316_msg1_free_members_no_clinical_threads.sql"),
       "utf8",
     );
     const match = sql.match(/select p_category in \(([^)]*)\)/);

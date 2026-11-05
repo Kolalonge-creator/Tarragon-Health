@@ -1,6 +1,8 @@
 # Narrative urgent-finding rules: draft for CMO signature (CDE-01)
 
-**Status: DRAFT. Not signed, not live.** Proposed configuration `documents.narrative_urgent_rules` v1 (`packages/shared/src/proposed-config/registry.ts`), matcher `apps/web/src/lib/clinical-documents/narrative-rules.ts`. Nothing reads these rules to escalate until the CMO signs them (OQ-CDE-11). Until then every narrative report (imaging, mammography, ECG, histopathology, cytology, cervical screening, letters) is routine doctor review, and a doctor escalates by hand.
+**Status: DECIDED by the CMO in chat on 2026-11-04 (CDE-09), awaiting confirmation on the sign-off hub; not live.** Decisions: every row below kept as drafted (HPV 16 or 18 kept urgent); QTc 500 ms or more; a match pages on the escalation ladder, ECG and radiology rows at the critical tier, mammography, cervical, HPV and pathology rows at the non-critical abnormal tier.
+
+**Original status: DRAFT. Not signed, not live.** Proposed configuration `documents.narrative_urgent_rules` v1 (`packages/shared/src/proposed-config/registry.ts`), matcher `apps/web/src/lib/clinical-documents/narrative-rules.ts`. Nothing reads these rules to escalate until the CMO signs them (OQ-CDE-11). Until then every narrative report (imaging, mammography, ECG, histopathology, cytology, cervical screening, letters) is routine doctor review, and a doctor escalates by hand.
 
 ## What the rules do and do not do
 

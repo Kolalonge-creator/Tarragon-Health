@@ -1,7 +1,7 @@
 import type { CareMessageCategory } from "@/lib/validation/care-messages";
 
 /** Categories that open a clinical conversation, which is a Membership benefit (MSG-1). Must match
- * private.care_thread_member_clinical_gate() in 20261104225703_msg1_free_members_no_clinical_threads.sql. */
+ * private.care_thread_member_clinical_gate() in 20261105092316_msg1_free_members_no_clinical_threads.sql. */
 export const MEMBER_ONLY_CATEGORIES: readonly CareMessageCategory[] = ["clinical", "medication"];
 
 export function isMemberOnlyCategory(category: CareMessageCategory): boolean {

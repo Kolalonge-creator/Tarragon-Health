@@ -9,7 +9,7 @@ import { ShareOffers } from "./share-offers";
 // Care Circle P1 (founder decision D3, 2026-11-04): the person who paid is asked, and sees nothing until they say yes.
 let offers: { isSuccess: boolean; data: unknown[] };
 const respond = jest.fn<(input: { memberId: string; accept: boolean }) => Promise<{ ok: true; accepted: boolean }>>();
-let respondState: { isPending: boolean; isError: boolean };
+let respondState: { isPending: boolean; isError: boolean; error?: Error | null };
 jest.mock("@/lib/queries/care-circle", () => {
   const actual = jest.requireActual<typeof import("@/lib/queries/care-circle")>("@/lib/queries/care-circle");
   return {
@@ -78,5 +78,16 @@ describe("ShareOffers", () => {
     fireEvent.click(screen.getByRole("button", { name: "Yes, join" }));
     expect(screen.getByRole("alert").textContent).toMatch(/did not work/);
     expect(screen.getByRole("button", { name: "No, thank you" })).toBeTruthy();
+  });
+
+  it("a full circle says so in plain words, names who can make room, and does not say try again", async () => {
+    respond.mockRejectedValue(new Error("circle_full"));
+    respondState = { isPending: false, isError: true, error: new Error("circle_full") };
+    render(<ShareOffers locale="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "Yes, join" }));
+    const alert = screen.getByRole("alert").textContent ?? "";
+    expect(alert).toMatch(/Care Circle is full at the moment/);
+    expect(alert).toMatch(/Nothing has been shared/);
+    expect(alert).not.toMatch(/try again/i);
   });
 });
