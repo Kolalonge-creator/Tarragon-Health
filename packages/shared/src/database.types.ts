@@ -55841,6 +55841,10 @@ export type Database = {
         Args: { p_lab_order_id: string; p_patient_id: string }
         Returns: string
       }
+      consume_client_upload_check_kick: {
+        Args: { p_code: string }
+        Returns: boolean
+      }
       claim_client_upload_checks: {
         Args: { p_limit?: number; p_bucket?: string; p_name?: string; p_owner?: string }
         Returns: { bucket_id: string; object_name: string; mimetype: string | null; owner_id: string }[]
