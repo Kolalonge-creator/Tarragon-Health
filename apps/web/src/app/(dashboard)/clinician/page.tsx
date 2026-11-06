@@ -25,6 +25,8 @@ import { HtnAttestationCard } from "./htn-attestation-card";
 import { NextActionHero } from "./next-action-hero";
 import { CriticalAttentionBanner } from "./critical-attention-banner";
 import { TodayStrip } from "./today-strip";
+import { WorklistTable } from "./worklist/worklist-table";
+import { loadDoctorWorklist } from "@/lib/worklist/doctor-worklist-load";
 import { loadWorklist } from "@/lib/security/worklists";
 import {
   criticalBannerView,
@@ -33,6 +35,7 @@ import {
   lagosDayBounds,
   nextActionView,
   rankEscalations,
+  sortWorklist,
   type EscalationLevel,
   type HomeEscalation,
 } from "@tarragon/shared";
@@ -140,6 +143,8 @@ export default async function ClinicianPage() {
   const now = new Date();
   const todayBounds = lagosDayBounds(now);
   const testPatientIds = await getTestPatientIdsForRequest();
+  // DW-01: the named "Patients requiring your attention" list; the full list with filters is /clinician/worklist.
+  const attentionPromise = loadDoctorWorklist(supabase, { profileId: profile?.id ?? null, staffId: staff?.id ?? null }, testPatientIds);
   const [patientCountRes, escalationsRes, medReviewsRes, carePlanReviewsRes, appointmentsTodayRes, uploadsToReviewRes] = await Promise.all([
     supabase
       .from("profiles")
@@ -307,6 +312,9 @@ export default async function ClinicianPage() {
     : figure(null, true);
   const notesFigure = staff ? figure(pendingAutoDraftedNotes.length, pendingNotesFailed) : figure(null, true);
 
+  const attention = await attentionPromise;
+  const attentionTop = sortWorklist(attention.rows, now).slice(0, 8);
+
   return (
     <div className="space-y-6">
       {/* The Chief Medical Officer has the same search as the admin console (the layout only builds the index for them). */}
@@ -345,6 +353,32 @@ export default async function ClinicianPage() {
             : []),
         ]}
       />
+
+      <section aria-labelledby="attention-heading" className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="attention-heading" className="font-heading text-lg font-semibold text-charcoal-ink">
+            Patients requiring your attention
+          </h2>
+          <Link href="/clinician/worklist" className="text-sm font-medium text-brand-green underline">
+            Open the full worklist ({attention.rows.length}
+            {attention.queueOverflow.length > 0 ? "+" : ""})
+          </Link>
+        </div>
+        {attention.failedSources.length > 0 && (
+          <LoadFailure>
+            Part of this list could not be loaded, so it is incomplete. Open the full worklist or reload the page.
+          </LoadFailure>
+        )}
+        {attentionTop.length === 0 ? (
+          <p className="rounded-2xl bg-white p-5 text-sm text-charcoal-ink/70">
+            {attention.failedSources.length > 0
+              ? "Nothing to show from the work that did load. This is not an all-clear."
+              : "No open escalations, alerts or review items right now."}
+          </p>
+        ) : (
+          <WorklistTable rows={attentionTop} now={now} />
+        )}
+      </section>
 
       {!staff && <ClinicalStaffSetupWarning roleLabel={roleLabel} />}
       {staff && <RedFlagAttestation />}
@@ -544,7 +578,9 @@ export default async function ClinicianPage() {
         )}
       </div>
 
-      <Worklist />
+      <div id="clinical-alerts" className="scroll-mt-20">
+        <Worklist />
+      </div>
 
       {/* Governance and role information: below the work, not above it. The attestation cards stay
           above because an expired attestation blocks acting on an alert. */}

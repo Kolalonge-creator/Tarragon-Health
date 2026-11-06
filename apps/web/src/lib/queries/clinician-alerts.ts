@@ -65,7 +65,9 @@ export function useClinicianAlerts() {
       const { data, error } = await supabase
         .from("clinician_alerts")
         .select(ALERT_SELECT)
-        .eq("status", "open")
+        // Acknowledged alerts stay listed until resolved: acknowledging is not resolving (doctor workspace spec 10.2),
+        // and this is the only screen with the Resolve action.
+        .in("status", ["open", "acknowledged"])
         .order("sla_due_at", { ascending: true, nullsFirst: false });
       if (error) throw error;
 
