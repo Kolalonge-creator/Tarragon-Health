@@ -4,7 +4,7 @@ import { join } from "node:path";
 /**
  * Files that sit in EVERY marketing page's tree. If one of them reads the request (headers, cookies, connection, a forced
  * dynamic export), every marketing page stops being static and Vercel serves them all uncached (2026-11-06: one
- * `await connection()` in the root not-found did exactly that). The post-build check `scripts/assert-static-marketing.mjs`
+ * `await connection()` in the root not-found did exactly that). The post-build check `scripts/assert-static-marketing.ts`
  * catches the same thing from the build output; this test catches it before a build.
  */
 const SHARED_TREE_FILES = ["app/layout.tsx", "app/not-found.tsx", "app/(marketing)/layout.tsx"];

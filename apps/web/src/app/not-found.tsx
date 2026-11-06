@@ -19,7 +19,7 @@ const LINKS = [
 // `await connection()` here, 2026-11-06) turned every marketing page from a cached static page into a per-request render: Vercel
 // sent them all as private/no-store and slow-phone LCP rose to about 3.3s. The cost of static: on the APP host, where the enforced
 // policy needs a per-request nonce, this 404 page's scripts are blocked. It still renders and every link on it is a plain <a> that
-// works without JavaScript, so nothing a visitor needs is lost. `static-marketing.test.ts` and the Website accessibility workflow guard this.
+// works without JavaScript, so nothing a visitor needs is lost. `static-marketing.test.ts` and the Website accessibility workflow's post-build check guard this.
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-16 text-center text-charcoal-ink">
