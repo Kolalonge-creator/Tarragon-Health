@@ -44,7 +44,7 @@ Legend: **Have** = meets the spec in substance · **Partial** = exists, named ga
 | 12.4 | Summary | Have | `consultation_patient_summaries`, clinician notes staff-only | No PDF |
 | 13 | Care Circle | Have | Invite + accept, 11 permissions, preview, pause, who-looked log, sponsorship with acceptance and separate data consent | No typed requests (transport, medicine collection, help booking) |
 | 14 | Community | Have | Pseudonymous, groups, posts, replies, reactions, report, appeals, guidelines | Named "Community"; spec says "Tarragon Circles" (Q6) |
-| 15 | Membership | Partial | One ₦100,000 card, entitlements with state, renewal, receipts, Paystack verified server-side | No Free card; "Membership Plus" still in a few unguarded strings (`service-status-card.tsx:18`, `subscription-manager.tsx:185`, `catalog.membership_annual.name`, `shop.plus.state.*`) |
+| 15 | Membership | Partial | One ₦100,000 card, entitlements with state, renewal, receipts, Paystack verified server-side | No Free card. (The remaining "Membership Plus" strings were checked while building Slice A: every one is shown only to someone who holds a Plus year, as T2-13 requires, so none needs removing.) |
 | 16.1 | Notification centre | Partial | Header bell, unread, mark read, links | No page, no category filter, no history |
 | 16.2 | Preferences | Have | 9 categories × email/push, in-app always on, quiet hours, discreet previews | Spec lists WhatsApp/SMS (see section 2) |
 | 17 | Library | Partial | 15 categories, personalised feed | Shows only "Reviewed by our clinical team"; `reviewed_by_name`/`reviewed_at` exist but are not shown; no author or references |
@@ -81,7 +81,7 @@ S = under a day, M = 1-3 days, L = more. "Approval" = needs a founder or CMO cal
 | P2 | `clinical-amber` undefined: acting-for banner unstyled; banner missing outside `(sections)` and not sticky | 19.3, 24 | S | No (bug) |
 | P3 | Action centre computes "today" in UTC, Home in Lagos | 23 | S | No (bug) |
 | P4 | Analytics stores sensitive paths and record IDs against a person | 24, 26 | S | No (privacy fix) |
-| P5 | "Membership Plus" strings shown to non-holders; no Free card | 15 | S | No |
+| P5 | No Free card on the Membership page (the Plus strings turned out to be legacy-holder only, correctly) | 15 | S | No |
 | P6 | Clinical status tokens (critical/urgent/attention/normal/info/inactive) used everywhere instead of raw colours | 19.3 | M | No |
 | P7 | Navigation: regroup 43 items into the spec's six groups, merge the four record pages behind one "My health record" door | 3.1 | M | **Yes (Q1)** |
 | P8 | Home: one greeting line, status strip, next step that knows consultations / results / assessment / replies, next appointment card, education card; keep the fold, render it lazily | 4 | M | **Yes (Q2)** |
