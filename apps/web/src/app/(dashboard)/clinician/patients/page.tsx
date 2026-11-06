@@ -1,4 +1,5 @@
-import { describePatientSearch, escapeLike, parsePatientSearchQuery } from "@tarragon/shared";
+import { describePatientSearch, escapeLike, parsePatientSearchQuery, phoneStoredForms } from "@tarragon/shared";
+import { identityLine } from "@/lib/patients-directory/identity-line";
 import Link from "next/link";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -119,10 +120,11 @@ export default async function ClinicianPatientsPage({
         query = query.ilike("full_name", `%${escapeLike(search.text)}%`);
         break;
       case "number":
-        query = query.ilike("patient_number", `%${search.digits}`);
+        query = query.eq("patient_number", search.exact);
         break;
       case "phone":
-        query = query.eq("phone", search.e164);
+        // E.164 is the stored form; older rows may hold "234…" or "0…", so all three are matched.
+        query = query.in("phone", phoneStoredForms(search.e164));
         break;
       case "phone_fragment":
         query = query.ilike("phone", `%${search.digits}%`);
@@ -136,11 +138,6 @@ export default async function ClinicianPatientsPage({
     const { data, error } = await query;
     rosterFailed = error !== null;
     patients = data ?? [];
-    // A number search matches by suffix (TH-000123 and TH-001123 both end in 123); the exact one goes first.
-    if (search.kind === "number") {
-      const exact = (n: string | null) => (n ? Number(n.replace(/\D/g, "")) === Number(search.digits) : false);
-      patients = [...patients].sort((a, b) => Number(exact(b.patient_number)) - Number(exact(a.patient_number)));
-    }
     // "Recent" has a real order (most-recently-viewed first) that the
     // full_name sort above would otherwise discard.
     if (filter === "recent" && restrictedIds) {
@@ -150,6 +147,7 @@ export default async function ClinicianPatientsPage({
   }
 
   const loadFailed = scopeFailed || rosterFailed;
+  const now = new Date();
 
   function tabHref(value: PatientFilter | undefined): string {
     const params = new URLSearchParams();
@@ -271,7 +269,7 @@ export default async function ClinicianPatientsPage({
               {emptyRosterMessage({ filter, filterAloneEmpty, condition, q })}
             </p>
           ) : (
-            <ReminderFrequencySelector patients={patients} />
+            <ReminderFrequencySelector patients={patients.map((p) => ({ ...p, identity: identityLine(p.date_of_birth, p.sex, now) }))} />
           )}
         </CardContent>
       </Card>
@@ -422,3 +420,4 @@ async function loadConditionPatientIds(
   const ids = (data ?? []).map((row) => row.patient_id);
   return { ids: ids.slice(0, CAP), failed: false, truncated: ids.length > CAP };
 }
+
