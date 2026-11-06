@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "./notification-bell";
 import { PushSubscribePrompt } from "./push-subscribe-prompt";
 import { DeviceHeartbeat } from "./device-heartbeat";
+import { EnvironmentBadge } from "./environment-badge";
 import { ProfileMenu } from "./profile-menu";
 import { AdminSearch } from "./admin-search";
 import type { AdminSearchEntry } from "@/lib/admin-search";
@@ -794,6 +795,7 @@ export function AppShell({
               >
                 TarragonHealth
               </span>
+              <EnvironmentBadge />
             </div>
             <div className="flex items-center gap-3 text-sm">
               {surface === "warm" && <ThemeToggle theme={theme} onChange={setTheme} />}
