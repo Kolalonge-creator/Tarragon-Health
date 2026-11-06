@@ -1,9 +1,14 @@
-/** @jest-environment node */
+/** @jest-environment jsdom */
 import { describe, expect, it } from "@jest/globals";
 import { renderToStaticMarkup } from "react-dom/server";
 import { PatientSafetyStrip } from "./patient-safety-strip";
 
-const text = (html: string) => html.replace(/<[^>]+>/g, "").replace(/&#x27;|&apos;/g, "'");
+// Read the rendered text through the DOM (not a tag-stripping regex), so entities decode and no markup can slip through.
+const text = (html: string) => {
+  const box = document.createElement("div");
+  box.innerHTML = html;
+  return (box.textContent ?? "").replace(/\s+/g, " ").trim();
+};
 
 describe("PatientSafetyStrip", () => {
   it("a refused read never says 'none recorded'", () => {
