@@ -28,6 +28,7 @@ export * from "./home-pins";
 export * from "./measurement-units";
 export * from "./rewards-pending";
 export * from "./clinician-home";
+export * from "./doctor-worklist";
 export * from "./admin-home";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,

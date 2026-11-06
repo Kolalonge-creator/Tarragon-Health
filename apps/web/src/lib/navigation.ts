@@ -414,6 +414,8 @@ export function getNavSections(
               // is waiting on this doctor; every item that can block someone keeps its live countKey badge.
               label: "Work",
               items: [
+                // DW-01: every open escalation, alert and review item, named, most urgent first.
+                { label: "My worklist", href: "/clinician/worklist", icon: "escalation" },
                 // Declared hours, the on-call rota, cover requests (S18).
                 // Red event pages sent to you: acknowledge, open the chart, close with a note (S19).
                 // The Next task queue, the task I hold, and the patients I lead (S35).
