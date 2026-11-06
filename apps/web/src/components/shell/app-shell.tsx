@@ -15,7 +15,7 @@ import { AdminSearch } from "./admin-search";
 import type { AdminSearchEntry } from "@/lib/admin-search";
 import { ThemeToggle, type ThemePreference } from "./theme-toggle";
 import { Avatar } from "@/components/avatar";
-import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
+import { itemIsActive, MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
 import { UiLanguageProvider, useT } from "@/components/ui-language-provider";
 import { useSupportingAttention } from "@/lib/queries/care-circle";
 import { DEFAULT_UI_LANGUAGE, type UiLanguage } from "@tarragon/shared";
@@ -32,10 +32,7 @@ type NavCounts = {
   hrefBadges?: Record<string, { count: number; failed: boolean }>;
 };
 
-function isActive(pathname: string, href: string, exact?: boolean) {
-  if (exact) return pathname === href;
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
+
 
 /**
  * The phone bottom tab bar — the everyday links within thumb reach, so a
@@ -68,7 +65,7 @@ function BottomTabBar({
     >
       <ul className="flex items-stretch">
         {items.map((item) => {
-          const active = isActive(pathname, item.href, item.exact);
+          const active = itemIsActive(pathname, item);
           const Icon = APP_ICON[item.icon];
           return (
             <li key={item.href} className="flex flex-1">
@@ -158,7 +155,7 @@ function NavLinkItem({
   navCounts?: NavCounts;
 }) {
   const tr = useT();
-  const active = isActive(pathname, item.href, item.exact);
+  const active = itemIsActive(pathname, item);
   const Icon = APP_ICON[item.icon];
   const danger = item.variant === "danger";
   return (
@@ -360,7 +357,7 @@ function CollapsibleSidebarNav({
     .map((s) => ({ label: s.label, items: s.items.filter((i) => i.variant !== "danger") }))
     .filter((g) => g.items.length > 0);
   const activeGroupLabel = groups.find((g) =>
-    g.items.some((i) => isActive(pathname, i.href, i.exact))
+    g.items.some((i) => itemIsActive(pathname, i))
   )?.label;
 
   // This component was patient-only until now, so every persisted entry
