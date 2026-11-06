@@ -33,7 +33,9 @@ export function helpTextFor(section: SectionId): string | null {
   return AUDIO_SCRIPTS[HLP_CLIPS[screen]]?.en ?? null;
 }
 
-/** The tabs that get a first-use tour: the four bottom tabs the app really has (lib/sections.ts), not the seven the old scripts assumed. */
+/** The screens that get a first-use tour. These were the four bottom tabs until PD-01 (2026-11-06) made the tabs Home, My Health,
+ * Messages and Care plan: Vitals and Medications keep their tours (offered on first visit from the drawer), and My Health and Care
+ * plan have none yet (new patient copy, to be written and reviewed). */
 export const TOUR_TABS = ["overview", "vitals", "medications", "messages"] as const;
 export type TourTab = (typeof TOUR_TABS)[number];
 
