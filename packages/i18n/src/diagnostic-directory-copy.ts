@@ -42,6 +42,7 @@ export const diagnosticDirectoryCopy = {
   "dxdir.f.phone": "Phone (+234...)",
   "dxdir.f.latitude": "Latitude",
   "dxdir.f.longitude": "Longitude",
+  "dxdir.f.position_hint": "The map position patients get directions to. Saved with this check. A branch with no position cannot be marked checked.",
   "dxdir.f.coords_hint": "From Google Maps: right-click the building and copy the two numbers.",
   "dxdir.f.create": "Add as draft",
   "dxdir.f.save": "Save",

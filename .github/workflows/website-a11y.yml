@@ -17,6 +17,9 @@ on:
       - "apps/web/src/lib/**"
       - "apps/web/src/proxy.ts"
       - "apps/web/src/app/layout.tsx"
+      - "apps/web/src/app/not-found.tsx"
+      - "apps/web/scripts/assert-static-marketing.ts"
+      - "packages/auth/**"
       - "apps/web/src/components/**"
       - "apps/web/e2e-a11y/**"
       - "apps/web/playwright.a11y.config.ts"
@@ -82,6 +85,11 @@ jobs:
       - name: Build the web app
         working-directory: apps/web
         run: pnpm exec next build
+
+      # A marketing page built as dynamic is never cached by Vercel (2026-11-06). Fails the job if any built page is not static.
+      - name: Check the marketing pages were built static
+        working-directory: apps/web
+        run: pnpm exec tsx scripts/assert-static-marketing.ts
 
       - name: Scan the marketing pages
         working-directory: apps/web

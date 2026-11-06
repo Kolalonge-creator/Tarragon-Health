@@ -1,8 +1,11 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  ACTIVE_ESCALATION_STATUSES,
+  ESCALATION_STATUS_LABEL,
   priorityFromAlertLevel,
   type Database,
+  type EscalationStatus,
   type DoctorWorklistRow,
   type WorklistAlertLevel,
   type WorklistSource,
@@ -44,7 +47,9 @@ export const QUEUE_ROW_TEXT: Record<WorklistKind, { issue: string; next: string 
 type EscalationRow = {
   id: string;
   reason: string;
-  status: "open" | "under_review" | "resolved" | "referred";
+  status: EscalationStatus;
+  status_note?: string | null;
+  monitor_until?: string | null;
   created_at: string;
   assigned_doctor_id: string | null;
   clinician_alert_id: string | null;
@@ -88,10 +93,28 @@ export function escalationToRow(e: EscalationRow, profileId: string | null): Doc
     assignedName: e.assigned_doctor?.full_name ?? null,
     assignedToMe: profileId !== null && e.assigned_doctor_id === profileId,
     unassigned: e.assigned_doctor_id === null,
-    status: e.status === "under_review" ? "Under review" : "New",
-    nextAction: e.status === "under_review" ? "Finish the review and record the outcome" : "Start the review",
+    status: e.status === "open" ? "New" : ESCALATION_STATUS_LABEL[e.status],
+    nextAction: escalationNextAction(e),
     href: `/clinician/escalations/${e.id}`,
   };
+}
+
+/** DW-03: what the doctor does next for each open escalation state. */
+function escalationNextAction(e: Pick<EscalationRow, "status" | "monitor_until">): string {
+  switch (e.status) {
+    case "open":
+      return "Start the review";
+    case "awaiting_information":
+      return "Check whether the information has arrived";
+    case "patient_contact_required":
+      return "Contact the patient and log the attempt";
+    case "monitoring":
+      return e.monitor_until
+        ? `Monitoring; back for review ${new Date(e.monitor_until).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" })}`
+        : "Monitoring";
+    default:
+      return "Finish the review and record the outcome";
+  }
 }
 
 export function alertToRow(a: AlertRow, staffId: string | null): DoctorWorklistRow {
@@ -134,9 +157,9 @@ export async function loadDoctorWorklist(
       supabase
         .from("escalations")
         .select(
-          "id, reason, status, created_at, assigned_doctor_id, clinician_alert_id, patient_id, patient:profiles!escalations_patient_id_fkey(full_name, patient_number), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(level, override_level, sla_due_at)",
+          "id, reason, status, status_note, monitor_until, created_at, assigned_doctor_id, clinician_alert_id, patient_id, patient:profiles!escalations_patient_id_fkey(full_name, patient_number), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(level, override_level, sla_due_at)",
         )
-        .in("status", ["open", "under_review"]),
+        .in("status", [...ACTIVE_ESCALATION_STATUSES]),
       testPatientIds,
     ).returns<EscalationRow[]>(),
     excludeTestPatients(

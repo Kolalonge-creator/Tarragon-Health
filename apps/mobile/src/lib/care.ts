@@ -1,4 +1,4 @@
-import type { EscalationStatus, ReferralStatus, Tables } from "@tarragon/shared";
+import { ESCALATION_STATUS_PATIENT_COPY, isActiveEscalationStatus, type EscalationStatus, type ReferralStatus, type Tables } from "@tarragon/shared";
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 
@@ -212,7 +212,7 @@ export async function getEscalations(patientId: string): Promise<QueryResult<Esc
 /** Mirrors apps/web/src/lib/escalations/what-happens-next.ts exactly — the
  * real sla_due_at the escalation engine computes, never a fabricated number. */
 export function whatHappensNext(status: EscalationStatus, slaDueAt: string | null): string | null {
-  if (status !== "open" && status !== "under_review") return null;
+  if (!isActiveEscalationStatus(status)) return null;
   if (slaDueAt && new Date(slaDueAt).getTime() > Date.now()) {
     return `Your care team aims to get back to you by ${formatDueBy(slaDueAt)}.`;
   }
@@ -228,12 +228,8 @@ function formatDueBy(slaDueAt: string): string {
   });
 }
 
-export const ESCALATION_STATUS_COPY: Record<EscalationStatus, string> = {
-  open: "We're looking into this",
-  under_review: "Being reviewed by your care team",
-  resolved: "Reviewed",
-  referred: "Referred for further care",
-};
+// Shared with web (patient-escalations.tsx) so both apps describe a case the same way.
+export const ESCALATION_STATUS_COPY: Record<EscalationStatus, string> = ESCALATION_STATUS_PATIENT_COPY;
 
 // ---------------------------------------------------------------------------
 // Specialist referrals (mirrors apps/web/src/components/your-referrals.tsx)

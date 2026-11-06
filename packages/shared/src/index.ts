@@ -29,6 +29,8 @@ export * from "./measurement-units";
 export * from "./rewards-pending";
 export * from "./clinician-home";
 export * from "./doctor-worklist";
+export * from "./patient-search-query";
+export * from "./calendar-age";
 export * from "./admin-home";
 
 // Generated Supabase types: Database, Tables, TablesInsert, TablesUpdate,
@@ -350,5 +352,6 @@ export * from "./screening-day-date";
 export * from "./screening-day-steps";
 export * from "./test-code-labels";
 export * from "./health-status-domains";
+export * from "./escalation-states";
 export * from "./trend-ranges";
 export * from "./cmo-oversight";

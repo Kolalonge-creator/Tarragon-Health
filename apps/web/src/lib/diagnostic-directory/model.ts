@@ -66,7 +66,11 @@ export const startListingSchema = z.object({ kind: z.enum(["lab", "imaging"]), p
 export const branchToDirectorySchema = z.object({ listing_id: uuid, location_id: uuid, lga: optText(80), town: optText(80), neighbourhood: optText(80) });
 export const verifyLocationSchema = z.object({
   listing_id: uuid, branch_listing_id: uuid, source: text(5, 200), note: text(10, 500), hours_checked: checkbox,
-});
+  // The map position, both or neither. Given, it is saved with the check (admin_dx_set_branch_position); left empty, the branch must
+  // already have one (the database refuses to stamp a branch with no position).
+  latitude: optNumber(-90, 90),
+  longitude: optNumber(-180, 180),
+}).refine((v) => (v.latitude == null) === (v.longitude == null), { message: "latitude and longitude together" });
 export const statusSchema = z.object({
   listing_id: uuid, level: z.enum(["provider", "branch"]), target_id: uuid, status: z.enum(LISTING_STATUSES), reason: text(10, 500),
 });

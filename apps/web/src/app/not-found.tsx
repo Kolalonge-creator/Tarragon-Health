@@ -1,4 +1,3 @@
-import { connection } from "next/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BrandLockup } from "./(marketing)/_components/brand-logo";
@@ -16,10 +15,12 @@ const LINKS = [
   { href: MARKETING_ROUTES.contact, label: "Contact" },
 ];
 
-// Rendered per request (CSP step 2, 2026-11-06): the app host's enforced policy only lets scripts carrying that request's nonce run,
-// and a page prebuilt at deploy time has no request to take a nonce from, so its scripts would be blocked.
-export default async function NotFound() {
-  await connection();
+// Must stay STATIC. The root not-found is part of every page's tree, so making it dynamic (CSP step 2 briefly added
+// `await connection()` here, 2026-11-06) turned every marketing page from a cached static page into a per-request render: Vercel
+// sent them all as private/no-store and slow-phone LCP rose to about 3.3s. The cost of static: on the APP host, where the enforced
+// policy needs a per-request nonce, this 404 page's scripts are blocked. It still renders and every link on it is a plain <a> that
+// works without JavaScript, so nothing a visitor needs is lost. `static-marketing.test.ts` and the Website accessibility workflow's post-build check guard this.
+export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-16 text-center text-charcoal-ink">
       <Link

@@ -1,5 +1,5 @@
 import type { BadgeProps } from "@/components/ui/badge";
-import type { EscalationLevel, EscalationStatus } from "@tarragon/shared";
+import { ESCALATION_STATUS_LABEL, type EscalationLevel, type EscalationStatus } from "@tarragon/shared";
 
 export const LEVEL_BADGE: Record<EscalationLevel, { variant: BadgeProps["variant"]; label: string }> = {
   emergency: { variant: "red", label: "Emergency" },
@@ -10,8 +10,11 @@ export const LEVEL_BADGE: Record<EscalationLevel, { variant: BadgeProps["variant
 };
 
 export const ESCALATION_STATUS_BADGE: Record<EscalationStatus, { variant: BadgeProps["variant"]; label: string }> = {
-  open: { variant: "amber", label: "Unclaimed" },
-  under_review: { variant: "blue", label: "Under review" },
-  resolved: { variant: "green", label: "Resolved" },
-  referred: { variant: "grey", label: "Referred" },
+  open: { variant: "amber", label: ESCALATION_STATUS_LABEL.open },
+  under_review: { variant: "blue", label: ESCALATION_STATUS_LABEL.under_review },
+  awaiting_information: { variant: "blue", label: ESCALATION_STATUS_LABEL.awaiting_information },
+  patient_contact_required: { variant: "amber", label: ESCALATION_STATUS_LABEL.patient_contact_required },
+  monitoring: { variant: "grey", label: ESCALATION_STATUS_LABEL.monitoring },
+  resolved: { variant: "green", label: ESCALATION_STATUS_LABEL.resolved },
+  referred: { variant: "grey", label: ESCALATION_STATUS_LABEL.referred },
 };

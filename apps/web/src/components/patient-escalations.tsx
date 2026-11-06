@@ -2,18 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { whatHappensNext } from "@/lib/escalations/what-happens-next";
-import type { EscalationStatus } from "@tarragon/shared";
+import { ESCALATION_STATUS_PATIENT_COPY } from "@tarragon/shared";
 
-// Patient-facing status copy — deliberately not the staff worklist labels
-// (ESCALATION_STATUS_BADGE in lib/worklist/level-badge.ts uses "Unclaimed"
-// etc.), per CLAUDE.md's brand voice rule: no clinical jargon, no
-// fear-based urgency in patient-facing copy.
-const PATIENT_STATUS_COPY: Record<EscalationStatus, string> = {
-  open: "We're looking into this",
-  under_review: "Being reviewed by your care team",
-  resolved: "Reviewed",
-  referred: "Referred for further care",
-};
+// Patient-facing status copy lives in @tarragon/shared (ESCALATION_STATUS_PATIENT_COPY) so web and mobile say the same thing;
+// deliberately not the staff worklist labels, per CLAUDE.md's brand voice rule: no clinical jargon, no fear-based urgency.
+const PATIENT_STATUS_COPY = ESCALATION_STATUS_PATIENT_COPY;
 
 function formatDate(createdAt: string): string {
   return new Date(createdAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });

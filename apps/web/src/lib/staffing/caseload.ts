@@ -8,7 +8,7 @@ export type StaffLoadInput = {
   doctorTier: DoctorTier | null;
   /** Standing patients (care_team_assignment.clinician_id). */
   panelSize: number;
-  /** Escalations this person has claimed and is actively working (status = under_review). */
+  /** Escalations this person has claimed and is actively working (under review or in a working state, IN_PROGRESS_ESCALATION_STATUSES). */
   activeEscalations: number;
   /** Outreach tasks this person has claimed (status in in_progress/contacted). */
   activeOutreach: number;

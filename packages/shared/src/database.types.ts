@@ -19034,6 +19034,39 @@ export type Database = {
           },
         ]
       }
+      escalation_contact_attempts: {
+        Row: {
+          attempted_at: string
+          attempted_by: string
+          escalation_id: string
+          id: string
+          note: string | null
+          organisation_id: string
+          outcome: string
+          patient_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          attempted_by: string
+          escalation_id: string
+          id?: string
+          note?: string | null
+          organisation_id: string
+          outcome: string
+          patient_id: string
+        }
+        Update: {
+          attempted_at?: string
+          attempted_by?: string
+          escalation_id?: string
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          outcome?: string
+          patient_id?: string
+        }
+        Relationships: []
+      }
       escalation_notes: {
         Row: {
           author_id: string | null
@@ -19136,6 +19169,7 @@ export type Database = {
           identity_confirmed: boolean
           identity_confirmed_at: string | null
           identity_confirmed_by: string | null
+          monitor_until: string | null
           organisation_id: string
           patient_id: string
           raised_by: string | null
@@ -19144,6 +19178,9 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["escalation_status"]
+          status_changed_at: string | null
+          status_changed_by: string | null
+          status_note: string | null
           updated_at: string
         }
         Insert: {
@@ -19154,6 +19191,7 @@ export type Database = {
           identity_confirmed?: boolean
           identity_confirmed_at?: string | null
           identity_confirmed_by?: string | null
+          monitor_until?: string | null
           organisation_id: string
           patient_id: string
           raised_by?: string | null
@@ -19162,6 +19200,9 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["escalation_status"]
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+          status_note?: string | null
           updated_at?: string
         }
         Update: {
@@ -19172,6 +19213,7 @@ export type Database = {
           identity_confirmed?: boolean
           identity_confirmed_at?: string | null
           identity_confirmed_by?: string | null
+          monitor_until?: string | null
           organisation_id?: string
           patient_id?: string
           raised_by?: string | null
@@ -19180,6 +19222,9 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["escalation_status"]
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+          status_note?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -19200,6 +19245,13 @@ export type Database = {
           {
             foreignKeyName: "escalations_identity_confirmed_by_fkey"
             columns: ["identity_confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalations_status_changed_by_fkey"
+            columns: ["status_changed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -53064,6 +53116,21 @@ export type Database = {
       }
     }
     Functions: {
+      escalation_contact_attempts_for: {
+        Args: { p_escalation_id: string }
+        Returns: {
+          attempted_at: string
+          attempted_by: string
+          attempted_by_name: string | null
+          id: string
+          note: string | null
+          outcome: string
+        }[]
+      }
+      log_escalation_contact_attempt: {
+        Args: { p_escalation_id: string; p_note?: string; p_outcome: string }
+        Returns: string
+      }
       apply_upload_scan_verdict: {
         Args: {
           p_db_version: string
@@ -60908,7 +60975,14 @@ export type Database = {
         | "alternative_channel"
         | "care_coordinator_outreach"
         | "clinical_review_flag"
-      escalation_status: "open" | "under_review" | "resolved" | "referred"
+      escalation_status:
+        | "open"
+        | "under_review"
+        | "awaiting_information"
+        | "patient_contact_required"
+        | "monitoring"
+        | "resolved"
+        | "referred"
       exercise_intensity_level: "beginner" | "moderate" | "vigorous"
       exercise_programme_category:
         | "beginner_walking"
@@ -63299,7 +63373,15 @@ export const Constants = {
         "care_coordinator_outreach",
         "clinical_review_flag",
       ],
-      escalation_status: ["open", "under_review", "resolved", "referred"],
+      escalation_status: [
+        "open",
+        "under_review",
+        "awaiting_information",
+        "patient_contact_required",
+        "monitoring",
+        "resolved",
+        "referred",
+      ],
       exercise_intensity_level: ["beginner", "moderate", "vigorous"],
       exercise_programme_category: [
         "beginner_walking",

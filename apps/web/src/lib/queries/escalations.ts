@@ -4,6 +4,7 @@ import { compareByAlert } from "@/lib/worklist/priority";
 import { generateCaseBriefAction } from "@/lib/case-briefs/actions";
 import { handleIfPermissionDenied } from "@/lib/audit/log-denied-action";
 import type { EscalationLevel, ScreeningResultStatus, Tables } from "@tarragon/shared";
+import { ACTIVE_ESCALATION_STATUSES, type WorkingEscalationStatus } from "@tarragon/shared";
 
 export type EscalationWithDetails = Tables<"escalations"> & {
   patient: { full_name: string | null; is_test: boolean } | null;
@@ -46,7 +47,7 @@ export async function fetchDoctorEscalations(): Promise<EscalationWithDetails[]>
   const { data, error } = await supabase
     .from("escalations")
     .select(ESCALATION_SELECT)
-    .in("status", ["open", "under_review"])
+    .in("status", [...ACTIVE_ESCALATION_STATUSES])
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data as EscalationWithDetails[]).slice().sort(compareByAlert);
@@ -429,6 +430,123 @@ export function useResolveEscalation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["escalations"] });
+    },
+  });
+}
+
+/**
+ * DW-03: moves a case the doctor has started into a working state (awaiting information, patient contact required, monitoring),
+ * or back to under review. private.enforce_escalation_state_rules is the real gate: only the assigned doctor or the CMO, a new
+ * 10+ character note on every move into a working state, and a review-by date within 14 days for monitoring. The form checks the
+ * same rules first (workingStateProblem) so the doctor sees the problem before saving.
+ */
+export function useMoveEscalationState() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      escalationId,
+      organisationId,
+      status,
+      note,
+      monitorUntil,
+    }: {
+      escalationId: string;
+      organisationId: string;
+      status: WorkingEscalationStatus | "under_review";
+      note: string | null;
+      monitorUntil: string | null;
+    }) => {
+      const supabase = createClient();
+      const update =
+        status === "under_review"
+          ? { status }
+          : { status, status_note: note, monitor_until: status === "monitoring" ? monitorUntil : null };
+      const { data, error } = await supabase
+        .from("escalations")
+        .update(update)
+        .eq("id", escalationId)
+        .select("id")
+        .maybeSingle();
+      if (error) {
+        handleIfPermissionDenied(error, {
+          action: "escalations.state_move_denied",
+          entityType: "escalations",
+          entityId: escalationId,
+          organisationId,
+          fallbackReason: "Escalation working-state move rejected by the state rules",
+        });
+        throw error;
+      }
+      if (!data) throw new Error("This case could not be updated. It may have been closed or reassigned; refresh the page.");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["escalations"] });
+    },
+  });
+}
+
+/**
+ * DW-11: changes the review-by date of a case that is already monitoring. Same rules as entering monitoring, including a new note.
+ */
+export function useChangeMonitoringDate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ escalationId, note, monitorUntil }: { escalationId: string; note: string; monitorUntil: string }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("escalations")
+        .update({ status_note: note, monitor_until: monitorUntil })
+        .eq("id", escalationId)
+        .eq("status", "monitoring")
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("This case is no longer monitoring; refresh the page.");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["escalations"] });
+    },
+  });
+}
+
+export type EscalationContactAttempt = {
+  id: string;
+  outcome: string;
+  note: string | null;
+  attempted_at: string;
+  attempted_by: string;
+  attempted_by_name: string | null;
+};
+
+/** DW-13: attempts to reach the patient on this case, newest first. Read through the gated RPC; the table has no direct access. */
+export function useEscalationContactAttempts(escalationId: string) {
+  return useQuery({
+    queryKey: ["escalation-contact-attempts", escalationId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("escalation_contact_attempts_for", { p_escalation_id: escalationId });
+      if (error) throw error;
+      return (data ?? []) as EscalationContactAttempt[];
+    },
+    enabled: !!escalationId,
+  });
+}
+
+/** DW-13: the assigned doctor, the CMO or a care coordinator logs an attempt to reach the patient. Never changes the case. */
+export function useLogContactAttempt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ escalationId, outcome, note }: { escalationId: string; outcome: string; note: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("log_escalation_contact_attempt", {
+        p_escalation_id: escalationId,
+        p_outcome: outcome,
+        p_note: note.trim() || undefined,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["escalation-contact-attempts", variables.escalationId] });
     },
   });
 }
