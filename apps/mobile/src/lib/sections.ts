@@ -73,8 +73,11 @@ export interface SectionDef {
    * the two surfaces describe the patient's world the same way. */
   group: "top" | "Your health" | "Stay well" | "Support" | "Your account";
   /** Promotes this section into the bottom tab bar. Only the first
-   * MAX_PRIMARY_SECTIONS are used, in declaration order. */
+   * MAX_PRIMARY_SECTIONS are used, ordered by `primaryOrder`. */
   primary?: boolean;
+  /** Tab position (lower first), because the tabs come from different drawer bands: Home, My Health, Messages, Care plan (PD-01,
+   * the same order as the web phone bar in apps/web/src/lib/navigation.ts). Flagged sections without it follow in declaration order. */
+  primaryOrder?: number;
   /** Short label for the bottom tab bar, where the full label will not fit. */
   shortLabel?: string;
 }
@@ -103,6 +106,7 @@ export const SECTIONS: SectionDef[] = [
     icon: "home-outline",
     group: "top",
     primary: true,
+    primaryOrder: 1,
     shortLabel: "Home",
   },
   {
@@ -112,21 +116,19 @@ export const SECTIONS: SectionDef[] = [
     group: "top",
   },
 
+  // Vitals and Medications left the tab bar for My Health and Care plan (PD-01). They stay in the drawer's Everyday grid, one tap
+  // behind More, and on Home's next-step and doses cards.
   {
     id: "vitals",
     label: "Vitals & symptoms",
     icon: "pulse-outline",
     group: "top",
-    primary: true,
-    shortLabel: "Vitals",
   },
   {
     id: "medications",
     label: "Medications",
     icon: "medkit-outline",
     group: "top",
-    primary: true,
-    shortLabel: "Meds",
   },
   { id: "labs", label: "Labs & results", icon: "flask-outline", group: "top" },
   { id: "devices", label: "Devices", icon: "bluetooth-outline", group: "Your health" },
@@ -142,6 +144,10 @@ export const SECTIONS: SectionDef[] = [
     label: "My Health",
     icon: "id-card-outline",
     group: "Your health",
+    // The record hub (MyHealthScreen): timeline, results over time, documents, passport, history, plus the everyday record screens.
+    primary: true,
+    primaryOrder: 2,
+    shortLabel: "My Health",
   },
   {
     id: "healthHistory",
@@ -306,6 +312,7 @@ export const SECTIONS: SectionDef[] = [
     icon: "chatbox-ellipses-outline",
     group: "top",
     primary: true,
+    primaryOrder: 3,
     shortLabel: "Messages",
   },
   {
@@ -329,6 +336,10 @@ export const SECTIONS: SectionDef[] = [
     label: "Care & support",
     icon: "help-buoy-outline",
     group: "Support",
+    // The patient's care plan lives here (CareSupportScreen), as on web (/patient/care), so this is the Care plan tab (PD-01).
+    primary: true,
+    primaryOrder: 4,
+    shortLabel: "Care plan",
   },
   // Promoted out of "Your account" (2026-09-11), mirroring web's
   // navigation.ts — the buy page for the same paid-per-service doctor-time
@@ -411,7 +422,12 @@ export const SECTION_GROUP_ORDER = [
   "Your account",
 ] as const;
 
-export const PRIMARY_SECTIONS = SECTIONS.filter((s) => s.primary).slice(0, MAX_PRIMARY_SECTIONS);
+/** The patient's bottom tabs: Home, My Health, Messages, Care plan (PD-01), then More. */
+export const PRIMARY_SECTIONS = SECTIONS.map((s, index) => ({ s, index }))
+  .filter(({ s }) => s.primary)
+  .sort((a, b) => (a.s.primaryOrder ?? Number.MAX_SAFE_INTEGER) - (b.s.primaryOrder ?? Number.MAX_SAFE_INTEGER) || a.index - b.index)
+  .slice(0, MAX_PRIMARY_SECTIONS)
+  .map(({ s }) => s);
 
 /**
  * A supporter-only account (profiles.receives_care = false) has no health record here, so its app opens on the people it supports
