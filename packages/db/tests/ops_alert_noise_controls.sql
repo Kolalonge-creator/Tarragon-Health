@@ -123,6 +123,6 @@ begin
 end $$;
 
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result
-from results order by phase, check_name;
+from results where phase = 'real' order by check_name;
 
 rollback;

@@ -127,7 +127,8 @@ describe("no advertising or tracking SDKs (D.3, audit 1.13)", () => {
   });
 
   it("the web content-security policy names none of those hosts, so a tag added later would be blocked in the browser too", () => {
-    const csp = readFileSync(join(ROOT, "apps/web/next.config.ts"), "utf8");
+    // The policy text moved from next.config.ts into its own module with the CSP nonce work (#1774, #1783).
+    const csp = readFileSync(join(ROOT, "apps/web/src/lib/security/csp-policy.ts"), "utf8");
     expect(csp).toMatch(/connect-src/);
     expect(DENIED_HOSTS.test(csp)).toBe(false);
   });
