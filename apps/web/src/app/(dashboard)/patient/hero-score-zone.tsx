@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { healthStatusWord, healthStatusSummary } from "@tarragon/shared";
+import { STATUS_CLASSES } from "@tarragon/ui/status";
 import { useHealthStatusDomains } from "@/lib/queries/health-status";
 
 /**
@@ -50,7 +51,7 @@ export function HeroScoreZone({ patientId, eyebrow }: { patientId: string; eyebr
               <li key={d.key} className="flex items-center gap-1.5">
                 <span
                   aria-hidden
-                  className={`h-2 w-2 shrink-0 rounded-full ${d.status === "worth_discussing" ? "bg-amber-500" : d.status === "within_range" ? "bg-green-500" : "bg-charcoal-ink/30"}`}
+                  className={`h-2 w-2 shrink-0 rounded-full ${d.status === "worth_discussing" ? STATUS_CLASSES.attention.dot : d.status === "within_range" ? STATUS_CLASSES.normal.dot : STATUS_CLASSES.inactive.dot}`}
                 />
                 {d.label}: {healthStatusWord(d).toLowerCase()}
               </li>

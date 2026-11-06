@@ -8,13 +8,18 @@ import {
   weightTrendBand,
   weightFromKg,
   WEIGHT_UNIT_LABEL,
+  TREND_MAX_POINTS,
+  TREND_RANGE_LABEL,
+  TREND_RANGES,
+  trendHitCap,
   type GlucoseDisplayUnit,
+  type TrendRange,
 } from "@tarragon/shared";
 import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 import { DEFAULT_LOCALE, t } from "@tarragon/i18n";
 import { useMeasurementUnits } from "@/components/measurement-units-provider";
 
-import { useState, type Key as ReactKey } from "react";
+import { useMemo, useState, type Key as ReactKey } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceArea, XAxis, YAxis } from "recharts";
 import { useVitalsTrend, useHba1cTrend, useBmiTrend, useHeightStatus, useTrendBandsEligible } from "@/lib/queries/vitals";
 import { getHba1cBracket } from "@/lib/rules/hba1c-bracket";
@@ -25,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 import { formatPatientDate } from "@/lib/format-date";
+import { trendTableRows, VitalsTrendTable } from "@/components/vitals-trend-table";
 /** Warm, non-clinical framing — same patient-facing wording as the public
  * BMI calculator's CATEGORY_COPY (bmi-calorie-calculator.tsx), never the
  * doctor-facing "obesity_class_i" style labels used in the clinician panel. */
@@ -67,12 +73,6 @@ function weightConfig(unit: "kg" | "lb"): ChartConfig {
   return { weight_display: { label: `Weight (${WEIGHT_UNIT_LABEL[unit]})`, color: "var(--chart-glucose)" } };
 }
 
-const RANGE_OPTIONS = [
-  { days: 7, label: "7 days" },
-  { days: 30, label: "30 days" },
-  { days: 90, label: "90 days" },
-] as const;
-
 type Summary = { min: number; avg: number; max: number };
 
 /** Lowest, average and highest of the plotted values for the range, or null with nothing to summarise. */
@@ -90,8 +90,9 @@ const BMI_CONFIG: ChartConfig = {
   bmi: { label: "BMI", color: "var(--chart-glucose)" },
 };
 
-function formatDate(taken_at: string): string {
-  return formatPatientDate(taken_at, { month: "short", day: "numeric" });
+/** Axis and tooltip date. Ranges longer than 90 days (and HbA1c's full history) span years, so they carry the year: "Oct 29" alone would fold two years onto one label. */
+function formatDate(taken_at: string, withYear: boolean): string {
+  return formatPatientDate(taken_at, withYear ? { month: "short", day: "numeric", year: "numeric" } : { month: "short", day: "numeric" });
 }
 
 // Recessive horizontal gridlines: 1px solid, one step off the surface.
@@ -160,29 +161,45 @@ function makeEndpointDot(lastIndex: number, color: string, placement: "above" | 
 
 type TrendMode = "blood_pressure" | "glucose" | "weight" | "pulse" | "hba1c" | "bmi";
 
+const MODE_LABEL: Record<TrendMode, string> = {
+  blood_pressure: "Blood pressure",
+  glucose: "Glucose",
+  weight: "Weight",
+  pulse: "Heart rate",
+  hba1c: "HbA1c",
+  bmi: "BMI",
+};
+
 export function VitalsTrendChart({ patientId }: { patientId: string }) {
   const glucoseUnit = useGlucoseUnit();
   const { weight: weightUnit } = useMeasurementUnits();
   const [mode, setMode] = useState<TrendMode>("blood_pressure");
-  const [rangeDays, setRangeDays] = useState<number>(90);
+  // P17: the one range set shared with the biomarker chart (7d to all). The read is bounded either way: the newest TREND_MAX_POINTS readings.
+  const [range, setRange] = useState<TrendRange>("90d");
   const vitalsTrend = useVitalsTrend(
     patientId,
     mode === "hba1c" || mode === "bmi" ? "blood_pressure" : mode,
-    rangeDays,
+    range,
   );
   const hba1cTrend = useHba1cTrend(patientId);
   const bmiTrend = useBmiTrend(patientId);
   const heightStatus = useHeightStatus(patientId);
-  const { data, isLoading, isError, error } =
+  const { data: rawData, isLoading, isError, error } =
     mode === "hba1c" ? hba1cTrend : mode === "bmi" ? bmiTrend : vitalsTrend;
+  // The ranged vitals read asks for one row past the cap. More than the cap back means older readings were left out: plot the newest TREND_MAX_POINTS
+  // (dropping the extra oldest one, never adding anything) and say so below.
+  const rangedMode = mode !== "hba1c" && mode !== "bmi";
+  const hitPointCap = rangedMode && trendHitCap(rawData?.length ?? 0);
+  const data = useMemo(() => (hitPointCap && rawData ? rawData.slice(-TREND_MAX_POINTS) : rawData), [hitPointCap, rawData]);
+  const withYear = mode === "hba1c" || (rangedMode && range !== "7d" && range !== "30d" && range !== "90d");
   // A refusal (not on the care team) is not a load failure and must not read as an empty chart (INV-10).
   const notAvailable = isError && error instanceof Error && error.message.includes("not available to you");
   // Readings arrive in mmol/L (what vitals_readings stores) and are plotted in
   // the reader's own unit. Converting here rather than at the axis keeps the
   // tooltip, the dot labels and the axis all reporting the same number.
-  const points = (data ?? []).map((reading) => ({
+  const points = useMemo(() => (data ?? []).map((reading) => ({
     ...reading,
-    date: formatDate(reading.taken_at),
+    date: formatDate(reading.taken_at, withYear),
     glucose_display:
       "glucose_mmol_l" in reading && typeof reading.glucose_mmol_l === "number"
         ? glucoseInDisplayUnit(reading.glucose_mmol_l, glucoseUnit)
@@ -191,7 +208,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
       "weight_kg" in reading && typeof reading.weight_kg === "number"
         ? Math.round(weightFromKg(reading.weight_kg, weightUnit) * 10) / 10
         : null,
-  }));
+  })), [data, withYear, glucoseUnit, weightUnit]);
   // Low, average and high for the chosen range, in what is plotted. Only for the single-number charts.
   const summaryUnit = mode === "glucose" ? GLUCOSE_UNIT_LABEL[glucoseUnit] : mode === "weight" ? WEIGHT_UNIT_LABEL[weightUnit] : mode === "pulse" ? "bpm" : "";
   const summary =
@@ -203,6 +220,20 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           ? summarise(points.map((p) => ("pulse_bpm" in p ? p.pulse_bpm : null)))
           : null;
   const lastIndex = points.length - 1;
+  const tableUnit =
+    mode === "blood_pressure"
+      ? "mmHg"
+      : mode === "glucose"
+        ? GLUCOSE_UNIT_LABEL[glucoseUnit]
+        : mode === "weight"
+          ? WEIGHT_UNIT_LABEL[weightUnit]
+          : mode === "pulse"
+            ? "bpm"
+            : mode === "hba1c"
+              ? "%"
+              : "kg/m²";
+  // Rebuilt only when the plotted series changes, not on every render.
+  const tableRows = useMemo(() => (isLoading || isError ? [] : trendTableRows(mode, points, tableUnit)), [isLoading, isError, mode, points, tableUnit]);
   // S07y: a point that was taken at a pharmacy or clinic machine, or copied from a paper diary, is plotted like any other and SAYS so below the chart.
   const originOf = (p: unknown): string | null => {
     const v = (p as { entry_origin?: unknown }).entry_origin;
@@ -273,9 +304,9 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
 
         {mode !== "hba1c" && mode !== "bmi" && (
           <div role="group" aria-label="Time range" className="flex flex-wrap gap-2">
-            {RANGE_OPTIONS.map((r) => (
-              <Button key={r.days} size="sm" variant={rangeDays === r.days ? "default" : "outline"} aria-pressed={rangeDays === r.days} onClick={() => setRangeDays(r.days)}>
-                {r.label}
+            {TREND_RANGES.map((r) => (
+              <Button key={r} size="sm" variant={range === r ? "default" : "outline"} aria-pressed={range === r} onClick={() => setRange(r)}>
+                {TREND_RANGE_LABEL[r]}
               </Button>
             ))}
           </div>
@@ -320,6 +351,11 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
             profileHeightCm={heightDiscrepancy.profileHeightCm}
             questionnaireHeightCm={heightDiscrepancy.questionnaireHeightCm}
           />
+        )}
+        {hitPointCap && !isLoading && !isError && (
+          <p data-testid="trend-point-cap" className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+            Showing the most recent {TREND_MAX_POINTS.toLocaleString("en-NG")} readings in this range. Older ones are not shown.
+          </p>
         )}
         {assistedCaption && (
           <p data-testid="assisted-entry-caption" className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
@@ -540,6 +576,13 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
               );
             })()}
           </div>
+        )}
+        {!isError && (
+          <VitalsTrendTable
+            caption={`${MODE_LABEL[mode]} readings, ${mode === "hba1c" ? "all results" : mode === "bmi" ? "last 90 days" : TREND_RANGE_LABEL[range].toLowerCase()}`}
+            rows={tableRows}
+            loading={isLoading}
+          />
         )}
       </CardContent>
     </Card>

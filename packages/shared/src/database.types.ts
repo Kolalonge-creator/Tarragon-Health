@@ -54890,6 +54890,14 @@ export type Database = {
         Args: { p_patient: string; p_reason: string; p_sections: string[] }
         Returns: Json
       }
+      read_patient_care_circle_audited: {
+        Args: { p_patient: string; p_reason: string }
+        Returns: Json
+      }
+      read_patient_onboarding_answers_audited: {
+        Args: { p_patient: string; p_reason: string }
+        Returns: Json
+      }
       read_patient_consents_audited: {
         Args: { p_patient: string; p_reason: string }
         Returns: {

@@ -15,7 +15,7 @@ import {
 // and every section route below call this same helper once each per
 // request, so it gets the same treatment here — otherwise "whose dashboard
 // is this" would be resolved twice per page load instead of once.
-const getActingFor = cache(getActingForUncached);
+export const getActingFor = cache(getActingForUncached);
 
 /**
  * Shared gate + identity resolution for every /patient/* route. Each section

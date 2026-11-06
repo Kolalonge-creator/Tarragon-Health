@@ -105,6 +105,42 @@ export type Scheme = "light" | "dark";
 
 export const palettes: Record<Scheme, Palette> = { light: lightPalette, dark: darkPalette };
 
+/**
+ * Clinical status colours (patient dashboard 2.0, P6): the same six levels and
+ * the same values as the web's `clinicalStatusColors` in
+ * packages/ui/src/tokens.ts, which is the source of truth (web-parity.test.ts
+ * fails if they drift). A separate system from brand colour. `solid` is for
+ * dots, icons and borders (3 to 1), `text` for words (4.5 to 1 on its tint and
+ * on every surface), `tint` for the soft background. Status is never colour
+ * alone: pair it with a word or an icon.
+ */
+export type ClinicalStatusLevel = "critical" | "urgent" | "attention" | "normal" | "info" | "inactive";
+
+export interface ClinicalStatusTone {
+  solid: string;
+  text: string;
+  tint: string;
+}
+
+export const clinicalStatus: Record<Scheme, Record<ClinicalStatusLevel, ClinicalStatusTone>> = {
+  light: {
+    critical: { solid: "#B91C1C", text: "#991B1B", tint: "#FEE2E2" },
+    urgent: { solid: "#C2410C", text: "#9A3412", tint: "#FFEDD5" },
+    attention: { solid: "#B45309", text: "#92400E", tint: "#FEF3C7" },
+    normal: { solid: "#2E7D32", text: "#1B5E20", tint: "#E3F1E4" },
+    info: { solid: "#1D4ED8", text: "#1E40AF", tint: "#DBEAFE" },
+    inactive: { solid: "#78716C", text: "#57534E", tint: "#F1ECE3" },
+  },
+  dark: {
+    critical: { solid: "#DC2626", text: "#FCA5A5", tint: "#3B1512" },
+    urgent: { solid: "#EA580C", text: "#FDBA74", tint: "#3A1F0B" },
+    attention: { solid: "#D97706", text: "#FCD34D", tint: "#3A2A0B" },
+    normal: { solid: "#43A047", text: "#A5D6A7", tint: "#16301A" },
+    info: { solid: "#3B82F6", text: "#93C5FD", tint: "#172A45" },
+    inactive: { solid: "#8A847C", text: "#D6D3D1", tint: "#2C2620" },
+  },
+};
+
 /** 4 point spacing scale. Index by name, never by number. */
 export const space = {
   xxs: 2,
