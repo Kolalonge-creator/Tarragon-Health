@@ -1,5 +1,7 @@
 "use client";
 
+import { UploadOffWhileActing, useActingFor } from "@/components/acting-for-context";
+
 import { useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -131,7 +133,7 @@ function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
  * (AiResultSummary's "Discuss this with a Tarragon doctor" button), never as
  * a precondition to uploading.
  */
-export function PatientResultUpload({
+function PatientResultUploadForm({
   labOrderId,
   screeningCompletionId,
   label = "Upload your result",
@@ -449,4 +451,11 @@ export function PatientResultUpload({
       {patientId && <MyConsultRequestsStatus patientId={patientId} />}
     </div>
   );
+}
+
+/** Not offered while managing someone else's account: the file would land on the signed-in person's own record. */
+export function PatientResultUpload(props: React.ComponentProps<typeof PatientResultUploadForm>) {
+  const acting = useActingFor();
+  if (acting) return <UploadOffWhileActing acting={acting} />;
+  return <PatientResultUploadForm {...props} />;
 }

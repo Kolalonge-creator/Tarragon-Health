@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { ActingForBanner } from "@/app/(dashboard)/patient/acting-for-banner";
+import { ActingForProvider } from "@/components/acting-for-context";
 // The request-cached copy, shared with getPatientDashboardContext, so "whose account is this" is resolved once per request.
 import { getActingFor } from "@/app/(dashboard)/patient/dashboard-context";
 
@@ -16,7 +17,8 @@ export default async function PatientLayout({ children }: { children: ReactNode 
   return (
     <>
       <ActingForBanner acting={acting} />
-      {children}
+      {/* Lets the browser stop offering things that would act on the signed-in person's own record (uploads). */}
+      <ActingForProvider value={acting ? { fullName: acting.fullName } : null}>{children}</ActingForProvider>
     </>
   );
 }
