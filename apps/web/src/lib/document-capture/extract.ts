@@ -71,6 +71,8 @@ export async function extractDocumentSuggestions(input: {
   documentType: DocumentCaptureType;
   /** Injectable for tests; defaults to a real Claude client. */
   model?: ChatAnthropic;
+  /** The governed model (governedModelId) the caller resolved; defaults to the in-code constant. */
+  modelId?: string;
 }): Promise<DocumentCaptureResult> {
   if (!input.model && !isDocumentCaptureConfigured()) return { ok: false, reason: "unavailable" };
   if (!(EXTRACTABLE_MIME_TYPES as readonly string[]).includes(input.mediaType)) {
@@ -84,7 +86,7 @@ export async function extractDocumentSuggestions(input: {
       input.model ??
       new ChatAnthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
-        model: DOCUMENT_CAPTURE_MODEL_ID,
+        model: input.modelId ?? DOCUMENT_CAPTURE_MODEL_ID,
         maxTokens: 4000,
         // Same claude-*-5-generation workaround as the other vision call sites.
         invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },

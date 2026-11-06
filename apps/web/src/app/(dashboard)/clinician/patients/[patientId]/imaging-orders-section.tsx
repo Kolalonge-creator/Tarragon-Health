@@ -4,6 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ReviewedResultLine } from "@/components/reviewed-result-line";
 import { OrderImagingForm } from "./order-imaging-form";
+import { SuggestPlacePanel } from "@/components/diagnostic-directory/suggest-place-panel";
+import { loadSuggestedPlace } from "@/lib/diagnostic-directory/orders";
+import { loadPlaceContext } from "./place-context";
 import type { Database } from "@tarragon/shared";
 
 type ImagingOrderStatus = Database["public"]["Enums"]["imaging_order_status"];
@@ -43,9 +46,18 @@ export async function ImagingOrdersSection({
 
   const { data: orders } = await supabase
     .from("imaging_orders")
-    .select("id, indication, urgency, status, created_at")
+    .select("id, indication, urgency, status, created_at, study:imaging_studies(name, concept_id, concept:reference_concepts(id, display))")
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
+
+  // Diagnostic directory Phase 5: a suggested place per open order (clinical tier only; advice, the patient may go anywhere).
+  const SUGGESTABLE = new Set<ImagingOrderStatus>(["ordered", "booked"]);
+  const ctx = canOrder ? await loadPlaceContext(patientId, "imaging") : null;
+  const placeByOrder = new Map(
+    canOrder
+      ? await Promise.all((orders ?? []).filter((o) => SUGGESTABLE.has(o.status)).map(async (o) => [o.id, await loadSuggestedPlace("imaging", o.id)] as const))
+      : [],
+  );
 
   const { data: reports } = await supabase
     .from("imaging_reports")
@@ -93,6 +105,15 @@ export async function ImagingOrdersSection({
                     </div>
                   </div>
                   <p className="text-xs text-charcoal-ink/60">Ordered {formatDate(order.created_at)}</p>
+                  {(() => {
+                    const read = placeByOrder.get(order.id);
+                    const concept = (order.study as { concept: { id: string; display: string } | null } | null)?.concept ?? null;
+                    if (!read || !ctx) return null;
+                    if (!concept) return <p className="text-xs text-charcoal-ink/60">This study is not linked to the test catalogue yet, so no place can be suggested.</p>;
+                    if (!read.ok) return <p role="alert" className="text-xs text-amber-900">The suggested place could not be loaded.</p>;
+                    return <SuggestPlacePanel kind="imaging" orderId={order.id} patientId={patientId} patientState={ctx.state}
+                      patientLga={ctx.lga} tests={[concept]} current={read.place} />;
+                  })()}
 
                   {orderReports.map((report) => (
                     <div key={report.id} className="rounded border border-charcoal-ink/10 p-2 text-xs">

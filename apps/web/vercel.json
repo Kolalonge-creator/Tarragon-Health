@@ -116,6 +116,10 @@
       "schedule": "35 3 * * *"
     },
     {
+      "path": "/api/cron/storage-deletion-sweep",
+      "schedule": "45 4 * * *"
+    },
+    {
       "path": "/api/cron/assistant-silence",
       "schedule": "40 7 * * *"
     },

@@ -46,7 +46,7 @@ export type PackVisionResult =
   | { ok: false; reason: "unavailable" | "error" };
 
 const REQUEST_TIMEOUT_MS = 20_000;
-const MODEL_ID = "claude-sonnet-5";
+export const PACK_VISION_MODEL_ID = "claude-sonnet-5";
 
 const SYSTEM_PROMPT = [
   "You read what is printed on a medicine pack, for a Nigerian digital health platform.",
@@ -80,6 +80,8 @@ export async function readMedicationPack(input: {
   imageBase64: string;
   mediaType: string;
   model?: ChatAnthropic;
+  /** The governed model (governedModelId) the caller resolved; defaults to the in-code constant. */
+  modelId?: string;
 }): Promise<PackVisionResult> {
   if (!input.model && !isPackVisionConfigured()) {
     return { ok: false, reason: "unavailable" };
@@ -92,7 +94,7 @@ export async function readMedicationPack(input: {
       input.model ??
       new ChatAnthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
-        model: MODEL_ID,
+        model: input.modelId ?? PACK_VISION_MODEL_ID,
         maxTokens: 700,
         invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
       });

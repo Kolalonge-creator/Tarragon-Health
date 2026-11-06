@@ -2,12 +2,15 @@
  * The replace is now a database function (public.replace_my_result_document) that supersedes the document. The route must:
  *  - call it with the new object's path and run re-extraction against the NEW document id, never the old one;
  *  - never remove the OLD file;
- *  - remove the newly uploaded object only when the database clearly refused, not after an ambiguous failure (a timeout may follow a commit).
+ *  - remove the newly uploaded object only when the database clearly refused, not after an ambiguous failure (a timeout may follow a commit);
+ *  - never delete with the patient's own session (S4, 2026-11-05: patients have no DELETE on the bucket); the clean-up goes through
+ *    discardUnfiledUpload, which re-checks on the server that no record points at the object.
  */
 const rpc = jest.fn();
 const removeMock = jest.fn().mockResolvedValue({ error: null });
 const uploadMock = jest.fn().mockResolvedValue({ error: null });
 const extraction = jest.fn().mockResolvedValue(undefined);
+const discard = jest.fn().mockResolvedValue(true);
 
 jest.mock("@/lib/supabase/bearer", () => ({
   createBearerClient: () => ({
@@ -26,6 +29,7 @@ jest.mock("@/lib/supabase/bearer", () => ({
   }),
 }));
 jest.mock("@/lib/supabase/service-role", () => ({ createServiceRoleClient: () => ({}) }));
+jest.mock("@/lib/uploads/discard-unfiled-upload", () => ({ discardUnfiledUpload: (...args: unknown[]) => discard(...args) }));
 jest.mock("@/lib/lab-reports/extraction-actions", () => ({ runLabReportExtraction: (...args: unknown[]) => extraction(...args) }));
 
 import { POST } from "./route";
@@ -56,16 +60,20 @@ describe("POST /api/mobile/lab-result-replace", () => {
     expect(rpc).toHaveBeenCalledWith("replace_my_result_document", expect.objectContaining({ p_document_id: "11111111-1111-4111-8111-111111111111" }));
     expect(extraction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ documentId: "doc-new" }));
     expect(removeMock).not.toHaveBeenCalled();
+    expect(discard).not.toHaveBeenCalled();
   });
 
   it("removes only the new object when the database clearly refuses", async () => {
     rpc.mockResolvedValue({ data: null, error: { code: "55000", message: "already replaced" } });
     const response = await POST(request());
     expect(response.status).toBe(500);
-    expect(removeMock).toHaveBeenCalledTimes(1);
-    const removed = removeMock.mock.calls[0][0] as string[];
-    expect(removed).toHaveLength(1);
-    expect(removed[0]).not.toBe("patient-1/old.pdf");
+    expect(removeMock).not.toHaveBeenCalled();
+    expect(discard).toHaveBeenCalledTimes(1);
+    const [bucket, removed, patient] = discard.mock.calls[0] as [string, string, string];
+    expect(bucket).toBe("lab-result-documents");
+    expect(patient).toBe("patient-1");
+    expect(removed).toMatch(/^patient-1\//);
+    expect(removed).not.toBe("patient-1/old.pdf");
     expect(extraction).not.toHaveBeenCalled();
   });
 
@@ -74,5 +82,6 @@ describe("POST /api/mobile/lab-result-replace", () => {
     const response = await POST(request());
     expect(response.status).toBe(500);
     expect(removeMock).not.toHaveBeenCalled();
+    expect(discard).not.toHaveBeenCalled();
   });
 });

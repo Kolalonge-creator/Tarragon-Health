@@ -265,6 +265,11 @@ export const SYSTEM_CLOSED_TASK_TYPES: Record<string, { href: (patientId: string
     href: () => "/clinician/consultations",
     messageKey: "task.system_closed.symptom_review",
     linkKey: "task.system_closed.symptom_review_link",
+  },  // 20261105164409: finishes when the consultation's note is finalised; closing it here would drop the note obligation
+  consultation_note: {
+    href: () => "/clinician/consultations",
+    messageKey: "task.system_closed.consultation_note",
+    linkKey: "task.system_closed.consultation_note_link",
   },
 };
 

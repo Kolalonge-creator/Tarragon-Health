@@ -10,6 +10,7 @@ jest.mock("server-only", () => ({}));
 const runGovernedAi = jest.fn();
 jest.mock("@/lib/ai-governance", () => ({
   AI_SYSTEMS: { paperDiaryReader: { code: "AI-021" } },
+  governedModelId: jest.requireActual<typeof import("@/lib/ai-governance/model-id")>("@/lib/ai-governance/model-id").governedModelId,
   runGovernedAi: (params: unknown) => runGovernedAi(params),
 }));
 jest.mock("@/lib/lab-reports/heic", () => ({
@@ -39,7 +40,7 @@ const PAGE = {
 };
 
 function governedRunsTheModel() {
-  runGovernedAi.mockImplementation(async (params: { run: () => Promise<{ value: unknown }>; fallback: () => unknown }) => ({ value: (await params.run()).value }));
+  runGovernedAi.mockImplementation(async (params: { run: (ctx: { config: null }) => Promise<{ value: unknown }>; fallback: () => unknown }) => ({ value: (await params.run({ config: null })).value }));
 }
 
 beforeEach(() => {
@@ -71,8 +72,8 @@ describe("readDiaryPage", () => {
   it("records only counts in the audit outcome, never a value", async () => {
     // everything the wrapper writes to the audit trail is the outcome WITHOUT its value (the value goes back to the caller only)
     let audit: Record<string, unknown> = {};
-    runGovernedAi.mockImplementation(async (params: { run: () => Promise<{ value: unknown } & Record<string, unknown>> }) => {
-      const { value, ...rest } = await params.run();
+    runGovernedAi.mockImplementation(async (params: { run: (ctx: { config: null }) => Promise<{ value: unknown } & Record<string, unknown>> }) => {
+      const { value, ...rest } = await params.run({ config: null });
       audit = rest;
       return { value };
     });

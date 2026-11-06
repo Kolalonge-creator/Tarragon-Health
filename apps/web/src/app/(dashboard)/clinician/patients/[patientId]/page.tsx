@@ -26,12 +26,14 @@ import { PreVisitSummary } from "./pre-visit-summary";
 import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
+import { LabOrderRequestsSection } from "./lab-order-requests-section";
 import { UnsortedDocumentsSection } from "./unsorted-documents-section";
 import { RecordsSection } from "./records-section";
 import { PatientReportedValuesSection } from "./patient-reported-values-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { ReleasedLabResultsWithdraw } from "./released-lab-results-withdraw";
 import { ImagingOrdersSection } from "./imaging-orders-section";
+import { LabOrderPlacesSection } from "./lab-order-places-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
 import { PharmacySuggestionPanel } from "./pharmacy-suggestion-panel";
 import { CdsPanel } from "./cds-panel";
@@ -421,6 +423,7 @@ export default async function ClinicianPatientPage({
               <>
                 {/* Each uploaded document carries its own read-and-file panel
                     inline, so checking a value against the page is one glance. */}
+                <LabOrderRequestsSection patientId={patient.id} />
                 <ResultDocumentsSection patientId={patient.id} />
                 <UnsortedDocumentsSection patientId={patient.id} />
                 <PatientReportedValuesSection patientId={patient.id} />
@@ -444,6 +447,7 @@ export default async function ClinicianPatientPage({
                 {patient.organisation_id && (
                   <OrderLabTestForm patientId={patient.id} organisationId={patient.organisation_id} />
                 )}
+                {isClinicalTier(callerStaff) && <LabOrderPlacesSection patientId={patient.id} />}
                 {/* Obesity pathway (TH-CP-OB-001): attestation gate, structured
                     assessment (classification + staging + screens), and the
                     mandatory ED/mental-health screen that auto-pauses weight-loss

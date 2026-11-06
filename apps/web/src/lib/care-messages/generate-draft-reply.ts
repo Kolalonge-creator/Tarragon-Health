@@ -7,6 +7,7 @@ import {
   AI_SYSTEMS,
   governedSystemPrompt,
   runGovernedAi,
+  governedModelId,
 } from "@/lib/ai-governance";
 import {
   buildDraftReplySnapshot,
@@ -103,6 +104,7 @@ export async function generateDraftReply(
     subjectProfileId: patientId,
 
     run: async ({ config }) => {
+      const modelId = governedModelId(config, MODEL_ID);
       // Built inside the governed run, not passed as a bare default param -- a
       // missing/invalid ANTHROPIC_API_KEY must degrade this call, not throw
       // before we can catch it. Same shape as lib/case-briefs/generate.ts.
@@ -110,7 +112,7 @@ export async function generateDraftReply(
         model ??
         new ChatAnthropic({
           apiKey: process.env.ANTHROPIC_API_KEY,
-          model: MODEL_ID,
+          model: modelId,
           maxTokens: 300,
           // Same claude-*-5-generation workaround as lib/case-briefs/generate.ts
           // and lib/ai-coach/graph.ts's buildAnthropicModel() -- @langchain/
@@ -139,7 +141,7 @@ export async function generateDraftReply(
           patient_id: patientId,
           thread_id: threadId,
           status: "generated",
-          model_id: MODEL_ID,
+          model_id: modelId,
           draft_text: result.draftReply,
           needs_clinical_review: result.needsClinicalReview,
           review_reason: result.reviewReason,
@@ -157,7 +159,7 @@ export async function generateDraftReply(
           needsClinicalReview: result.needsClinicalReview,
           reviewReason: result.reviewReason,
         },
-        modelIdentifier: MODEL_ID,
+        modelIdentifier: modelId,
         // A category, never the patient's or the draft's words -- the audit
         // trail records that a draft was produced and whether it held for a
         // clinician, not the clinical content of a care-message thread.

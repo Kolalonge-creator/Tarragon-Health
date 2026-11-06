@@ -1,4 +1,4 @@
-import { loadPatientTimeline, trustTierLabel } from "./timeline";
+import { loadPatientTimeline, timelineEventStyleFor, trustTierLabel } from "./timeline";
 import { supabase } from "./supabase";
 
 jest.mock("./supabase", () => ({ supabase: { from: jest.fn() } }));
@@ -89,5 +89,16 @@ describe("trustTierLabel (S43)", () => {
     expect(trustTierLabel("doctor")).toBeNull();
     expect(trustTierLabel(null)).toBeNull();
     expect(trustTierLabel(undefined)).toBeNull();
+  });
+});
+
+describe("timelineEventStyleFor", () => {
+  it("labels a finished video consultation as a consultation, not a clinical note", () => {
+    expect(timelineEventStyleFor({ event_type: "encounter_documented", source_table: "video_consultations" }).label).toBe("Consultation");
+  });
+
+  it("keeps the clinical note label for a signed note and leaves other types alone", () => {
+    expect(timelineEventStyleFor({ event_type: "encounter_documented", source_table: "clinical_encounter_notes" }).label).toBe("Clinical note");
+    expect(timelineEventStyleFor({ event_type: "lab_completed", source_table: "video_consultations" }).label).toBe("Lab result");
   });
 });

@@ -131,6 +131,21 @@ const EVENT_LINK_SUBPATH: Partial<Record<TimelineEventType, string>> = {
   procedure_recorded: "/health-history",
 };
 
+// A finished video consultation is written as 'encounter_documented' with source_table 'video_consultations'
+// (20261105164409_consultation_completion_chain.sql). It is not a clinical note, so it gets its own label and goes to the
+// appointments page; the note itself, once signed, is a separate 'encounter_documented' row from clinical_encounter_notes.
+const CONSULTATION_STYLE = { dot: "bg-clinical-navy dark:bg-blue-400", label: "Consultation" } as const;
+
+export function eventStyleFor(event: Pick<TimelineEvent, "event_type" | "source_table">): { dot: string; label: string } {
+  if (event.event_type === "encounter_documented" && event.source_table === "video_consultations") return CONSULTATION_STYLE;
+  return EVENT_STYLE[event.event_type];
+}
+
+export function eventLinkSubpathFor(event: Pick<TimelineEvent, "event_type" | "source_table">): string | undefined {
+  if (event.event_type === "encounter_documented" && event.source_table === "video_consultations") return "/appointments";
+  return EVENT_LINK_SUBPATH[event.event_type];
+}
+
 // Belt-and-braces only — private.record_timeline_event() now strips
 // underscores from summary at write time (2026-07-30 v3 port, proof_log gap
 // closure), so every current and future writer gets this for free at the DB
@@ -172,8 +187,8 @@ function ActorAttribution({ actor }: { actor: TimelineEvent["actor"] }) {
 // The single per-event row, shared by both flat and grouped-by-month
 // rendering below so the two modes can never visually drift apart.
 function TimelineEventRow({ event, linkBasePath, allowNotes = false }: { event: TimelineDisplayEvent; linkBasePath?: string; allowNotes?: boolean }) {
-  const style = EVENT_STYLE[event.event_type];
-  const subpath = event.burst ? "/health-check" : EVENT_LINK_SUBPATH[event.event_type];
+  const style = eventStyleFor(event);
+  const subpath = event.burst ? "/health-check" : eventLinkSubpathFor(event);
   const href = linkBasePath && subpath ? `${linkBasePath}${subpath}` : null;
 
   const body = (

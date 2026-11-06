@@ -88,6 +88,9 @@ const REVIEWED_FOLIO_FILES: Record<string, string> = {
   "lib/prescriptions/prescription-pdf-data.ts": "prescription (carries the folio)",
   "lib/prescriptions/load-prescription-pdf-data.ts": "prescription (carries the folio)",
   "lib/lab-results/generate-lab-request-pdf.ts": "lab request PDF (open question OQ-358b)",
+  "lib/imaging-orders/generate-imaging-request-pdf.ts": "imaging request PDF, same rule as the lab request: folio via clinician_folio_for_document('imaging_request'), refusal means no PDF (diagnostic directory P5)",
+  "lib/imaging-orders/generate-imaging-request-pdf.test.ts": "test of the imaging request PDF",
+  "lib/imaging-orders/imaging-request-document.tsx": "renders the imaging request folio (diagnostic directory P5)",
   "lib/vaccination/get-certificate-data.ts": "vaccination certificate (open question OQ-358b)",
   "lib/vaccination/vaccination-certificate-document.tsx": "vaccination certificate (open question OQ-358b)",
 };

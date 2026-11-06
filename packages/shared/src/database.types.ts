@@ -12518,12 +12518,17 @@ export type Database = {
           kind_confirmed_at: string | null
           kind_confirmed_by: string | null
           kind_source: string | null
+          lab_order_id: string | null
+          lab_order_link_source: string | null
+          lab_order_linked_at: string | null
+          lab_order_linked_by: string | null
           last_error: string | null
           mime_type: string | null
           organisation_id: string
           original_filename: string | null
           patient_id: string
           patient_note: string | null
+          resulted_lab_order_id: string | null
           routed_id: string | null
           routed_table: string | null
           scan_attempts: number
@@ -12565,12 +12570,17 @@ export type Database = {
           kind_confirmed_at?: string | null
           kind_confirmed_by?: string | null
           kind_source?: string | null
+          lab_order_id?: string | null
+          lab_order_link_source?: string | null
+          lab_order_linked_at?: string | null
+          lab_order_linked_by?: string | null
           last_error?: string | null
           mime_type?: string | null
           organisation_id: string
           original_filename?: string | null
           patient_id: string
           patient_note?: string | null
+          resulted_lab_order_id?: string | null
           routed_id?: string | null
           routed_table?: string | null
           scan_attempts?: number
@@ -12612,12 +12622,17 @@ export type Database = {
           kind_confirmed_at?: string | null
           kind_confirmed_by?: string | null
           kind_source?: string | null
+          lab_order_id?: string | null
+          lab_order_link_source?: string | null
+          lab_order_linked_at?: string | null
+          lab_order_linked_by?: string | null
           last_error?: string | null
           mime_type?: string | null
           organisation_id?: string
           original_filename?: string | null
           patient_id?: string
           patient_note?: string | null
+          resulted_lab_order_id?: string | null
           routed_id?: string | null
           routed_table?: string | null
           scan_attempts?: number
@@ -12659,6 +12674,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "clinical_documents_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_lab_order_linked_by_fkey"
+            columns: ["lab_order_linked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "clinical_documents_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
@@ -12670,6 +12699,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_documents_resulted_lab_order_id_fkey"
+            columns: ["resulted_lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
             referencedColumns: ["id"]
           },
           {
@@ -48600,6 +48636,7 @@ export type Database = {
       video_consultations: {
         Row: {
           annual_review_id: string | null
+          clinician_id: string | null
           context: Database["public"]["Enums"]["video_consultation_context"]
           created_at: string
           ended_at: string | null
@@ -48625,6 +48662,7 @@ export type Database = {
         }
         Insert: {
           annual_review_id?: string | null
+          clinician_id?: string | null
           context: Database["public"]["Enums"]["video_consultation_context"]
           created_at?: string
           ended_at?: string | null
@@ -48650,6 +48688,7 @@ export type Database = {
         }
         Update: {
           annual_review_id?: string | null
+          clinician_id?: string | null
           context?: Database["public"]["Enums"]["video_consultation_context"]
           created_at?: string
           ended_at?: string | null
@@ -48679,6 +48718,13 @@ export type Database = {
             columns: ["annual_review_id"]
             isOneToOne: false
             referencedRelation: "annual_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_clinician_id_fkey"
+            columns: ["clinician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -53777,6 +53823,23 @@ export type Database = {
           latest_result_id: string | null;
         }[];
       };
+      lab_order_link_candidates: {
+        Args: { p_document: string };
+        Returns: {
+          lab_order_id: string;
+          order_number: string | null;
+          label: string;
+          status: Database["public"]["Enums"]["lab_order_status"];
+          ordered_at: string;
+          test_codes: string[];
+          tests_match: boolean;
+          is_linked: boolean;
+        }[];
+      };
+      link_clinical_document_to_lab_order: {
+        Args: { p_document: string; p_lab_order: string | null };
+        Returns: Json;
+      };
       lab_partner_submit_correction: {
         Args: { p_corrects: string; p_file?: Json; p_items: Json; p_kind: string; p_order: string; p_panel: string; p_reason: string };
         Returns: Json;
@@ -55787,6 +55850,10 @@ export type Database = {
       claim_lab_result_consult_credit: {
         Args: { p_lab_order_id: string; p_patient_id: string }
         Returns: string
+      }
+      consume_client_upload_check_kick: {
+        Args: { p_code: string }
+        Returns: boolean
       }
       claim_client_upload_checks: {
         Args: { p_limit?: number; p_bucket?: string; p_name?: string; p_owner?: string }
@@ -58830,6 +58897,45 @@ export type Database = {
         }
         Returns: undefined
       }
+      search_diagnostic_services: {
+        Args: {
+          p_concept_id: string
+          p_include_unconfirmed: boolean
+          p_lat: number
+          p_lga: string
+          p_limit: number
+          p_lng: number
+          p_offset?: number
+          p_partner_band_km: number
+          p_radius_km: number
+          p_state: string
+        }
+        Returns: {
+          address: string
+          appointment_required: boolean
+          availability: string
+          branch_listing_id: string
+          branch_name: string
+          credentials_on_file: string[]
+          distance_km: number
+          is_partner: boolean
+          kind: string
+          last_confirmed_at: string
+          latitude: number
+          lga: string
+          longitude: number
+          neighbourhood: string
+          performed_elsewhere: boolean
+          phone: string
+          preparation_note: string
+          provider_name: string
+          result_group: string
+          service_id: string
+          state: string
+          total_count: number
+          town: string
+        }[]
+      }
       search_health_education_content_text: {
         Args: {
           filter_condition?: Database["public"]["Enums"]["care_plan_condition"]
@@ -59940,6 +60046,12 @@ export type Database = {
       }
       symptom_check_context: { Args: { p_subject?: string; p_window_days?: number }; Returns: Json }
       withdraw_skin_photo: { Args: { p_photo: string }; Returns: Json }
+      discard_unfiled_clinical_upload: { Args: { p_bucket: string; p_name: string; p_patient: string }; Returns: boolean }
+      storage_deletions_due: {
+        Args: { p_limit?: number }
+        Returns: { bucket_id: string; id: string; name: string }[]
+      }
+      mark_storage_deletion_done: { Args: { p_error?: string; p_id: string }; Returns: undefined }
       respond_to_gifted_pack: { Args: { p_accept: boolean; p_entitlement: string }; Returns: Json };
       run_symptom_accuracy_audit_now: {
         Args: { p_include_test?: boolean; p_month: string }

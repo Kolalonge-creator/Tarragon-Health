@@ -1,6 +1,7 @@
 "use client";
 
-import { usePatientLabOrders } from "@/lib/queries/lab-orders";
+import { useLabOrderReports, usePatientLabOrders } from "@/lib/queries/lab-orders";
+import { groupReportsByOrder, orderReportState, ORDER_REPORT_LABEL } from "@/lib/lab-orders/report-link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import type { LabOrderStatus } from "@tarragon/shared";
@@ -12,6 +13,7 @@ import { LabOrderLocationPicker, RateLabLocation } from "@/app/(dashboard)/patie
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { listQueryState } from "@/lib/queries/list-query-state";
+import { SuggestedPlaceButton } from "@/components/diagnostic-directory/suggested-place-button";
 
 /** Self-arranged: the states that matter to a patient are "we've written it,
  * go when you can" and "the result is in". Payment states are retained in the
@@ -32,6 +34,9 @@ const AWAITING_RESULT: LabOrderStatus[] = ["payment_confirmed", "ordered", "proc
 
 export function LabOrdersList({ patientId }: { patientId: string }) {
   const { data: orders, isLoading, isError } = usePatientLabOrders(patientId);
+  // Best effort: a failed read of the linked reports only hides the "report added" line, never the requests themselves.
+  const { data: linkedReports } = useLabOrderReports(patientId);
+  const reportsByOrder = groupReportsByOrder(linkedReports ?? []);
   const state = listQueryState({ isLoading, isError, count: orders?.length });
 
   // A pending test request the patient still has to take to a lab is exactly
@@ -56,6 +61,8 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
             const testCodes = order.panel_bundle?.test_codes ?? [];
             const includesEcg = testCodes.includes("ecg_resting");
             const isMultiTest = testCodes.length > 1;
+            const orderReports = reportsByOrder.get(order.id) ?? [];
+            const reportState = orderReportState(order.status, orderReports);
             return (
               <li key={order.id} className="space-y-2 py-3">
                 <div className="flex items-center gap-2">
@@ -63,6 +70,18 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                   {order.urgency === "urgent" && <Badge variant="red">Urgent</Badge>}
                   <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{order.order_number}</span>
                 </div>
+                {/* Request to report: only when a report is actually linked to this request. */}
+                {orderReports.length > 0 && (reportState === "result_back" || reportState === "report_added") && (
+                  <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+                    {ORDER_REPORT_LABEL[reportState]}.{" "}
+                    <a
+                      href="/patient/labs#result-documents"
+                      className="font-medium text-brand-green dark:text-brand-green-bright hover:underline"
+                    >
+                      {orderReports.length > 1 ? `See the ${orderReports.length} reports` : "See the report"}
+                    </a>
+                  </p>
+                )}
                 <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                   {order.panel_bundle?.name ?? (order.panel_code ? "Annual health check bundle" : "Lab test")}
                 </p>
@@ -123,6 +142,8 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                     result lands), then locked once both a branch is set AND
                     the order is resulted — never shown alongside
                     RateLabLocation below, which takes over at that point. */}
+                {/* Diagnostic directory Phase 5: where the doctor suggests (opening it records that the patient saw it). */}
+                {AWAITING_RESULT.includes(order.status) && <SuggestedPlaceButton kind="lab" orderId={order.id} />}
                 {order.fulfilment === "self_arranged" &&
                   order.status !== "cancelled" &&
                   !(order.status === "resulted" && order.location_id) && (

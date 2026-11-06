@@ -1,6 +1,7 @@
 "use server";
 
 import { prepareUpload } from "@/lib/uploads/prepare-upload";
+import { discardUnfiledUpload } from "@/lib/uploads/discard-unfiled-upload";
 import { randomUUID } from "crypto";
 import { ABUSE_LIMIT_MESSAGE, checkAbuseLimit } from "@/lib/security/abuse-limits";
 import { revalidatePath } from "next/cache";
@@ -342,7 +343,7 @@ export async function uploadResultDocumentAsPatient(
   if (insertError || !inserted) {
     // Roll back the orphaned object so a failed insert leaves no stray file,
     // and release the claimed credit (see above) for the same reason.
-    await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    await discardUnfiledUpload(RESULT_DOC_BUCKET, path, user.id);
     if (claimedRequestId) {
       await supabase.rpc("settle_lab_result_consult_claim", {
         p_request_id: claimedRequestId,
@@ -464,7 +465,7 @@ export async function replaceResultDocumentAsPatient(
   });
   if (isDuplicateDocumentError(replaceError)) {
     // The database refused before writing anything: this file is already in the record.
-    await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    await discardUnfiledUpload(RESULT_DOC_BUCKET, path, user.id);
     return { error: DUPLICATE_DOCUMENT_MESSAGE };
   }
   if (replaceError || !newDocumentId) {
@@ -472,7 +473,7 @@ export async function replaceResultDocumentAsPatient(
     // other failure (a timeout, a dropped response) the replace may have committed, and deleting the file would leave a document row
     // pointing at nothing; an orphaned object is the harmless side to err on. The original document and its file are never touched.
     if (replaceError && REPLACE_REFUSAL_CODES.has(replaceError.code)) {
-      await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+      await discardUnfiledUpload(RESULT_DOC_BUCKET, path, user.id);
     }
     return { error: replaceError?.message ?? "Could not replace that upload." };
   }

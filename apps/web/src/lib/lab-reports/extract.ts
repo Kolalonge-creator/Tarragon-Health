@@ -357,6 +357,8 @@ export async function extractLabReport(input: {
   templateHints?: TemplateHints | null;
   /** Injectable for tests; defaults to a real Claude client. */
   model?: ChatAnthropic;
+  /** The governed model (governedModelId) the caller resolved; defaults to the in-code constant. */
+  modelId?: string;
 }): Promise<LabReportExtractionResult> {
   if (!input.model && !isLabReportExtractionConfigured()) {
     return { ok: false, reason: "unavailable" };
@@ -372,7 +374,7 @@ export async function extractLabReport(input: {
       input.model ??
       new ChatAnthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
-        model: MODEL_ID,
+        model: input.modelId ?? MODEL_ID,
         maxTokens: 4000,
         // Same claude-*-5-generation workaround as case-briefs/meal-vision:
         // @langchain/anthropic@0.3.x always sent (1.x does not; kept as a guard) these, and this

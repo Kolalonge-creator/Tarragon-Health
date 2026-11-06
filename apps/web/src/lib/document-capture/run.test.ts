@@ -12,6 +12,7 @@
 const runGovernedAi = jest.fn();
 jest.mock("@/lib/ai-governance", () => ({
   AI_SYSTEMS: { documentCapture: { code: "AI-018" } },
+  governedModelId: jest.requireActual<typeof import("@/lib/ai-governance/model-id")>("@/lib/ai-governance/model-id").governedModelId,
   runGovernedAi: (params: unknown) => runGovernedAi(params),
 }));
 jest.mock("@/lib/lab-reports/heic", () => ({
@@ -62,7 +63,7 @@ beforeEach(() => {
   mockCleared.mockReset().mockResolvedValue(true);
   runGovernedAi.mockReset();
   // Behave like the real wrapper on the happy path: run the AI path and hand back its value.
-  runGovernedAi.mockImplementation(async (p: { run: () => Promise<{ value: unknown }> }) => ({ value: (await p.run()).value }));
+  runGovernedAi.mockImplementation(async (p: { run: (ctx: { config: null }) => Promise<{ value: unknown }> }) => ({ value: (await p.run({ config: null })).value }));
   jest.spyOn(console, "error").mockImplementation(() => undefined);
 });
 afterEach(() => jest.restoreAllMocks());

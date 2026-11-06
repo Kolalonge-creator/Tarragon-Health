@@ -23,6 +23,7 @@ import {
   mfaEnrolmentVerdict,
 } from "@tarragon/auth/mfa-policy";
 import { createBearerClient } from "@/lib/supabase/bearer";
+import { buildNonceCsp, isConsultationCallPath, newCspNonce, shouldAddNonceCsp } from "@/lib/security/csp-nonce";
 
 /**
  * For the phone app: is the caller in a required group without an AAL2 token? Unlike the cookie gate, an account WITH a factor
@@ -42,6 +43,10 @@ async function isMfaRequiredForPhoneCaller(token: string): Promise<boolean> {
 
 // Next.js 16 renamed `middleware.ts` -> `proxy.ts` (same file-convention
 // contract, function must be named/exported `proxy`).
+//
+// The wrapper adds the REPORT-ONLY nonce script policy (lib/security/csp-nonce.ts) to app-host pages. The nonce goes on the
+// REQUEST header (plain name) so Next stamps it on the scripts it renders (updateSession forwards the request headers), and on the RESPONSE so
+// the browser reports what a strict policy would block. The enforced policy from next.config.ts is untouched.
 export async function proxy(request: NextRequest) {
   // www.* is never canonical: one permanent hop to the bare host, path and
   // query kept (website Phase 5). First, so nothing else runs twice.
@@ -53,6 +58,23 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(bareHost, 308);
   }
 
+  const host = request.headers.get("host") ?? "";
+  const { pathname } = request.nextUrl;
+  if (!shouldAddNonceCsp(host, pathname)) return proxyInner(request);
+  const policy = buildNonceCsp(newCspNonce(), {
+    inAppCall: isConsultationCallPath(pathname),
+    dev: process.env.NODE_ENV === "development",
+  });
+  // The REQUEST header is the plain Content-Security-Policy name, as in Next's own guide: production on Vercel dropped the
+  // report-only name before render (2026-11-05: header live on the response, zero nonced scripts on a dynamic page). A request
+  // header is never enforced by anything; only the response header reaches the browser, and that one stays report-only.
+  request.headers.set("content-security-policy", policy);
+  const response = await proxyInner(request);
+  response.headers.set("Content-Security-Policy-Report-Only", policy);
+  return response;
+}
+
+async function proxyInner(request: NextRequest) {
   // Staff areas that have moved to apps/console (S01d). Runs before anything
   // else: it needs no session, and a stale bookmark, email link or stored
   // notification row pointing at an old `app.` staff path should land on the
@@ -526,6 +548,9 @@ export const config = {
       // `api/health/` (SR1, the secret-authenticated deep health check) is excluded for the same reason as `api/status` below:
       // it must answer when Supabase Auth is the thing that is down.
       //
+      // `api/csp-report` takes anonymous browser violation reports (lib/security/csp-nonce.ts): it needs no session, and running
+      // the 2FA gate on it would 403 and drop reports from held staff accounts.
+      //
       // `api/status` is excluded for a different reason: it exists to
       // report whether Supabase Auth itself is degraded (see
       // docs/BUSINESS_CONTINUITY_DR_SPEC.md). updateSession()'s
@@ -533,7 +558,7 @@ export const config = {
       // would let a slow/down Auth service hang the health check instead of
       // letting it report the outage, defeating the one check meant to
       // catch exactly that.
-      source: "/((?!_next/static|_next/image|favicon.ico|api/status|api/health/|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+      source: "/((?!_next/static|_next/image|favicon.ico|api/status|api/health/|api/csp-report|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     },
   ],
 };

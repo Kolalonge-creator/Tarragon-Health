@@ -5,7 +5,10 @@ import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/pr
 import { AnnualBundleCard } from "@/app/(dashboard)/patient/annual-bundle-card";
 import { LabCatalogue } from "@/app/(dashboard)/patient/lab-catalogue";
 import { LabOrdersList } from "@/app/(dashboard)/patient/lab-orders-list";
+import { ImagingRequestsList } from "@/app/(dashboard)/patient/imaging-requests-list";
 import { LabLocationDirectory } from "@/app/(dashboard)/patient/lab-location-directory";
+import { DiagnosticSearchCard } from "@/app/(dashboard)/patient/diagnostic-search-card";
+import { createClient } from "@/lib/supabase/server";
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
 import { ReleasedLabResults } from "@/app/(dashboard)/patient/released-lab-results";
 import { LabTrendCard } from "@/app/(dashboard)/patient/lab-trend-card";
@@ -18,6 +21,8 @@ import { UnsortedDocuments } from "@/app/(dashboard)/patient/unsorted-documents"
 
 export default async function PatientLabsPage() {
   const { subjectId, uiLanguage } = await getPatientDashboardContext();
+  // Diagnostic directory Phase 6: the search starts from the patient's own saved state and LGA.
+  const { data: where } = await (await createClient()).from("profiles").select("state, lga").eq("id", subjectId).maybeSingle();
 
   const tabs: PreventionTab[] = [
     {
@@ -28,6 +33,7 @@ export default async function PatientLabsPage() {
           {/* Lab notifications link to /patient/labs with no hash, so the first tab must hold everything a notification
               is about: a released result and the status of an order in progress. */}
           <LabOrdersList patientId={subjectId} />
+          <ImagingRequestsList patientId={subjectId} />
           <ReleasedLabResults patientId={subjectId} locale={uiLanguage} />
           <LabTrendCard patientId={subjectId} locale={uiLanguage} />
           <LabResults patientId={subjectId} />
@@ -44,6 +50,7 @@ export default async function PatientLabsPage() {
           {/* BookingRequestsList stays because vaccination bookings still
               create real requests a patient needs to see. */}
           <BookingRequestsList patientId={subjectId} />
+          <DiagnosticSearchCard defaultState={where?.state ?? null} defaultLga={where?.lga ?? null} />
           <AnnualBundleCard patientId={subjectId} />
           <LabCatalogue />
           {/* Synlab Nigeria was contracted 2026-08-21 and this branch
@@ -60,10 +67,14 @@ export default async function PatientLabsPage() {
     {
       id: "documents",
       label: "Documents",
+      // "See the report" on a test request (lab-orders-list.tsx) lands here.
+      anchorIds: ["result-documents"],
       content: (
         <>
           <UnsortedDocuments patientId={subjectId} />
-          <ResultDocuments patientId={subjectId} />
+          <div id="result-documents" className="scroll-mt-24">
+            <ResultDocuments patientId={subjectId} />
+          </div>
           <EcgReportDocuments patientId={subjectId} />
           <ImagingReportDocuments patientId={subjectId} />
         </>
