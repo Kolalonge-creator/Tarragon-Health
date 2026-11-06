@@ -53,7 +53,7 @@ export function MentalWellbeingCheck() {
     return (
       <div className="mx-auto max-w-2xl">
         <div className={cn("rounded-2xl border-2 p-6 sm:p-8", BAND_TONE[result.band])}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+          <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/70">
             Your result
           </p>
           <h3 className="mt-1 font-heading text-2xl font-semibold text-charcoal-ink">
@@ -79,7 +79,7 @@ export function MentalWellbeingCheck() {
             </button>
           </div>
         </div>
-        <p className="mt-4 text-center text-xs leading-relaxed text-charcoal-ink/65">
+        <p className="mt-4 text-center text-xs leading-relaxed text-charcoal-ink/70">
           This is a self-check, not a diagnosis, and nothing you answered was saved or sent
           anywhere.
         </p>
@@ -131,7 +131,7 @@ export function MentalWellbeingCheck() {
         ))}
       </div>
       <div className="mt-8 flex items-center justify-between gap-4">
-        <p className="text-xs text-charcoal-ink/65">
+        <p className="text-xs text-charcoal-ink/70">
           {answers.filter((v) => v !== undefined).length} of {WELLBEING_QUESTIONS.length} answered
         </p>
         <button

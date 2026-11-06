@@ -67,14 +67,14 @@ export default async function CoveragePage() {
             You pay the laboratory or the pharmacy directly, at their price. We add
             nothing to it.
           </p>
-          <p className="mt-4 text-sm text-charcoal-ink/60">
+          <p className="mt-4 text-sm text-charcoal-ink/70">
             We do not deliver medication and we do not collect samples at home. When a
             doctor prescribes you medicine you can download the prescription and
             collect it from a pharmacy you choose, and you attend the laboratory
             you choose for a test.
           </p>
           {liveStates.length > 0 && (
-            <p className="mt-4 text-sm text-charcoal-ink/60">
+            <p className="mt-4 text-sm text-charcoal-ink/70">
               Partner-fulfilled services are live in{" "}
               <span className="font-medium text-deep-forest">
                 {liveStates.map((row) => row.displayName).join(", ")}
@@ -168,7 +168,7 @@ export default async function CoveragePage() {
               <p className="text-sm font-medium text-charcoal-ink">
                 {item.label}
               </p>
-              <p className="mt-1 text-sm text-charcoal-ink/60">{item.detail}</p>
+              <p className="mt-1 text-sm text-charcoal-ink/70">{item.detail}</p>
             </div>
           ))}
         </div>

@@ -62,6 +62,8 @@
   --color-clinical-navy: var(--clinical-navy);
   --color-charcoal-ink: var(--charcoal-ink);
   --color-sprout-gold: var(--sprout-gold);
+  /* Gold lifted toward white for small text on navy or translucent-white-on-navy cards (4.5:1, WCAG 1.4.3). */
+  --color-sprout-gold-soft: color-mix(in oklab, var(--sprout-gold) 70%, white);
   --color-soft-sage: var(--soft-sage);
   --color-warm-ivory: var(--warm-ivory);
   --color-deep-forest: var(--deep-forest);

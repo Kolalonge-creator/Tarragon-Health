@@ -136,7 +136,7 @@ export function PlanPreviewSample() {
       <h3 className="font-heading text-lg font-semibold text-charcoal-ink">
         See what a plan could look like
       </h3>
-      <p className="mt-1 text-sm text-charcoal-ink/60">
+      <p className="mt-1 text-sm text-charcoal-ink/70">
         Make three quick selections. This is only an illustration, and nothing is saved or scored.
       </p>
       <div className="mt-5 space-y-4">
@@ -196,13 +196,13 @@ export function PlanPreviewSample() {
               </Link>
             </>
           )}
-          <p className="text-xs text-charcoal-ink/65">
+          <p className="text-xs text-charcoal-ink/70">
             This is an illustrative example, not a real health assessment. Your real calendar is
             built from your real answers, after you sign up.
           </p>
         </div>
       ) : (
-        <p className="mt-6 text-sm text-charcoal-ink/60">
+        <p className="mt-6 text-sm text-charcoal-ink/70">
           Choose one answer for each question to see an example.
         </p>
       )}

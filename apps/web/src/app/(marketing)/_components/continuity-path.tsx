@@ -111,8 +111,8 @@ export function ContinuityPath() {
             onClick={() => select(index)}
             aria-pressed={index === active}
             className={cn(
-              "rounded-sm px-1 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-1",
-              index === active ? "font-semibold text-deep-forest" : "text-charcoal-ink/60 hover:text-charcoal-ink"
+              "min-h-6 rounded-sm px-1.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-1",
+              index === active ? "font-semibold text-deep-forest" : "text-charcoal-ink/70 hover:text-charcoal-ink"
             )}
           >
             {label}

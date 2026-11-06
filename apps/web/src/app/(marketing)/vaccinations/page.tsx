@@ -88,7 +88,7 @@ export default function VaccinationsPage() {
               <Link href={MARKETING_ROUTES.prevention}>Explore preventive health</Link>
             </Button>
           </div>
-          <p className="mt-4 text-sm text-charcoal-ink/60">
+          <p className="mt-4 text-sm text-charcoal-ink/70">
             If you are already a member, record a vaccination from the Prevention section of your dashboard.
           </p>
         </div>

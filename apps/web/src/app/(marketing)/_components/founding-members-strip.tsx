@@ -33,7 +33,7 @@ export function FoundingMembersPanel({ offer, className }: { offer: FoundingOffe
       <div className="mx-auto max-w-5xl overflow-hidden rounded-3xl bg-deep-forest text-white shadow-lg ring-1 ring-black/5">
         <div className="grid gap-8 p-6 sm:p-10 md:grid-cols-[1.4fr_1fr] md:items-center">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">Founding members</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/90">Founding members</p>
             <h2 id="founding-members-title" className="mt-3 font-heading text-2xl font-semibold leading-tight sm:text-3xl">
               {`Founding members: ${offer.percent}% off your first year`}
             </h2>
@@ -43,9 +43,9 @@ export function FoundingMembersPanel({ offer, className }: { offer: FoundingOffe
             </p>
             <dl className="mt-6 max-w-xs">
               <div className="rounded-2xl bg-white/10 px-4 py-3">
-                <dt className="text-xs font-medium uppercase tracking-wide text-white/70">Membership</dt>
+                <dt className="text-xs font-medium uppercase tracking-wide text-white/90">Membership</dt>
                 <dd className="mt-1 font-heading text-xl font-semibold">{"\u20A6" + founding}</dd>
-                <dd className="text-xs text-white/70">{"First year, usually \u20A6" + list}</dd>
+                <dd className="text-xs text-white/90">{"First year, usually \u20A6" + list}</dd>
               </div>
             </dl>
           </div>
@@ -74,7 +74,7 @@ export function FoundingMembersPanel({ offer, className }: { offer: FoundingOffe
             </Link>
           </div>
         </div>
-        <p className="border-t border-white/10 px-6 py-4 text-xs leading-relaxed text-white/70 sm:px-10">
+        <p className="border-t border-white/10 px-6 py-4 text-xs leading-relaxed text-white/90 sm:px-10">
           {`For the first year of Membership only. One use per person. Open while places last. If you buy a year for someone else, you can use the code for them, and they become the founding member. The code takes ${offer.percent}% off the price shown at checkout.`}
         </p>
       </div>

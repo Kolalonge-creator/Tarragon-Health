@@ -65,13 +65,13 @@ export function GiftPersonalizer() {
         <p className="mt-2 font-heading text-2xl font-bold leading-snug text-charcoal-ink sm:text-3xl">
           For {displayName}
         </p>
-        <p className="mt-1 text-sm text-charcoal-ink/60">Your {relationshipLabel.toLowerCase()}</p>
+        <p className="mt-1 text-sm text-charcoal-ink/70">Your {relationshipLabel.toLowerCase()}</p>
         <div className="my-6 border-t border-dashed border-charcoal-ink/15" />
         <p className="text-sm leading-relaxed text-charcoal-ink/70">
           A year of care with their care team, already paid for. Theirs to accept whenever they
           are ready.
         </p>
-        <p className="mt-4 text-xs text-charcoal-ink/65">From you, waiting on their account</p>
+        <p className="mt-4 text-xs text-charcoal-ink/70">From you, waiting on their account</p>
       </div>
 
       <div>

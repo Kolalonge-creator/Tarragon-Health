@@ -26,7 +26,7 @@ const LEGAL_PAGES = [
 export function LegalCrossLinks({ current }: { current: (typeof LEGAL_PAGES)[number]["key"] }) {
   const links = LEGAL_PAGES.filter((page) => page.key !== current);
   return (
-    <p className="mt-10 text-sm text-charcoal-ink/60">
+    <p className="mt-10 text-sm text-charcoal-ink/70">
       {links.map((link, i) => (
         <span key={link.key}>
           {i > 0 ? " · " : ""}
@@ -68,7 +68,7 @@ export function LegalDocumentPage({
             <h1 className="mt-2 font-heading text-3xl font-bold leading-tight text-charcoal-ink sm:text-4xl">
               {document.title}
             </h1>
-            <p className="mt-4 text-xs text-charcoal-ink/65">
+            <p className="mt-4 text-xs text-charcoal-ink/70">
               Version {document.version} · last published{" "}
               {new Date(document.publishedAt).toLocaleDateString("en-NG", {
                 year: "numeric",

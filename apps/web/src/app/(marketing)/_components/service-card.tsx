@@ -4,7 +4,14 @@ import { MarketingIllustration } from "./illustrations/marketing-illustrations";
 import { MARKETING_MEDIA } from "../_content/media";
 import type { ServiceCard } from "../_content/services";
 
-export function ServiceCardLink({ service }: { service: ServiceCard }) {
+export function ServiceCardLink({
+  service,
+  headingLevel = "h3",
+}: {
+  service: ServiceCard;
+  /** "h2" when the cards sit straight under the page h1 with no section heading between (services page). */
+  headingLevel?: "h2" | "h3";
+}) {
   const media =
     service.key in MARKETING_MEDIA.serviceCard
       ? MARKETING_MEDIA.serviceCard[service.key as keyof typeof MARKETING_MEDIA.serviceCard]
@@ -24,21 +31,22 @@ export function ServiceCardLink({ service }: { service: ServiceCard }) {
         </div>
       ) : null}
       <CardHeader>
-        <CardTitle>{service.title}</CardTitle>
+        <CardTitle as={headingLevel}>{service.title}</CardTitle>
         <CardDescription>{service.description}</CardDescription>
       </CardHeader>
       <CardContent>
         {service.built ? (
           <span className="text-sm font-medium text-brand-green">Learn more <span aria-hidden>→</span></span>
         ) : (
-          <span className="text-sm text-charcoal-ink/65">Coming soon</span>
+          <span className="text-sm text-charcoal-ink/70">Coming soon</span>
         )}
       </CardContent>
     </Card>
   );
 
   if (!service.built) {
-    return <div className="opacity-60">{inner}</div>;
+    // Only the picture fades: fading the whole card dropped its text below 4.5:1 contrast (WCAG 1.4.3).
+    return <div className="[&_svg]:opacity-60">{inner}</div>;
   }
 
   return (

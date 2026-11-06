@@ -331,13 +331,13 @@ export function ScreeningJourney() {
                     : "border-charcoal-ink/10 bg-white hover:border-charcoal-ink/25"
                 )}
               >
-                <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/65">
+                <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/70">
                   {item.category}
                 </p>
                 <h4 className="mt-1 font-heading text-base font-semibold text-charcoal-ink">
                   {item.name}
                 </h4>
-                <p className="mt-1 text-sm leading-relaxed text-charcoal-ink/65">{item.summary}</p>
+                <p className="mt-1 text-sm leading-relaxed text-charcoal-ink/70">{item.summary}</p>
                 <p className="mt-2 text-sm font-medium text-brand-green">{item.price}</p>
               </button>
             );

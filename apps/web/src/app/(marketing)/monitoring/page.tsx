@@ -157,7 +157,7 @@ export default async function MonitoringPage() {
         <div className="mx-auto max-w-3xl">
           <FaqAccordion items={faq} />
         </div>
-        <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/60">
+        <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/70">
           If you are managing hypertension or diabetes,{" "}
           <Link
             href={MARKETING_ROUTES.chronicCare}

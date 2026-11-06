@@ -58,7 +58,7 @@ export function CardTitle({
 
 export function CardDescription({ className, ...props }: React.ComponentProps<"p">) {
   return (
-    <p className={cn("text-sm text-charcoal-ink/60 dark:text-night-ink/60", className)} {...props} />
+    <p className={cn("text-sm text-charcoal-ink/70 dark:text-night-ink/70", className)} {...props} />
   );
 }
 

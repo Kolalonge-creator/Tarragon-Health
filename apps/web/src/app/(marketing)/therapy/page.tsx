@@ -129,7 +129,7 @@ export default function TherapyPage() {
             </div>
           ))}
         </div>
-        <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/65">
+        <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           What we do not do is rank them. There is no score, no best match and nothing ordered by
           what we earn. You filter by what you need and choose for yourself.
         </p>
@@ -140,7 +140,7 @@ export default function TherapyPage() {
         <div className="mx-auto max-w-3xl">
           <FaqAccordion items={FAQ} />
         </div>
-        <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/60">
+        <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/70">
           If you are unsure how you are feeling,{" "}
           <Link
             href={MARKETING_ROUTES.mentalWellbeingCheck}

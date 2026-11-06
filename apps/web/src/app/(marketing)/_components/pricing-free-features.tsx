@@ -21,7 +21,7 @@ export function PricingFreeFeatures() {
               <h3 className="font-heading text-lg font-semibold text-charcoal-ink">
                 {group.title}
               </h3>
-              <span className="shrink-0 rounded-full bg-brand-green/10 px-2.5 py-1 text-xs font-semibold text-deep-forest">
+              <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-deep-forest ring-1 ring-brand-green/25">
                 Free
               </span>
             </div>

@@ -133,7 +133,7 @@ export function LeadershipGrid() {
             className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-charcoal-ink/10 px-6 py-4">
-              <p className="text-sm font-medium uppercase tracking-wide text-charcoal-ink/65">
+              <p className="text-sm font-medium uppercase tracking-wide text-charcoal-ink/70">
                 About {active.name.split(" ")[1] ?? active.name}
               </p>
               <button
@@ -141,7 +141,7 @@ export function LeadershipGrid() {
                 onClick={() => setOpenId(null)}
                 aria-label="Close"
                 className={cn(
-                  "rounded-full p-1.5 text-charcoal-ink/65 transition-colors hover:bg-charcoal-ink/5 hover:text-charcoal-ink"
+                  "rounded-full p-1.5 text-charcoal-ink/70 transition-colors hover:bg-charcoal-ink/5 hover:text-charcoal-ink"
                 )}
               >
                 <X className="h-5 w-5" strokeWidth={2} />
@@ -171,9 +171,9 @@ export function LeadershipGrid() {
               <h2 className="mt-5 font-heading text-2xl font-semibold text-charcoal-ink">
                 {active.name}
               </h2>
-              <p className="mt-1 text-sm font-medium text-charcoal-ink/60">{active.title}</p>
+              <p className="mt-1 text-sm font-medium text-charcoal-ink/70">{active.title}</p>
               {active.credentials ? (
-                <p className="mt-1 text-xs uppercase tracking-wide text-charcoal-ink/65">
+                <p className="mt-1 text-xs uppercase tracking-wide text-charcoal-ink/70">
                   {active.credentials}
                 </p>
               ) : null}
