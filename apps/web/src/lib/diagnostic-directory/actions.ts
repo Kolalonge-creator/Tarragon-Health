@@ -68,11 +68,12 @@ export async function branchToDirectoryAction(formData: FormData): Promise<void>
 }
 
 export async function verifyLocationAction(formData: FormData): Promise<void> {
-  const p = verifyLocationSchema.safeParse(fields(formData, ["listing_id", "branch_listing_id", "source", "note", "hours_checked"]));
+  const p = verifyLocationSchema.safeParse(fields(formData, ["listing_id", "branch_listing_id", "source", "note", "hours_checked", "latitude", "longitude"]));
   if (!p.success) return backOrOverview(formData, "invalid");
-  const { error } = await call("admin_dx_verify_branch_location", {
-    p_branch_listing_id: p.data.branch_listing_id, p_source: p.data.source, p_note: p.data.note, p_hours_checked: p.data.hours_checked,
-  });
+  const base = { p_branch_listing_id: p.data.branch_listing_id, p_source: p.data.source, p_note: p.data.note, p_hours_checked: p.data.hours_checked };
+  const { error } = p.data.latitude != null && p.data.longitude != null
+    ? await call("admin_dx_set_branch_position", { ...base, p_latitude: p.data.latitude, p_longitude: p.data.longitude })
+    : await call("admin_dx_verify_branch_location", base);
   return detail(p.data.listing_id, error ? noticeForError(error.code) : "location_verified");
 }
 

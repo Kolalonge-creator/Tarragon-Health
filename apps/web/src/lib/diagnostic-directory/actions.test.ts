@@ -5,7 +5,7 @@ const redirect = jest.fn((url: string) => {
 jest.mock("next/navigation", () => ({ redirect: (u: string) => redirect(u) }));
 jest.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc }) }));
 
-import { addBranchAction, createFacilityAction, recordCredentialAction, saveServiceAction, setStatusAction } from "./actions";
+import { addBranchAction, createFacilityAction, recordCredentialAction, saveServiceAction, setStatusAction, verifyLocationAction } from "./actions";
 
 const L = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
@@ -88,5 +88,23 @@ describe("recordCredentialAction", () => {
     expect(rpc).toHaveBeenLastCalledWith("admin_dx_record_credential", expect.objectContaining({ p_scope_concept_ids: null, p_expires_on: "2027-01-01" }));
     await goes(recordCredentialAction(fd({ ...base, regulator: "iso15189", scope_concept_ids: [C, B] })));
     expect(rpc).toHaveBeenLastCalledWith("admin_dx_record_credential", expect.objectContaining({ p_scope_concept_ids: [C, B] }));
+  });
+});
+
+describe("verifyLocationAction (map position saved with the check)", () => {
+  const check = { listing_id: L, branch_listing_id: B, source: "OpenStreetMap", note: "two sources agree within 50 m" };
+  it("with a position, saves it and stamps the check in one call", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    expect(await goes(verifyLocationAction(fd({ ...check, latitude: "6.6012", longitude: "3.3512" })))).toBe(`${BASE}/${L}?n=location_verified`);
+    expect(rpc).toHaveBeenCalledWith("admin_dx_set_branch_position", expect.objectContaining({ p_branch_listing_id: B, p_latitude: 6.6012, p_longitude: 3.3512 }));
+  });
+  it("without a position, only stamps (the database refuses a branch with none)", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "no position", code: "23514" } });
+    expect(await goes(verifyLocationAction(fd({ ...check, latitude: "", longitude: "" })))).toBe(`${BASE}/${L}?n=rule_refused`);
+    expect(rpc).toHaveBeenCalledWith("admin_dx_verify_branch_location", expect.objectContaining({ p_branch_listing_id: B }));
+  });
+  it("refuses half a position before calling the database", async () => {
+    expect(await goes(verifyLocationAction(fd({ ...check, latitude: "6.6", longitude: "" })))).toMatch(/n=invalid$/);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
