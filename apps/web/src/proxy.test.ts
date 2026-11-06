@@ -600,6 +600,26 @@ describe("report-only nonce script policy", () => {
     expect(other.headers.get("content-security-policy-report-only")).not.toContain("wasm-unsafe-eval");
   });
 
+  it("forwards a new request carrying the policy, and leaves a POST (server action) untouched", async () => {
+    stubSession({ user: null });
+    const original = request("/login");
+    await proxy(original);
+    const forwarded = updateSession.mock.calls[0][0] as NextRequest;
+    expect(forwarded).not.toBe(original);
+    expect(forwarded.headers.get("content-security-policy")).toMatch(/'nonce-/);
+    expect(original.headers.get("content-security-policy")).toBeNull();
+
+    updateSession.mockClear();
+    const postReq = new NextRequest(new URL("/login", "https://app.tarragonhealth.ng"), {
+      method: "POST",
+      headers: { host: "app.tarragonhealth.ng" },
+      body: "x=1",
+    });
+    const res = await proxy(postReq);
+    expect(updateSession.mock.calls[0][0]).toBe(postReq);
+    expect(res.headers.get("content-security-policy-report-only")).toBeNull();
+  });
+
   it("leaves the marketing host and API routes alone", async () => {
     stubSession({ user: null });
     const marketing = await proxy(
