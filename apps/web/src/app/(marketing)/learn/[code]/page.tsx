@@ -46,7 +46,7 @@ export default async function SharedArticlePage({ params }: { params: Promise<{ 
       <article className="mx-auto max-w-2xl">
         <h1 className="font-heading text-3xl font-bold leading-tight text-charcoal-ink sm:text-4xl">{article.title}</h1>
         {article.summary && <p className="mt-4 text-lg text-charcoal-ink/70">{article.summary}</p>}
-        <div className="mt-4 space-y-0.5 text-xs text-charcoal-ink/65" data-testid="trust-line">
+        <div className="mt-4 space-y-0.5 text-xs text-charcoal-ink/70" data-testid="trust-line">
           {trust.author && <p>{t("learn.trust.author", "en", { name: trust.author })}</p>}
           {trust.reviewedBy && <p>{t("learn.trust.reviewed_by", "en", { name: trust.reviewedBy })}</p>}
           {trust.reviewedOn && <p>{t("learn.trust.reviewed_on", "en", { date: trust.reviewedOn })}</p>}
@@ -73,7 +73,7 @@ export default async function SharedArticlePage({ params }: { params: Promise<{ 
           <p className="font-semibold">{t("learn.urgent.title")}</p>
           <p className="mt-1">{t("learn.urgent.body")}</p>
         </aside>
-        <p className="mt-6 text-xs text-charcoal-ink/65">{t("learn.share.disclaimer")}</p>
+        <p className="mt-6 text-xs text-charcoal-ink/70">{t("learn.share.disclaimer")}</p>
         <div className="mt-4">
           <ShareLessonButtons title={article.title} url={absoluteUrl(`/learn/${article.code}`)} />
         </div>

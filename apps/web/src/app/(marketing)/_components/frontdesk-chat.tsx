@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { MessageCircle, X } from "lucide-react";
 import { AiLabel } from "@/components/ai/ai-label";
 import { Button } from "@/components/ui/button";
 import { ENQUIRY_CONSENT_WORDING } from "@/lib/frontdesk/lead-consent";
@@ -239,9 +240,12 @@ export function FrontDeskChat() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="th-fd-chat-panel"
-        className="fixed bottom-20 right-4 z-40 flex min-h-12 items-center gap-2 rounded-full bg-brand-green px-5 py-3 text-sm font-semibold text-white shadow-lg hover:bg-brand-green/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 sm:bottom-6"
+        // On a phone the launcher is a 48px round icon so it does not sit over the text being read (launch check
+        // 2026-11-06); the words stay for screen readers and show from sm up.
+        className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center gap-2 rounded-full bg-brand-green text-sm font-semibold text-white shadow-lg hover:bg-brand-green/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 sm:bottom-6 sm:h-auto sm:min-h-12 sm:w-auto sm:px-5 sm:py-3"
       >
-        {open ? "Close chat" : "Ask us a question"}
+        {open ? <X aria-hidden className="h-5 w-5 sm:hidden" /> : <MessageCircle aria-hidden className="h-5 w-5 sm:hidden" />}
+        <span className="sr-only sm:not-sr-only">{open ? "Close chat" : "Ask us a question"}</span>
       </button>
 
       {open && (
@@ -311,7 +315,7 @@ export function FrontDeskChat() {
             </form>
           )}
 
-          <footer className="border-t border-charcoal-ink/10 px-4 py-2 text-xs text-charcoal-ink/60">
+          <footer className="border-t border-charcoal-ink/10 px-4 py-2 text-xs text-charcoal-ink/70">
             <span>{EMERGENCY_NOTE}</span>{" "}
             <a href="/privacy" className="underline underline-offset-2">Privacy Notice</a>
             {" "}

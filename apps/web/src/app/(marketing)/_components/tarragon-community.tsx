@@ -41,7 +41,7 @@ export function TarragonCommunity({ variant = "default", id = "community" }: { v
         })}
       </ul>
 
-      <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-charcoal-ink/65">{COMMUNITY_NOTE}</p>
+      <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-charcoal-ink/70">{COMMUNITY_NOTE}</p>
       <p className="mt-6 text-center">
         <Link
           href="/signup"

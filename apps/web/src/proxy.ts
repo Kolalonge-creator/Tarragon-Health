@@ -23,7 +23,8 @@ import {
   mfaEnrolmentVerdict,
 } from "@tarragon/auth/mfa-policy";
 import { createBearerClient } from "@/lib/supabase/bearer";
-import { buildNonceCsp, isConsultationCallPath, newCspNonce, shouldAddNonceCsp } from "@/lib/security/csp-nonce";
+import { isConsultationCallPath, newCspNonce } from "@/lib/security/csp-nonce";
+import { buildCsp } from "@/lib/security/csp-policy";
 
 /**
  * For the phone app: is the caller in a required group without an AAL2 token? Unlike the cookie gate, an account WITH a factor
@@ -59,22 +60,27 @@ export async function proxy(request: NextRequest) {
   }
 
   const host = request.headers.get("host") ?? "";
+  if (!isAppHost(host)) return proxyInner(request);
+
+  // App host: ONE enforced Content-Security-Policy with a fresh nonce, set here on every response (next.config sends its static
+  // policy to the marketing host only; see lib/security/csp-policy.ts for why two policies cannot coexist on Vercel). Next reads the
+  // nonce from the request's CSP header and stamps it on every script it renders, so the policy goes on the forwarded request too.
   const { pathname } = request.nextUrl;
-  // Page loads only (GET/HEAD): that is where Next renders scripts, and a POST (a server action) keeps its body untouched.
-  if (!shouldAddNonceCsp(host, pathname) || (request.method !== "GET" && request.method !== "HEAD")) return proxyInner(request);
-  const policy = buildNonceCsp(newCspNonce(), {
+  const policy = buildCsp({
     inAppCall: isConsultationCallPath(pathname),
+    nonce: newCspNonce(),
     dev: process.env.NODE_ENV === "development",
   });
-  // A NEW request with CLONED headers, the way Vercel's routing docs forward a header. Setting the header on request.headers in
-  // place worked locally but never reached the renderer in production (2026-11-05: policy on the response, 0 nonced scripts on a
-  // per-request page). The REQUEST header uses the plain name Next reads first; it is never enforced by anything. Only the
-  // response header reaches the browser, and it stays report-only.
-  const forwarded = new Headers(request.headers);
-  forwarded.set("content-security-policy", policy);
-  const withNonce = new NextRequest(request.url, { method: request.method, headers: forwarded });
-  const response = await proxyInner(withNonce);
-  response.headers.set("Content-Security-Policy-Report-Only", policy);
+  let forwardedRequest = request;
+  // Page loads only (GET/HEAD) get a rebuilt request: that is where Next renders scripts, and a POST (a server action) keeps its
+  // body untouched. A new request with CLONED headers is Vercel's documented way to forward a header.
+  if (request.method === "GET" || request.method === "HEAD") {
+    const forwarded = new Headers(request.headers);
+    forwarded.set("content-security-policy", policy);
+    forwardedRequest = new NextRequest(request.url, { method: request.method, headers: forwarded });
+  }
+  const response = await proxyInner(forwardedRequest);
+  response.headers.set("Content-Security-Policy", policy);
   return response;
 }
 

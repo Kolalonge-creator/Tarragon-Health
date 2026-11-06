@@ -124,7 +124,7 @@ export default async function PreventionPage() {
               }
             >
               <h3 className="font-heading text-xl font-semibold text-charcoal-ink">{group.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/65">{group.intro}</p>
+              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{group.intro}</p>
               <ul className="mt-4 space-y-2">
                 {group.tests.map((test) => (
                   <li key={test} className="flex gap-2 text-sm text-charcoal-ink/80">

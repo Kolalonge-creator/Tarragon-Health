@@ -60,7 +60,7 @@ export default function FaqPage() {
                   <h2 className="font-heading text-sm font-semibold uppercase tracking-wide text-brand-green">
                     {FAQ_CATEGORY_LABEL[group.category]}
                   </h2>
-                  <p className="mt-1 text-sm text-charcoal-ink/60">{group.description}</p>
+                  <p className="mt-1 text-sm text-charcoal-ink/70">{group.description}</p>
                 </div>
                 <FaqAccordion items={faqs} variant="minimal" />
               </div>

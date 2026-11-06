@@ -55,7 +55,7 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
                   key={zone.id}
                   className="rounded-xl border border-charcoal-ink/10 bg-white p-3"
                 >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/65">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/70">
                     {zone.label}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -91,7 +91,7 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
                 </div>
               ))}
           </div>
-          <p className="mt-3 text-xs text-charcoal-ink/65">
+          <p className="mt-3 text-xs text-charcoal-ink/70">
             Everything on this page, including laboratory requests, pharmacy collection and
             specialist referrals, works the same way in all 36 states and the FCT. We do not
             collect samples at home and we do not deliver medication.
@@ -159,7 +159,7 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
                       className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         live
                           ? "bg-brand-green/15 text-deep-forest"
-                          : "bg-charcoal-ink/10 text-charcoal-ink/60"
+                          : "bg-charcoal-ink/10 text-charcoal-ink/70"
                       }`}
                     >
                       {live ? "Live" : "Not yet"}
@@ -170,7 +170,7 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
             </ul>
 
             {liveCount < services.length && (
-              <p className="mt-4 text-xs text-charcoal-ink/60">
+              <p className="mt-4 text-xs text-charcoal-ink/70">
                 We switch a service on in a state only once we have a real contracted partner
                 there. We would rather show you nothing than let you book something that cannot
                 actually happen.

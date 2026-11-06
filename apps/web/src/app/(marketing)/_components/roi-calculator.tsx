@@ -81,7 +81,7 @@ export function RoiCalculator({ audience = "workforce" }: { audience?: "workforc
           {catches === 1 ? "finding" : "findings"} a year
         </p>
       </div>
-      <p className="mt-3 text-xs text-charcoal-ink/65">
+      <p className="mt-3 text-xs text-charcoal-ink/70">
         These are counts from your own assumptions, not a forecast, a guarantee or a quote.
         We will look at your real numbers together.
       </p>

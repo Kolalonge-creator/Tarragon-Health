@@ -116,7 +116,7 @@ export default function ResultInterpretationPage() {
 
         <div className="mx-auto mt-8 max-w-md rounded-2xl border-2 border-brand-green/30 bg-white px-6 py-5 text-center shadow-sm">
           <p className="font-heading text-2xl font-bold text-brand-green">Free to upload</p>
-          <p className="mt-1 text-sm text-charcoal-ink/65">
+          <p className="mt-1 text-sm text-charcoal-ink/70">
             An abnormal result reaches a doctor on every plan. With Membership, your care team goes through any result with you. Prices are on the pricing page.
           </p>
         </div>
@@ -147,7 +147,7 @@ export default function ResultInterpretationPage() {
         <div className="mx-auto max-w-3xl">
           <FaqAccordion items={FAQ} />
         </div>
-        <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/60">
+        <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/70">
           If you are not sure which tests you should have,{" "}
           <Link
             href={MARKETING_ROUTES.prevention}
