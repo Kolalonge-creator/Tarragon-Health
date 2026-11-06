@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
+import { joinOpensAt, joinWindowState } from "@/lib/consultation/join-window";
+import { useHalfMinuteClock } from "@/lib/consultation/use-half-minute-clock";
 import { useVideoConsultation } from "@/lib/queries/consult-slots";
 import { useStartThread } from "@/lib/queries/care-messages";
 import { useConsultationSummary } from "@/lib/queries/consultation-video";
@@ -241,12 +243,19 @@ export function VideoVisitWaitingRoom({
   // the save mechanism below -- still just plain text the patient can edit
   // freely before submitConsultationPrep saves it.
   const [notesValue, setNotesValue] = useState<string | null>(null);
+  // The Zoom link shows only inside the join window (15 minutes before to 60
+  // after, `consultations.policy`), re-checked every 30 seconds. Null on the
+  // server and during hydration.
+  const clockMs = useHalfMinuteClock();
+  const now = clockMs === null ? null : new Date(clockMs);
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>;
   if (!consult) return <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Visit not found.</p>;
 
   const isCancelled = consult.status === "cancelled";
   const isPast = consult.status !== "scheduled";
+  const joinState =
+    consult.scheduled_at && now ? joinWindowState(consult.scheduled_at, now) : null;
 
   return (
     <div className="space-y-4">
@@ -272,12 +281,22 @@ export function VideoVisitWaitingRoom({
             Join a few minutes early so there&apos;s time to sort out any camera or microphone issues
             before a doctor arrives.
           </p>
-          {!isPast && consult.join_url && (
+          {!isPast && consult.join_url && joinState === "open" && (
             <Button asChild>
               <a href={consult.join_url} target="_blank" rel="noreferrer">
                 Join the call
               </a>
             </Button>
+          )}
+          {!isPast && consult.join_url && joinState === "too_early" && consult.scheduled_at && (
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+              The join button appears here from {formatSlot(joinOpensAt(consult.scheduled_at).toISOString())}.
+            </p>
+          )}
+          {!isPast && consult.join_url && joinState === "closed" && (
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+              The time to join this visit has passed. If you missed it, message your care team in the app.
+            </p>
           )}
           {!isPast && !consult.join_url && (
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">

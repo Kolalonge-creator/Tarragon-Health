@@ -10,13 +10,26 @@
  * One helper for every surface (the Action Centre, "What's coming up" on Home) so the two can never disagree about a date.
  */
 
+import { lagosLocalDate } from "@tarragon/medicines";
+
 const DAY_MS = 86_400_000;
 
-/** Whole days from today to `dateStr` (negative when the date has passed). Day boundaries, not timestamps. */
+/** A due date as a Lagos calendar date: a bare `YYYY-MM-DD` is already one; a timestamp is converted. */
+function toLagosDate(dateStr: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : lagosLocalDate(Date.parse(dateStr));
+}
+
+/**
+ * Whole days from today to `dateStr` (negative when the date has passed), on the Africa/Lagos calendar.
+ *
+ * This used to compare `toDateString()` values, i.e. the clock of whatever machine ran it: UTC on the server, so between
+ * midnight and 1am in Lagos "today" was still yesterday; and in a browser west of UTC a bare date parsed as UTC midnight
+ * fell on the previous day. Both sides now count Lagos days, the platform's one timezone.
+ */
 export function daysUntil(dateStr: string, now: Date = new Date()): number {
-  const today = new Date(now.toDateString());
-  const target = new Date(new Date(dateStr).toDateString());
-  return Math.round((target.getTime() - today.getTime()) / DAY_MS);
+  const today = lagosLocalDate(now.getTime());
+  const target = toLagosDate(dateStr);
+  return Math.round((Date.parse(`${target}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
 }
 
 /** True once the date is past its grace window: the item was genuinely missed. */

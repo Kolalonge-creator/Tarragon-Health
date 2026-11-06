@@ -8,7 +8,7 @@
  * no em dashes, no Basic / Lite / Standard / Premium / Gold, no doctor review turnaround time, no laboratory price.
  */
 import { t } from "@tarragon/i18n";
-import { LAB_TESTS_NOT_INCLUDED, MEMBERSHIP_INCLUDES, renewalCopy } from "@/lib/marketing/membership";
+import { FREE_PLAN, LAB_TESTS_NOT_INCLUDED, MEMBERSHIP_INCLUDES, renewalCopy } from "@/lib/marketing/membership";
 
 export interface PlanCard {
   id: "free" | "membership";
@@ -37,15 +37,10 @@ export function planCards(price: PlanPriceLabels): PlanCard[] {
   return [
     {
       id: "free",
-      name: "Free",
-      priceLine: "No cost, no card, no time limit",
-      summary: "The app, including health tracking, reminders, education and guidance.",
-      includes: [
-        "Record your readings and see your trends",
-        "Reminders and the screening calendar",
-        "The full education library",
-        "Urgent-care guidance if a reading or symptom looks serious",
-      ],
+      name: FREE_PLAN.name,
+      priceLine: FREE_PLAN.priceLine,
+      summary: FREE_PLAN.summary,
+      includes: FREE_PLAN.includes,
     },
     {
       id: "membership",

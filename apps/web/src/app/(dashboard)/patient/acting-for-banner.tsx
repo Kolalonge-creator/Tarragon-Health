@@ -16,7 +16,15 @@ export function ActingForBanner({ acting }: { acting: ActingFor | null }) {
   const name = acting.fullName ?? "the person you support";
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-clinical-amber/40 bg-clinical-amber/10 px-4 py-3">
+    <div
+      role="region"
+      aria-label="Whose account is open"
+      data-testid="acting-for-banner"
+      // Sticky just under the shell's sticky header (about 61px tall) so it can
+      // never be scrolled out of view. Real amber values: the old
+      // `clinical-amber` token was never defined, so the banner had no colour.
+      className="sticky top-[61px] z-30 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400 bg-amber-50 px-4 py-3 shadow-sm print:static dark:border-amber-300/50 dark:bg-amber-950"
+    >
       <div>
         <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
           You are in {name}&apos;s account, not your own.
