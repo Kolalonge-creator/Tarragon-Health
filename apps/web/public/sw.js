@@ -20,7 +20,7 @@
 // The cache name carries the first 12 hex digits of the sha256 of offline.html, so an edit to that page (it holds the emergency wording, INV-06)
 // cannot ship while installed workers keep serving the old copy. src/lib/vitals/offline-page.test.ts fails until this value matches the page:
 //   shasum -a 256 apps/web/public/offline.html | cut -c1-12
-const OFFLINE_CACHE = "th-offline-v3-41714484ba8b";
+const OFFLINE_CACHE = "th-offline-v3-72be0bf6c909";
 const OFFLINE_URL = "/offline.html";
 const OFFLINE_ASSETS = [OFFLINE_URL, "/icon-192.png"];
 

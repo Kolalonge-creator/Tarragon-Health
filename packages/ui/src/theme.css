@@ -11,7 +11,9 @@
   --charcoal-ink: #171717;
   --sprout-gold: #c9962b;
   --soft-sage: #e7eee7;
-  --warm-ivory: #faf7f0;
+  /* Pure white since 2026-11-06 (founder: the off-white made the app look dull). The name stays so every
+     bg-warm-ivory keeps working; it is no longer a tint. */
+  --warm-ivory: #ffffff;
   --deep-forest: #0b5c3e;
 
   /* Marketing-site surface tokens (Evergreen palette, founder decision W-08,

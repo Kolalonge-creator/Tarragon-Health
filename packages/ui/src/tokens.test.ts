@@ -19,7 +19,7 @@ const themeCss = readFileSync(fileURLToPath(new URL("./theme.css", import.meta.u
 /** Surfaces a status colour can sit on in each theme: white card and Warm
  * Ivory canvas (light); night card and night ground (dark). */
 const SURFACES: Record<StatusTheme, string[]> = {
-  light: ["#FFFFFF", "#FAF7F0"],
+  light: ["#FFFFFF"],
   dark: ["#221C15", "#17130E"],
 };
 

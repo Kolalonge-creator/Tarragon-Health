@@ -9,8 +9,8 @@
  * elsewhere. The legacy `colors` object in ../theme.ts stays for screens that
  * have not moved onto the kit yet (design plan, Phase 2).
  *
- * Canvas follows docs/BRAND_GUIDE.md section 5: the patient surface sits on Warm
- * Ivory with white cards. Clinical status colours stay a separate system from
+ * Canvas follows docs/BRAND_GUIDE.md section 5: pure white since 2026-11-06 (it was
+ * Warm Ivory); cards keep their border and shadow so they still read as cards. Clinical status colours stay a separate system from
  * brand colour and red is reserved for true alerts.
  */
 export interface Palette {
@@ -54,7 +54,8 @@ export interface Palette {
 }
 
 export const lightPalette: Palette = {
-  canvas: "#FAF7F0",
+  // Pure white since 2026-11-06 (founder decision), matching the web.
+  canvas: "#FFFFFF",
   surface: "#FFFFFF",
   surfaceMuted: "#F1ECE3",
   border: "#E7E5E4",

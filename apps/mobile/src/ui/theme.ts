@@ -24,7 +24,8 @@ export const colors = {
   /** Tertiary TEXT and placeholders that must stay readable: 4.9 to 1 or better on card, background and grouped fills. `faint` is for decorative marks only (icons, dividers); it is 2.1 to 2.5 to 1 and fails AA as text. */
   subtle: "#6B6560",
   border: "#E7E5E4",
-  background: "#FAFAFA",
+  // Pure white since 2026-11-06 (founder decision: no off-white backgrounds anywhere).
+  background: "#FFFFFF",
   card: "#FFFFFF",
   /** Pressed-state fill for white/bordered controls (SecondaryButton, the
    * acting-for banner's button) — one step down from `card`. */

@@ -46,7 +46,7 @@ Shield silhouette (protection, continuous monitoring) + sprout crown (two leafle
 - Wordmark alone → where space is limited or brand is already familiar
 - Mark alone → app icon, favicon, social avatar, dashboard sidebar, watermark
 - Clear space = height of the sprout crown, on all sides. Min size: 120px (full lockup), 32px (mark alone) — pulse-line vein disappears below this
-- Backgrounds: white, Warm Ivory, Soft Sage, or Deep Navy only
+- Backgrounds: white, Soft Sage, or Deep Navy only (Warm Ivory retired 2026-11-06, see §5)
 - **Never:** stretch, skew, rotate, add shadows, place over busy images, recolour the shield outside the palette (no blue, no red medical-cross styling)
 
 ## 5. Colour
@@ -77,6 +77,14 @@ surface, whose content area now sits on Warm Ivory with white cards and white sh
 header) floating on it. This matches the mobile app, which already ships `#FAF7F2` as every patient
 screen's background, so patient-web ivory is consistency with shipped reality rather than a return
 to the pre-correction default. Founder approved 2026-09-03. Print output stays white.
+
+**Superseded 2026-11-06: no off-white background anywhere.** The founder found the ivory ground made the
+app look dull and asked for pure white wherever an off-white was used: every dashboard, the patient app on
+web and phone, the marketing site, and the brand tokens themselves. `--warm-ivory` / `warmIvory`, the
+marketing canvas `--mk-canvas`, the phone app's `canvas` and legacy `background`, and the offline page are
+all `#FFFFFF`. The token names are kept so existing code keeps working, but "Warm Ivory" is no longer a
+colour in the palette: separation comes from card borders and shadows, Soft Sage accent bands, and Deep
+Navy bands, never from an off-white tint.
 
 Usage ratio: 65% White (the canvas) · 15% Ivory/Sage (accent bands and card surfaces) · 15%
 Green/Forest/Navy (brand presence) · 5% Sprout Gold (accents only), Charcoal Ink layered on top for
