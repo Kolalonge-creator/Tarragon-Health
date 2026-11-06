@@ -17,8 +17,11 @@ import { cn } from "@/lib/utils";
  * links keep whatever gate they already carry, and a gated page still greets
  * its visitor with the same friendly UpgradePrompt it always did.
  *
- * Learn and Lifestyle coaching get a button here on the founder's explicit
- * ask (2026-08-12). Both are real, built pages that patients were reaching
+ * Patient dashboard 2.0 (spec 4.5; founder decision PD-10, 2026-11-06): "Book a consultation" and
+ * "Find a diagnostic centre" replace Learn and Lifestyle coaching here. Learn
+ * now has its own "Learn more about your health" card on Home, and both stay
+ * in the menu and search. Before that, Learn and Lifestyle coaching had a
+ * button here on the founder's explicit ask (2026-08-12). Both are real, built pages that patients were reaching
  * only by accident: Learn was promoted out of a Prevention tab for exactly
  * this reason, and /patient/lifestyle had no sidebar entry at all until the
  * same pass, despite the nutrition, weight and activity trackers all linking
@@ -63,16 +66,16 @@ const ACTIONS: readonly QuickAction[] = [
     href: "/patient/messages",
   },
   {
-    icon: "lifestyle",
-    label: "Lifestyle coaching",
-    hint: "Food, weight, movement",
-    href: "/patient/lifestyle",
+    icon: "booking",
+    label: "Book a consultation",
+    hint: "See open times",
+    href: "/patient/appointments",
   },
   {
-    icon: "learn",
-    label: "Learn",
-    hint: "Plain-language health reading",
-    href: "/patient/learn",
+    icon: "labs",
+    label: "Find a diagnostic centre",
+    hint: "Near you, for your test",
+    href: "/patient/labs#locations",
   },
 ] as const;
 

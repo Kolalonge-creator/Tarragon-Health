@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { formatPatientDate } from "@/lib/format-date";
@@ -32,7 +33,7 @@ function membershipTierLabel(tier: string | null | undefined): string {
  * monitoring service, the opposite failure direction from every worklist
  * counter in worklist-counts.ts, which must never render a failure as 0).
  */
-export async function resolveServiceAccess(patientId: string): Promise<ServiceAccess | null> {
+async function resolveServiceAccessUncached(patientId: string): Promise<ServiceAccess | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("resolve_patient_service_access", {
     p_patient_id: patientId,
@@ -45,6 +46,9 @@ export async function resolveServiceAccess(patientId: string): Promise<ServiceAc
   }
   return data as unknown as ServiceAccess;
 }
+
+/** Request-cached: the service card and Home's care journey both ask, and should cost one RPC between them. */
+export const resolveServiceAccess = cache(resolveServiceAccessUncached);
 
 const COPY: Record<
   ServiceAccessStatus,

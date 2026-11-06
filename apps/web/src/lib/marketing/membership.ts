@@ -127,3 +127,5 @@ export function foundingPriceLabel(percent: number): string {
   const kobo = membershipPriceKobo();
   return formatNaira(kobo - Math.floor((kobo * percent) / 100));
 }
+
+export { FREE_PLAN } from "./free-plan";
