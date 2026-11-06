@@ -1,6 +1,5 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { SectionGreeting } from "@/app/(dashboard)/patient/(sections)/section-greeting";
-import { ActingForBanner } from "@/app/(dashboard)/patient/acting-for-banner";
 import { EmergencyAlert } from "@/app/(dashboard)/patient/emergency-alert";
 import { FreeGuidance } from "@/app/(dashboard)/patient/free-guidance";
 import { FreeRedCheckin } from "@/app/(dashboard)/patient/free-red-checkin";
@@ -82,10 +81,8 @@ export default async function PatientSectionsLayout({
       <ProxyConfirmationCard setups={pendingProxySetups ?? []} locale={locale} />
       {!acting && handoverState?.pending === true && <HandoverCard guardians={handoverState.guardians ?? []} />}
 
-      {/* Whose account this is must never be in doubt. It sits above the
-          safety surfaces because mistaking one person's record for another is
-          itself the safety problem. */}
-      <ActingForBanner acting={acting} />
+      {/* The "you are in X's account" banner is rendered by patient/layout.tsx so every /patient page shows it, above
+          everything here including the safety surfaces. */}
       {acting && (ageFromDateOfBirth(subjectDateOfBirth) ?? 99) < 18 ? (
         <p role="note" className="rounded-xl bg-brand-green/5 px-4 py-3 text-sm text-charcoal-ink/80">
           A child&apos;s record is for vaccinations, growth checks and screening reminders only. Appointments,
