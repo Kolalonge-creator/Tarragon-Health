@@ -1,21 +1,35 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../utils";
+import { LEGACY_STATUS_COLOUR, STATUS_CLASSES } from "../status";
+import type { ClinicalStatusLevel } from "../tokens";
 
 /**
- * Dashboard status colours — a system separate from brand colours
- * (brand-green/clinical-navy). Used for clinical severity/status only.
+ * Clinical status chip, on the clinical status tokens (packages/ui/src/
+ * tokens.ts) — a system separate from brand colours (brand-green/clinical-
+ * navy). The chip always carries words, so status is never colour alone.
+ *
+ * Variants are the six semantic levels. The older colour names (red, amber,
+ * blue, grey, green) stay as aliases for existing callers.
  */
+const chip = (level: ClinicalStatusLevel) => `${STATUS_CLASSES[level].tint} ${STATUS_CLASSES[level].text}`;
+
 const badgeVariants = cva(
   "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
   {
     variants: {
       variant: {
-        red: "bg-red-100 text-red-700 dark:bg-red-500/25 dark:text-red-300",
-        amber: "bg-amber-100 text-amber-700 dark:bg-amber-500/25 dark:text-amber-300",
-        blue: "bg-blue-100 text-blue-700 dark:bg-blue-500/25 dark:text-blue-300",
-        grey: "bg-charcoal-ink/10 text-charcoal-ink/70 dark:bg-night-ink/10 dark:text-night-ink/70",
-        green: "bg-green-100 text-green-700 dark:bg-green-500/25 dark:text-green-300",
+        critical: chip("critical"),
+        urgent: chip("urgent"),
+        attention: chip("attention"),
+        normal: chip("normal"),
+        info: chip("info"),
+        inactive: chip("inactive"),
+        red: chip(LEGACY_STATUS_COLOUR.red),
+        amber: chip(LEGACY_STATUS_COLOUR.amber),
+        blue: chip(LEGACY_STATUS_COLOUR.blue),
+        grey: chip(LEGACY_STATUS_COLOUR.grey),
+        green: chip(LEGACY_STATUS_COLOUR.green),
       },
     },
     defaultVariants: {

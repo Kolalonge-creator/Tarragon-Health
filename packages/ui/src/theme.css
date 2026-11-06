@@ -53,9 +53,54 @@
   --cycle-luteal: #7c6bb0;
   --cycle-follicular: #9aa8b5;
   --cycle-predicted: #d8a3b4;
+
+  /* Clinical status colours (patient dashboard 2.0, P6). A separate system
+     from brand colour; the values, roles and contrast rules are documented
+     in packages/ui/src/tokens.ts (clinicalStatusColors), and tokens.test.ts
+     fails if this block and that object drift. Dark values live in the
+     [data-theme="dark"] block below, so a utility like
+     bg-status-attention-tint needs no dark: variant. */
+  --status-critical: #b91c1c;
+  --status-critical-text: #991b1b;
+  --status-critical-tint: #fee2e2;
+  --status-urgent: #c2410c;
+  --status-urgent-text: #9a3412;
+  --status-urgent-tint: #ffedd5;
+  --status-attention: #b45309;
+  --status-attention-text: #92400e;
+  --status-attention-tint: #fef3c7;
+  --status-normal: #2e7d32;
+  --status-normal-text: #1b5e20;
+  --status-normal-tint: #e3f1e4;
+  --status-info: #1d4ed8;
+  --status-info-text: #1e40af;
+  --status-info-tint: #dbeafe;
+  --status-inactive: #78716c;
+  --status-inactive-text: #57534e;
+  --status-inactive-tint: #f1ece3;
 }
 
 @theme inline {
+  --color-status-critical: var(--status-critical);
+  --color-status-critical-text: var(--status-critical-text);
+  --color-status-critical-tint: var(--status-critical-tint);
+  --color-status-urgent: var(--status-urgent);
+  --color-status-urgent-text: var(--status-urgent-text);
+  --color-status-urgent-tint: var(--status-urgent-tint);
+  --color-status-attention: var(--status-attention);
+  --color-status-attention-text: var(--status-attention-text);
+  --color-status-attention-tint: var(--status-attention-tint);
+  --color-status-normal: var(--status-normal);
+  --color-status-normal-text: var(--status-normal-text);
+  --color-status-normal-tint: var(--status-normal-tint);
+  --color-status-info: var(--status-info);
+  --color-status-info-text: var(--status-info-text);
+  --color-status-info-tint: var(--status-info-tint);
+  --color-status-inactive: var(--status-inactive);
+  --color-status-inactive-text: var(--status-inactive-text);
+  --color-status-inactive-tint: var(--status-inactive-tint);
+  /* Older name, used by the acting-for banner: the attention level. */
+  --color-clinical-amber: var(--status-attention);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-brand-green: var(--brand-green);
@@ -153,6 +198,26 @@ body {
   --chart-glucose: #2f9e6e;
   --chart-grid: rgba(241, 236, 226, 0.1);
   --chart-tick: rgba(241, 236, 226, 0.55);
+
+  /* Clinical status, night palette (see tokens.ts clinicalStatusColors.dark). */
+  --status-critical: #dc2626;
+  --status-critical-text: #fca5a5;
+  --status-critical-tint: #3b1512;
+  --status-urgent: #ea580c;
+  --status-urgent-text: #fdba74;
+  --status-urgent-tint: #3a1f0b;
+  --status-attention: #d97706;
+  --status-attention-text: #fcd34d;
+  --status-attention-tint: #3a2a0b;
+  --status-normal: #43a047;
+  --status-normal-text: #a5d6a7;
+  --status-normal-tint: #16301a;
+  --status-info: #3b82f6;
+  --status-info-text: #93c5fd;
+  --status-info-tint: #172a45;
+  --status-inactive: #8a847c;
+  --status-inactive-text: #d6d3d1;
+  --status-inactive-tint: #2c2620;
 }
 
 /* Print — finance's Reports & Filings packs (and the emergency-card/health-

@@ -22,7 +22,7 @@ export default async function LowCarbPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("lowcarb.title")} description="" />
+      <PageHeader title={t("lowcarb.title")} backTo={{ href: "/patient/medications", label: "Medications" }} />
       {view.state === "error" ? (
         <p role="alert" className="text-sm">
           {t("lowcarb.error.load")}

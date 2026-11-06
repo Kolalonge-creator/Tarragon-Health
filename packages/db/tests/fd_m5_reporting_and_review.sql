@@ -225,6 +225,12 @@ select pg_temp.rec('timing', 'a forced report covers the seven days ending today
 select pg_temp.rec('timing', 'forcing the same day again makes none new (idempotent)', 'none', coalesce(private.fd_generate_report_at('2026-05-05 11:00+00', true)::text, 'none'));
 select pg_temp.rec('timing', 'a patient cannot generate a report', 'ERR:42501', pg_temp.as_val(pg_temp.f('pat'), 'authenticated', 'select public.fd_report_generate_now()::text'));
 select pg_temp.rec('timing', 'a leads.manage holder cannot generate a report', 'ERR:42501', pg_temp.as_val(pg_temp.f('staff'), 'authenticated', 'select public.fd_report_generate_now()::text'));
+-- The hourly fd-report cron job (35 * * * *) makes this week's report on its own from Friday 07:30 London, so on a Friday the replay
+-- database can already hold one and "generate now" would truthfully say it was not created. That is the job working, not this
+-- check failing; clear the cron-made row for the week the next check targets so it tests "generate now" on every day of the week.
+delete from public.fd_report_runs
+ where organisation_id = '00000000-0000-0000-0000-000000000001'
+   and week_start = (now() at time zone 'Europe/London')::date - 7;
 select pg_temp.rec('timing', 'an admin can generate one now, and is told it was created', '36/true/pending',
   pg_temp.as_val(pg_temp.f('admin'), 'authenticated', $q$select char_length(r ->> 'id')::text || '/' || (r ->> 'created') || '/' || (r ->> 'status') from (select public.fd_report_generate_now() r) z$q$));
 select pg_temp.rec('timing', 'asking again returns the same report and says it was not created again', 'true/false',

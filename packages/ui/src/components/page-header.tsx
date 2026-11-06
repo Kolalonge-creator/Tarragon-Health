@@ -39,15 +39,7 @@ export function PageHeader({
 }) {
   return (
     <div className={cn("space-y-3", className)}>
-      {backTo && (
-        <Link
-          href={backTo.href}
-          className="inline-flex items-center gap-1 text-sm font-medium text-brand-green hover:underline dark:text-brand-green-bright"
-        >
-          <NAV_ICON.chevronRight className="h-4 w-4 rotate-180" strokeWidth={2} aria-hidden />
-          {backTo.label}
-        </Link>
-      )}
+      {backTo && <BackLink {...backTo} />}
       <div className="flex flex-col gap-4 border-b border-charcoal-ink/10 pb-4 sm:flex-row sm:items-start sm:justify-between dark:border-night-ink/15">
         <div className="flex items-start gap-3">
           {Icon && (
@@ -69,5 +61,22 @@ export function PageHeader({
         {actions && <div className="shrink-0">{actions}</div>}
       </div>
     </div>
+  );
+}
+
+/** The header's "← back" link on its own, for a page whose title is drawn by
+ * the document it shows (a signed report) so a second <h1> would repeat it. */
+export function BackLink({ href, label, className }: { href: string; label: string; className?: string }) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "inline-flex items-center gap-1 text-sm font-medium text-brand-green hover:underline dark:text-brand-green-bright",
+        className,
+      )}
+    >
+      <NAV_ICON.chevronRight className="h-4 w-4 rotate-180" strokeWidth={2} aria-hidden />
+      {label}
+    </Link>
   );
 }
