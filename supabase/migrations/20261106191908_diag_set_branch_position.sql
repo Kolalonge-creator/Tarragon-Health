@@ -17,7 +17,7 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
-declare b public.diagnostic_branch_listings%rowtype;
+declare b public.diagnostic_branch_listings%rowtype; v_contracted boolean; v_old_lat double precision; v_old_lng double precision;
 begin
   perform private.diagnostic_require_verifier();
   if char_length(btrim(coalesce(p_source, ''))) < 5 or char_length(btrim(coalesce(p_note, ''))) < 10 then
@@ -30,17 +30,31 @@ begin
   select * into b from public.diagnostic_branch_listings where id = p_branch_listing_id for update;
   if b.id is null then raise exception 'unknown branch listing' using errcode = '23503'; end if;
   if b.lab_location_id is not null then
+    select p.is_active, l.latitude, l.longitude into v_contracted, v_old_lat, v_old_lng
+      from public.lab_provider_locations l join public.lab_providers p on p.id = l.lab_provider_id where l.id = b.lab_location_id;
+  else
+    select p.is_active, l.latitude, l.longitude into v_contracted, v_old_lat, v_old_lng
+      from public.imaging_provider_locations l join public.imaging_providers p on p.id = l.imaging_provider_id where l.id = b.imaging_location_id;
+  end if;
+  if v_contracted is null then raise exception 'this branch has no location record' using errcode = '23503'; end if;
+  -- A contracted provider's location also feeds the booking picker (list_lab_test_locations); only an admin moves it.
+  if v_contracted then perform private.diagnostic_require_admin(); end if;
+  if b.lab_location_id is not null then
     update public.lab_provider_locations set latitude = p_latitude, longitude = p_longitude where id = b.lab_location_id;
   else
     update public.imaging_provider_locations set latitude = p_latitude, longitude = p_longitude where id = b.imaging_location_id;
   end if;
+  if not found then raise exception 'the branch location was not updated' using errcode = '23503'; end if;
   update public.diagnostic_branch_listings
      set location_verified_at = now(), location_verified_by = auth.uid(), location_source = p_source,
          hours_verified_at = case when p_hours_checked then now() else hours_verified_at end,
          hours_verified_by = case when p_hours_checked then auth.uid() else hours_verified_by end,
          updated_at = now()
    where id = p_branch_listing_id;
-  perform private.diagnostic_log('diagnostic_branch_listings', p_branch_listing_id, 'position_set', null,
+  -- A re-check that keeps the same point is a location check, not a move.
+  perform private.diagnostic_log('diagnostic_branch_listings', p_branch_listing_id,
+    case when v_old_lat is distinct from p_latitude or v_old_lng is distinct from p_longitude then 'position_set' else 'location_verified' end,
+    case when v_old_lat is null then null else round(v_old_lat::numeric, 6)::text || ',' || round(v_old_lng::numeric, 6)::text end,
     round(p_latitude::numeric, 6)::text || ',' || round(p_longitude::numeric, 6)::text, p_source || ': ' || p_note);
 end;
 $$;

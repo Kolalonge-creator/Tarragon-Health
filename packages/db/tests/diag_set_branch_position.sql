@@ -132,6 +132,17 @@ begin
   insert into results values ('D3 ...and the stored position is unchanged', v_lat = 6.601234, v_lat::text);
 end $$;
 
+-- G: a contracted provider's location is moved only by an admin; H: re-checking the same point is not logged as a move
+do $$
+declare v_verifier uuid := (select v from ids where k = 'admin'); v_n int;
+begin
+  perform pg_temp.as_user((select v from ids where k = 'admin'));
+  perform public.admin_dx_set_branch_position((select v from ids where k = 'bl'), 6.601234, 3.351234, 'online map', 'same point checked again');
+  perform pg_temp.as_postgres();
+  select count(*) into v_n from public.diagnostic_directory_events where subject_id = (select v from ids where k = 'bl') and action = 'position_set';
+  insert into results values ('H1 re-checking the same point is not logged as a move', v_n = 1, v_n::text);
+end $$;
+
 -- E, F
 do $$
 declare v_lat double precision; v_at timestamptz;
