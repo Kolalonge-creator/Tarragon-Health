@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { buildAdminSearchIndex, CMO_EXTRA_PAGES, searchAdminEntries, type AdminSearchEntry } from "./admin-search";
-import { getNavSections, type NavSection } from "./navigation";
+import { clinicianSearchSections, getNavSections, type NavSection } from "./navigation";
 import { getVisibleAdminSettingsTabs } from "./admin-settings-nav";
 
 const sections: NavSection[] = [
@@ -147,7 +147,7 @@ describe("the Chief Medical Officer index for testing-day results", () => {
 
 describe("the Chief Medical Officer index for record changes (S05b-e)", () => {
   it("finds the record changes queue by the words a person would type", () => {
-    const cmo = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+    const cmo = buildAdminSearchIndex(clinicianSearchSections(), [], CMO_EXTRA_PAGES);
     for (const query of ["record changes", "allergy request", "entered by mistake", "void"]) {
       expect(searchAdminEntries(cmo, query).map((e) => e.href)).toContain("/clinician/record-changes");
     }
@@ -198,7 +198,7 @@ describe("searchAdminEntries", () => {
 });
 
 describe("task types are searchable (S16)", () => {
-  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const cmoIndex = buildAdminSearchIndex(clinicianSearchSections(), [], CMO_EXTRA_PAGES);
   const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
 
   it("finds the task types page by the code, its words or its name, for the admin and for the CMO", () => {
@@ -210,7 +210,7 @@ describe("task types are searchable (S16)", () => {
 });
 
 describe("titration protocols are searchable (S24b)", () => {
-  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const cmoIndex = buildAdminSearchIndex(clinicianSearchSections(), [], CMO_EXTRA_PAGES);
   it("finds the page by its words", () => {
     for (const q of ["titration", "step table", "approve protocol", "hypertension", "blood pressure protocol", "protocol"]) {
       expect(searchAdminEntries(cmoIndex, q, 10).map((e) => e.href)).toContain("/clinician/titration-protocols");
@@ -220,7 +220,7 @@ describe("titration protocols are searchable (S24b)", () => {
 
 describe("the rota and lead clinicians are searchable (S18)", () => {
   const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
-  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const cmoIndex = buildAdminSearchIndex(clinicianSearchSections(), [], CMO_EXTRA_PAGES);
   const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
 
   it("finds the rota page by its words, for the admin and for the CMO", () => {
@@ -240,7 +240,7 @@ describe("the rota and lead clinicians are searchable (S18)", () => {
 
 describe("the go-live guards are searchable (S37)", () => {
   const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
-  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const cmoIndex = buildAdminSearchIndex(clinicianSearchSections(), [], CMO_EXTRA_PAGES);
   const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
 
   it("finds the guards page by its words, for the admin and for the CMO", () => {
@@ -273,7 +273,7 @@ describe("the partner webhook admin screen (S10y)", () => {
 
 describe("the symptom checker safety pages are searchable (S60)", () => {
   const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
-  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const cmoIndex = buildAdminSearchIndex(clinicianSearchSections(), [], CMO_EXTRA_PAGES);
   const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
 
   it("finds the safety page by its words, for the admin and for the CMO", () => {
@@ -290,7 +290,7 @@ describe("the symptom checker safety pages are searchable (S60)", () => {
 });
 
 describe("the real Chief Medical Officer menu", () => {
-  const real = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const real = buildAdminSearchIndex(clinicianSearchSections(), [], CMO_EXTRA_PAGES);
 
   it("finds the Memberships page for the admin by name", () => {
     const adminReal = buildAdminSearchIndex(getNavSections("admin", null), []);
@@ -336,7 +336,7 @@ describe("Learning creator credentials page for clinicians (S55)", () => {
 
 describe("the engagement and outcomes dashboard is searchable", () => {
   const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
-  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const cmoIndex = buildAdminSearchIndex(clinicianSearchSections(), [], CMO_EXTRA_PAGES);
   const hit = (idx: AdminSearchEntry[], q: string) => searchAdminEntries(idx, q, 8).map((e) => e.href);
 
   it("is found by the words someone would type, for the admin and for the CMO", () => {
@@ -353,7 +353,7 @@ describe("the engagement and outcomes dashboard is searchable", () => {
 
 describe("the founder view is searchable by the admin and never by the CMO", () => {
   const adminIndex = buildAdminSearchIndex(getNavSections("admin", null), []);
-  const cmoIndex = buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES);
+  const cmoIndex = buildAdminSearchIndex(clinicianSearchSections(), [], CMO_EXTRA_PAGES);
   it("is found by the words someone would type", () => {
     for (const q of ["founder view", "unfrozen", "held back figures", "small groups"]) {
       expect(searchAdminEntries(adminIndex, q, 8).map((e) => e.href)).toContain("/admin/outcomes/engagement/founder");

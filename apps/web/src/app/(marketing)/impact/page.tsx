@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Section, SectionHeading } from "../_components/section";
 import { CtaBand } from "../_components/cta-band";
-import { loadImpactMetrics } from "@/lib/marketing/impact-data";
+import { impactPageIndexable, loadImpactMetrics } from "@/lib/marketing/impact-data";
 import { pageMetadata } from "@/lib/marketing/site";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
@@ -15,7 +15,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
  */
 export async function generateMetadata(): Promise<Metadata> {
   const metrics = await loadImpactMetrics();
-  const anyVisible = metrics.some((m) => !m.suppressed && m.value !== null && m.value > 0);
+  const anyVisible = impactPageIndexable(metrics);
   return {
     ...pageMetadata({
       title: "Our impact",
@@ -42,7 +42,7 @@ function formatValue(value: number | null, suppressed: boolean): string {
 
 export default async function ImpactPage() {
   const metrics = await loadImpactMetrics();
-  const anyVisible = metrics.some((m) => !m.suppressed && m.value !== null && m.value > 0);
+  const anyVisible = impactPageIndexable(metrics);
   const computedAt = metrics.find((m) => m.computedAt)?.computedAt ?? null;
 
   return (
