@@ -12,6 +12,7 @@ import {
 } from "@/lib/my-health";
 import { ImmunisationSummary, OutsideRecordsSection } from "./my-health-records";
 import type { SectionId } from "@/lib/sections";
+import { useT } from "@/lib/ui-language";
 import { spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, ScreenTitle, SecondaryButton } from "@/ui/legacy-kit";
@@ -29,8 +30,17 @@ interface MyHealthScreenProps {
   onNavigate: (section: SectionId) => void;
 }
 
+/** The everyday record screens, by their drawer labels (lib/sections.ts), so the words match the menu. */
+const MY_HEALTH_EVERYDAY = [
+  { id: "healthSummary", label: "Health summary" },
+  { id: "vitals", label: "Vitals & symptoms" },
+  { id: "medications", label: "Medications" },
+  { id: "labs", label: "Labs & results" },
+] as const satisfies readonly { id: SectionId; label: string }[];
+
 export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenProps) {
   const colors = useLegacyColors();
+  const tr = useT();
   const [entries, setEntries] = useState<AccessLogEntry[]>([]);
   const [logLoading, setLogLoading] = useState(true);
   const [logError, setLogError] = useState(false);
@@ -98,6 +108,14 @@ export function MyHealthScreen({ userId, acting, onNavigate }: MyHealthScreenPro
         <ScreenTitle>{t("my_health.title")}</ScreenTitle>
         <MutedText>{t("my_health.description")}</MutedText>
       </View>
+
+      {/* My Health is a bottom tab now (PD-01), so the everyday record screens that left the tab bar are one tap from here, as on web
+          (apps/web/.../my-health/related-links.ts). */}
+      <GroupedList>
+        {MY_HEALTH_EVERYDAY.map((row) => (
+          <GroupedListRow key={row.id} title={tr(row.label)} trailing="chevron" onPress={() => onNavigate(row.id)} />
+        ))}
+      </GroupedList>
 
       <GroupedList>
         <GroupedListRow title={t("my_health.card.timeline")} subtitle={t("my_health.card.timeline_body")} trailing="chevron" onPress={() => onNavigate("timeline")} />
