@@ -27,3 +27,13 @@ it("gives every dose day a sentence for screen readers", () => {
   expect(screen.getByText("Wed 4 Nov: nothing was due")).toBeTruthy();
   expect(screen.getByText("Marked taken")).toBeTruthy();
 });
+
+it("keeps the clinical-severity tint on the icon when given (the BP band)", () => {
+  const { container } = render(<BigNumberTile icon={HeartPulse} label="Blood pressure" value="182/121" unit="mmHg" tintClassName="bg-red-100" />);
+  expect(container.querySelector(".bg-red-100")).not.toBeNull();
+});
+
+it("compact dose bars carry no table, so a tile link is not named by it", () => {
+  const { container } = render(<DoseBars compact days={[{ date: "2026-11-05", due: 1, taken: 1 }]} />);
+  expect(container.querySelector("table")).toBeNull();
+});

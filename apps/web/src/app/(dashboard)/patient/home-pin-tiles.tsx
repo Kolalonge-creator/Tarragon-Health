@@ -94,6 +94,8 @@ async function PinGrid(props: HomePinTilesProps) {
                   label="Blood pressure"
                   {...(stats.latestBp ? { value: `${stats.latestBp.systolic}/${stats.latestBp.diastolic}`, unit: "mmHg" } : { empty: "No reading yet" })}
                   status={bpTileProps.status ? { text: bpTileProps.status.text, className: STATUS_TEXT[bpTileProps.status.tone] } : null}
+                  tintClassName={bpTileProps.tintClassName}
+                  iconClassName={bpTileProps.iconClassName}
                   detail={detailFor(series.bp, nowMs)}
                   points={pointsFor(series.bp)}
                   chartLabel="Top number of your blood pressure, last 30 days"
@@ -129,13 +131,15 @@ async function PinGrid(props: HomePinTilesProps) {
             // dosesTotal counts scheduled slots, so 0 means "nothing is due today", not "none taken".
             const today = stats.dosesTotal === 0 ? "Nothing due today" : `Today: ${stats.dosesTaken} of ${stats.dosesTotal} so far`;
             if (!doses || !doses.ok) {
+              // The week could not be worked out (a failed read, or day-tied doses whose times could not be read): today's count
+              // still loaded, so it leads, and the line under it says the week did not.
               return (
                 <Tile key={pin} pin={pin}>
                   <BigNumberTile
                     icon={icon}
-                    label="Doses, last 7 days"
-                    empty={doses && !doses.ok ? "Couldn't load, tap to open" : "Nothing to show yet"}
-                    detail={today}
+                    label="Doses today"
+                    {...(stats.dosesTotal === 0 ? { empty: "Nothing due today" } : { value: `${stats.dosesTaken} of ${stats.dosesTotal}` })}
+                    detail={doses ? "The last 7 days could not load just now" : null}
                   />
                 </Tile>
               );

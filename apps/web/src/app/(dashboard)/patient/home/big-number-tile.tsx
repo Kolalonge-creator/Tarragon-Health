@@ -20,8 +20,13 @@ export function BigNumberTile({
   chartLabel,
   chart,
   empty,
+  tintClassName,
+  iconClassName,
 }: {
   icon: LucideIcon;
+  /** Clinical-severity icon circle (the BP band), overriding the brand sage. */
+  tintClassName?: string;
+  iconClassName?: string;
   label: string;
   value?: string;
   unit?: string;
@@ -39,8 +44,8 @@ export function BigNumberTile({
   return (
     <div className="flex h-full flex-col gap-2 rounded-xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:p-5 dark:border-night-ink/15 dark:bg-night-card dark:shadow-none">
       <div className="flex items-center gap-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-soft-sage dark:bg-brand-green/20">
-          <Icon className="h-4 w-4 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
+        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", tintClassName ?? "bg-soft-sage dark:bg-brand-green/20")}>
+          <Icon className={cn("h-4 w-4", iconClassName ?? "text-deep-forest dark:text-brand-green-bright")} strokeWidth={2} aria-hidden />
         </span>
         <p className="text-sm font-medium text-charcoal-ink/70 dark:text-night-ink/70">{label}</p>
       </div>

@@ -19,6 +19,25 @@ export function doseDayText(day: DoseDay): string {
 export function DoseBars({ days, compact = false }: { days: readonly DoseDay[]; compact?: boolean }) {
   const maxDue = Math.max(1, ...days.map((d) => d.due));
   const H = compact ? 32 : 96;
+  // Compact bars sit inside a tile's link (Home), where a table would become the link's whole name: there the tile's own
+  // big number and "x of y" already say it, so the bars are decoration only. The full chart keeps its table.
+  if (compact) {
+    return (
+      <div aria-hidden className="flex items-end gap-[2px]" style={{ height: H }}>
+        {days.map((day) => {
+          const total = day.due === 0 ? 3 : Math.max(6, (day.due / maxDue) * H);
+          const takenH = day.due === 0 ? 0 : (day.taken / day.due) * total;
+          return (
+            <div key={day.date} className="flex flex-1 flex-col justify-end" style={{ height: H }}>
+              <div className="flex flex-col justify-end overflow-hidden rounded-t-[4px] bg-charcoal-ink/10 dark:bg-night-ink/15" style={{ height: total }}>
+                {day.due > 0 && <div className="bg-brand-green dark:bg-brand-green-bright" style={{ height: takenH }} />}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
   return (
     <div>
       <div aria-hidden className="flex items-end gap-[2px]" style={{ height: H }}>
