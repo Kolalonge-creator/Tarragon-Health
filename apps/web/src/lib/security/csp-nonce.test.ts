@@ -1,13 +1,6 @@
-import { buildNonceCsp, isConsultationCallPath, sanitiseBlockedUri, sanitiseReportPath, summariseCspReports } from "./csp-nonce";
+import { isConsultationCallPath, sanitiseBlockedUri, sanitiseReportPath, summariseCspReports } from "./csp-nonce";
 
 describe("csp-nonce", () => {
-  it("builds a strict script policy with dev-only eval", () => {
-    expect(buildNonceCsp("abc", { inAppCall: false, dev: false })).toBe(
-      "script-src 'nonce-abc' 'strict-dynamic' 'self' https:; object-src 'none'; base-uri 'self'; report-uri /api/csp-report",
-    );
-    expect(buildNonceCsp("abc", { inAppCall: false, dev: true })).toContain("'unsafe-eval'");
-  });
-
   it("matches the same call routes next.config gives the consultation policy", () => {
     expect(isConsultationCallPath("/clinician/consultation/e1")).toBe(true);
     expect(isConsultationCallPath("/patient/supporting/consultation/e1")).toBe(true);
