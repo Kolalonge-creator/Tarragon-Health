@@ -7,7 +7,7 @@
 import { render, screen } from "@testing-library/react";
 
 const getActingFor = jest.fn();
-jest.mock("@/lib/acting/acting-for", () => ({ getActingFor: () => getActingFor() }));
+jest.mock("@/app/(dashboard)/patient/dashboard-context", () => ({ getActingFor: () => getActingFor() }));
 jest.mock("@/app/(dashboard)/patient/supporting/actions", () => ({ closeTheirAccount: jest.fn() }));
 
 import PatientLayout from "./layout";

@@ -6,7 +6,8 @@ describe("normaliseTrackedPath", () => {
     expect(normaliseTrackedPath("/")).toBe("/");
     expect(normaliseTrackedPath("/pricing")).toBe("/pricing");
     expect(normaliseTrackedPath("/patient/vitals")).toBe("/patient/vitals");
-    expect(normaliseTrackedPath("/patient/learn/bp-basics")).toBe("/patient/learn/bp-basics");
+    expect(normaliseTrackedPath("/patient/learn")).toBe("/patient/learn");
+    expect(normaliseTrackedPath("/patient/community")).toBe("/patient/community");
   });
 
   it("replaces record identifiers with :id", () => {
@@ -14,7 +15,7 @@ describe("normaliseTrackedPath", () => {
     expect(normaliseTrackedPath("/clinician/patients/0F8FAD5B-D9CB-469F-A165-70867728950E/records/12345")).toBe(
       "/clinician/patients/:id/records/:id",
     );
-    expect(normaliseTrackedPath("/patient/supporting/join/a1b2c3d4e5f6g7h8i9j0k1l2")).toBe("/patient/supporting/join/:id");
+    expect(normaliseTrackedPath("/circle/join/Ab3dE_fG7hIjK-lMn0pQrStUvWxYz1234567890AbC=")).toBe("/circle/join/:id");
   });
 
   it("buckets sensitive patient topics, including their sub-pages", () => {
@@ -38,5 +39,17 @@ describe("normaliseTrackedPath", () => {
 
   it("does not bucket a public marketing page that shares a word", () => {
     expect(normaliseTrackedPath("/conditions/pregnancy")).toBe("/conditions/pregnancy");
+  });
+});
+
+describe("topics named in a sub-path", () => {
+  it("replaces the article, course or group name, keeping the section", () => {
+    expect(normaliseTrackedPath("/patient/learn/hiv-prep-basics")).toBe("/patient/learn/:topic");
+    expect(normaliseTrackedPath("/patient/learn/course")).toBe("/patient/learn/:topic");
+    expect(normaliseTrackedPath("/patient/community/diabetes/search")).toBe("/patient/community/:topic/search");
+  });
+
+  it("leaves a readable lowercase slug with digits alone outside topic sections", () => {
+    expect(normaliseTrackedPath("/conditions/type-2-diabetes-and-kidney-health")).toBe("/conditions/type-2-diabetes-and-kidney-health");
   });
 });

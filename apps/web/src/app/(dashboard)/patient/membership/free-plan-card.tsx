@@ -6,7 +6,7 @@ import { FREE_PLAN } from "@/lib/marketing/free-plan";
  * includes). Same wording as the public pricing page. Shown only to someone deciding for themselves, never to a Member or while
  * buying for another person.
  */
-export function FreePlanCard({ current }: { current: boolean }) {
+export function FreePlanCard() {
   return (
     <Card data-testid="free-plan-card">
       <CardHeader>
@@ -20,11 +20,9 @@ export function FreePlanCard({ current }: { current: boolean }) {
             <li key={line}>{line}</li>
           ))}
         </ul>
-        {current ? (
-          <p role="status" className="text-sm font-medium text-deep-forest dark:text-brand-green-bright">
-            This is your plan now.
-          </p>
-        ) : null}
+        <p role="status" className="text-sm font-medium text-deep-forest dark:text-brand-green-bright">
+          This is your plan now.
+        </p>
       </CardContent>
     </Card>
   );

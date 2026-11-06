@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 
 import { ActingForBanner } from "@/app/(dashboard)/patient/acting-for-banner";
-import { getActingFor } from "@/lib/acting/acting-for";
+// The request-cached copy, shared with getPatientDashboardContext, so "whose account is this" is resolved once per request.
+import { getActingFor } from "@/app/(dashboard)/patient/dashboard-context";
 
 /**
  * Every /patient page, not only the section pages, says whose account is open

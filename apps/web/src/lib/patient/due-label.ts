@@ -15,8 +15,11 @@ import { lagosLocalDate } from "@tarragon/medicines";
 const DAY_MS = 86_400_000;
 
 /** A due date as a Lagos calendar date: a bare `YYYY-MM-DD` is already one; a timestamp is converted. */
-function toLagosDate(dateStr: string): string {
-  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : lagosLocalDate(Date.parse(dateStr));
+function toLagosDate(dateStr: string): string | null {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  const ms = Date.parse(dateStr);
+  // An unreadable date must not throw (lagosLocalDate(NaN) would) and take the page down with it; it reads as NaN days, as before.
+  return Number.isNaN(ms) ? null : lagosLocalDate(ms);
 }
 
 /**
@@ -29,6 +32,7 @@ function toLagosDate(dateStr: string): string {
 export function daysUntil(dateStr: string, now: Date = new Date()): number {
   const today = lagosLocalDate(now.getTime());
   const target = toLagosDate(dateStr);
+  if (target === null) return Number.NaN;
   return Math.round((Date.parse(`${target}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
 }
 

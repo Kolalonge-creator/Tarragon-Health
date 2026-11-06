@@ -45,3 +45,9 @@ describe("daysUntil uses the Lagos calendar (regression)", () => {
     expect(daysUntil("2026-11-10T23:30:00Z", now)).toBe(1);
   });
 });
+
+describe("daysUntil with an unreadable date", () => {
+  it("returns NaN instead of throwing", () => {
+    expect(Number.isNaN(daysUntil("not a date", new Date("2026-11-10T12:00:00Z")))).toBe(true);
+  });
+});

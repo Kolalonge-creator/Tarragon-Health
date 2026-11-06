@@ -254,8 +254,10 @@ export function VideoVisitWaitingRoom({
 
   const isCancelled = consult.status === "cancelled";
   const isPast = consult.status !== "scheduled";
+  // No time on the visit yet: the window cannot be judged, so the link behaves as before (shown once it exists) rather than
+  // leaving the patient with neither a button nor a reason.
   const joinState =
-    consult.scheduled_at && now ? joinWindowState(consult.scheduled_at, now) : null;
+    now === null ? null : consult.scheduled_at ? joinWindowState(consult.scheduled_at, now) : "open";
 
   return (
     <div className="space-y-4">

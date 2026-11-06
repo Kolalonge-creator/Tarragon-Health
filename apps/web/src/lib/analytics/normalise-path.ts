@@ -34,8 +34,17 @@ const SENSITIVE_PATIENT_SEGMENTS = new Set([
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LONG_NUMBER = /^\d{4,}$/;
-/** Opaque tokens (invite links, verification codes): long, mixed letters and digits. */
-const OPAQUE_TOKEN = /^(?=.*\d)(?=.*[a-z])[a-z0-9_-]{20,}$/i;
+/**
+ * Opaque tokens (invite links are 44-character base64): long, upper AND lower case letters plus a digit. Readable slugs are
+ * lowercase, so "type-2-diabetes-and-kidney-health" is left alone.
+ */
+const OPAQUE_TOKEN = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])[A-Za-z0-9_=-]{20,}$/;
+
+/**
+ * Patient sections whose next segment names a topic (an article or course code, a community group): the section is kept, the
+ * topic is replaced, so "/patient/learn/hiv-prep-basics" is stored as "/patient/learn/:topic".
+ */
+const TOPIC_PARENTS = new Set(["learn", "community", "cohorts", "programmes", "pathway", "lab-tests"]);
 
 export function normaliseTrackedPath(raw: string): string {
   const withoutQuery = raw.split(/[?#]/, 1)[0] ?? "";
@@ -45,7 +54,10 @@ export function normaliseTrackedPath(raw: string): string {
     return PRIVATE_BUCKET;
   }
 
-  const cleaned = segments.map((segment) => {
+  const cleaned = segments.map((segment, index) => {
+    if (segments[0] === "patient" && index === 2 && segments[1] !== undefined && TOPIC_PARENTS.has(segments[1])) {
+      return ":topic";
+    }
     let decoded = segment;
     try {
       decoded = decodeURIComponent(segment);

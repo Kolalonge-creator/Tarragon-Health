@@ -25,10 +25,10 @@ jest.mock("@/lib/queries/appointments", () => ({
 }));
 
 const NOW = new Date("2026-11-10T10:00:00Z");
-const appt = (minutesFromNow: number) => ({
+const appt = (minutesFromNow: number, status = "confirmed") => ({
   id: "appt-1",
   appointment_type: "telemedicine",
-  status: "confirmed",
+  status,
   scheduled_for: new Date(NOW.getTime() + minutesFromNow * 60_000).toISOString(),
   consultation_method: "telemedicine",
   location: null,
@@ -60,5 +60,11 @@ describe("MyAppointmentsList join window", () => {
     render(<MyAppointmentsList patientId="patient-1" />);
     expect(screen.queryByText("Join call")).toBeNull();
     expect(screen.queryByText(/You can join from/)).toBeNull();
+  });
+
+  it("keeps Join call for a visit already under way after the closing minute", () => {
+    appointments = [appt(-90, "in_progress")];
+    render(<MyAppointmentsList patientId="patient-1" />);
+    expect(screen.getByText("Join call")).toBeTruthy();
   });
 });

@@ -31,6 +31,13 @@ import type { Locale } from "@tarragon/i18n";
 
 import { formatPatientDateTime } from "@/lib/format-date";
 const JOINABLE_STATUSES = ["booked", "confirmed", "checked_in", "in_progress"];
+/** A visit already under way stays joinable past the usual closing minute, so a dropped patient can always get back in. */
+const UNDER_WAY_STATUSES = ["checked_in", "in_progress"];
+
+function canJoinNow(status: string, scheduledFor: string, now: Date): boolean {
+  const state = joinWindowState(scheduledFor, now);
+  return state === "open" || (state === "closed" && UNDER_WAY_STATUSES.includes(status));
+}
 
 function formatSlot(iso: string): string {
   return formatPatientDateTime(iso, {
@@ -183,7 +190,7 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
                     {appt.consultation_method === "telemedicine" &&
                       JOINABLE_STATUSES.includes(appt.status) &&
                       now !== null &&
-                      joinWindowState(appt.scheduled_for, now) === "open" && (
+                      canJoinNow(appt.status, appt.scheduled_for, now) && (
                         <Button size="sm" disabled={ensureVideo.isPending} onClick={() => handleJoinCall(appt.id)}>
                           {ensureVideo.isPending ? "Opening…" : "Join call"}
                         </Button>

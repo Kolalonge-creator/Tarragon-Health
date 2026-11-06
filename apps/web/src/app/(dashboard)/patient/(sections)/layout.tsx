@@ -81,9 +81,8 @@ export default async function PatientSectionsLayout({
       <ProxyConfirmationCard setups={pendingProxySetups ?? []} locale={locale} />
       {!acting && handoverState?.pending === true && <HandoverCard guardians={handoverState.guardians ?? []} />}
 
-      {/* Whose account this is must never be in doubt. It sits above the
-          safety surfaces because mistaking one person's record for another is
-          itself the safety problem. */}
+      {/* The "you are in X's account" banner is rendered by patient/layout.tsx so every /patient page shows it, above
+          everything here including the safety surfaces. */}
       {acting && (ageFromDateOfBirth(subjectDateOfBirth) ?? 99) < 18 ? (
         <p role="note" className="rounded-xl bg-brand-green/5 px-4 py-3 text-sm text-charcoal-ink/80">
           A child&apos;s record is for vaccinations, growth checks and screening reminders only. Appointments,

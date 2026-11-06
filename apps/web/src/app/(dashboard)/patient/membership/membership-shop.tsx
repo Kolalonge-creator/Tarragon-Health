@@ -450,7 +450,7 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
         </div>
       ) : null}
       <div className={multiTier || showFree ? "grid gap-6 md:grid-cols-2" : "space-y-6"} data-testid="shop-cards">
-        {showFree ? <FreePlanCard current /> : null}
+        {showFree ? <FreePlanCard /> : null}
         {visible.filter((item) => !chosenId || item.kind === "membership").map((item) => (
           <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} ladder={multiTier} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} notIncluded={notIncluded[item.code] ?? []} showMonthly={showMonthly} />
         ))}
