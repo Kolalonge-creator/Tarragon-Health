@@ -14,7 +14,9 @@ on:
     paths:
       - "apps/web/src/app/(marketing)/**"
       - "apps/web/src/app/globals.css"
-      - "apps/web/src/lib/marketing/**"
+      - "apps/web/src/lib/**"
+      - "apps/web/src/proxy.ts"
+      - "apps/web/src/app/layout.tsx"
       - "apps/web/src/components/**"
       - "apps/web/e2e-a11y/**"
       - "apps/web/playwright.a11y.config.ts"
@@ -85,4 +87,4 @@ jobs:
         working-directory: apps/web
         env:
           CI: true
-        run: pnpm test:a11y
+        run: pnpm test:a11y:site

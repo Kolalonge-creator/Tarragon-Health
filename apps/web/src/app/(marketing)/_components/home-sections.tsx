@@ -265,7 +265,7 @@ export function HomeServices() {
       <div className="mb-10 grid max-w-3xl gap-3">
         <Eyebrow>Services</Eyebrow>
         <Heading id="home-services-title">Everything you need to stay ahead of your health.</Heading>
-        <p className="text-[15px] text-mk-muted sm:hidden">Swipe to see every service.</p>
+        <p aria-hidden className="text-[15px] text-mk-muted sm:hidden">Swipe to see every service.</p>
       </div>
       {/* Website Phase 6: on a phone the cards sit in a swipeable row (scroll-snap, no script, same pattern as the
           app screens above) instead of a single column about 1,800px tall; from sm up they are the grid. Each card
@@ -428,7 +428,7 @@ export function HomeEmployers({ seatPrice }: { seatPrice: string }) {
           </ul>
         </div>
         <div className="grid gap-3 rounded-3xl border border-white/20 bg-white/[0.07] p-7" data-testid="home-employer-seat-line">
-          <p className="text-sm font-semibold uppercase tracking-wider text-[color-mix(in_oklab,var(--color-sprout-gold)_70%,white)]">Employer Membership</p>
+          <p className="text-sm font-semibold uppercase tracking-wider text-sprout-gold-soft">Employer Membership</p>
           <p className="font-heading font-bold text-4xl text-white">
             {seatPrice} <span className="font-sans text-base text-white/80">per person per year</span>
           </p>

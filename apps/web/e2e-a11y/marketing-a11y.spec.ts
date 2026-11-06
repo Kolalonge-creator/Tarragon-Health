@@ -4,8 +4,9 @@ import { MARKETING_ROUTES, MARKETING_ROUTES_BUILT } from "../src/lib/marketing/r
 
 const AXE_SOURCE = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 
-// Every built marketing page, plus the legal pages and an article the route list does not carry.
-const EXTRA_PATHS = ["/privacy", "/terms", "/cookies", "/accessibility", "/telehealth-consent"];
+// Every built marketing page, plus the legal pages and one health-library article (the article template: provenance,
+// references). The article is in the built-in library, so it exists with or without the database.
+const EXTRA_PATHS = ["/privacy", "/terms", "/cookies", "/accessibility", "/telehealth-consent", "/resources/normal-blood-pressure"];
 const PATHS = [...new Set([...MARKETING_ROUTES_BUILT.map((key) => MARKETING_ROUTES[key]), ...EXTRA_PATHS])]
   .map((href) => href.split("#")[0]!)
   .filter((href) => href.startsWith("/"));
@@ -60,7 +61,10 @@ test.describe("motion: control", () => {
   for (const path of VIDEO_PATHS) {
     test(`video shows by default: ${path}`, async ({ page }) => {
       await page.goto(path, { waitUntil: "networkidle" });
-      expect(await visibleVideoCount(page)).toBeGreaterThan(0);
+      expect(
+        await visibleVideoCount(page),
+        `${path} no longer has a hero video. If that was a content change, take it out of VIDEO_PATHS; this is not an accessibility failure.`
+      ).toBeGreaterThan(0);
     });
   }
 });
