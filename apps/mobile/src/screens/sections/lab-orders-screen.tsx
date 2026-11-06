@@ -25,6 +25,7 @@ import { replaceLabResult, testTypeLabel } from "@/lib/labs";
 import { resolveSubjectId } from "@/lib/acting";
 import { supabase } from "@/lib/supabase";
 import { LabOrderTestChecklist } from "@/screens/sections/lab-order-test-checklist";
+import { DiagnosticSearchSection, ImagingRequestsSection, SuggestedPlaceButton } from "@/screens/sections/diagnostic-directory-sections";
 import { radius, spacing } from "@/ui/theme";
 import { useLegacyColors } from "@/ui/design";
 import { OutputKindLabel } from "@/ui/output-kind-label";
@@ -336,6 +337,9 @@ export function LabOrdersScreen() {
   const colors = useLegacyColors();
   const [patientId, setPatientId] = useState<string | null>(null);
   const [organisationId, setOrganisationId] = useState<string | null>(null);
+  // Diagnostic directory Phase 6: the place search starts from the patient's own saved state and LGA, as on web.
+  const [where, setWhere] = useState<{ state: string | null; lga: string | null }>({ state: null, lga: null });
+  const [refreshKey, setRefreshKey] = useState(0);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -380,10 +384,13 @@ export function LabOrdersScreen() {
       setPatientId(subjectId);
       const { data: profile } = await supabase
         .from("profiles")
-        .select("organisation_id")
+        .select("organisation_id, state, lga")
         .eq("id", subjectId)
         .single();
-      if (!cancelled) setOrganisationId(profile?.organisation_id ?? null);
+      if (!cancelled) {
+        setOrganisationId(profile?.organisation_id ?? null);
+        setWhere({ state: profile?.state ?? null, lga: profile?.lga ?? null });
+      }
       await load(subjectId);
       if (!cancelled) setLoading(false);
     }
@@ -396,6 +403,7 @@ export function LabOrdersScreen() {
   const onRefresh = useCallback(() => {
     if (!patientId) return;
     setRefreshing(true);
+    setRefreshKey((k) => k + 1);
     load(patientId).finally(() => setRefreshing(false));
   }, [load, patientId]);
 
@@ -470,6 +478,7 @@ export function LabOrdersScreen() {
                   {awaiting ? (
                     <>
                       <PrintRequestButton orderId={order.id} />
+                      <SuggestedPlaceButton kind="lab" orderId={order.id} />
                       {order.testCodes.length > 1 ? (
                         <LabOrderTestChecklist labOrderId={order.id} testCodes={order.testCodes} />
                       ) : (
@@ -487,6 +496,10 @@ export function LabOrdersScreen() {
           </View>
         )}
       </View>
+
+      <ImagingRequestsSection patientId={patientId} refreshKey={refreshKey} />
+
+      <DiagnosticSearchSection defaultState={where.state} defaultLga={where.lga} />
 
       {/* Result documents */}
       <Disclosure title="Result documents" hint="Photos and files of results you uploaded">

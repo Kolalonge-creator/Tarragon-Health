@@ -18,10 +18,11 @@ interface CapturedPhoto {
  * Native camera-capture lab result upload, the one native win §2.5 of
  * MOBILE_APP_SPEC.md calls out over a web file picker. "Orders & results"
  * opens a genuine native screen (LabOrdersScreen) backed by real Supabase
- * queries. Self-book and facility selection are still out of scope for that
- * screen: both were suspended platform-wide by the 2026-08-03
- * self-arranged-fulfilment decision (no partner labs, no facility
- * directory), so it must not promise either.
+ * queries. Booking a partner-lab visit is still out of scope for that screen.
+ * Corrected 2026-11-06: the verified lab and imaging directory now exists
+ * (diagnostic directory Phases 5 and 6), and that screen carries its search,
+ * branch details and the place a doctor suggested for a request. Finding a
+ * place is advice only: nothing is booked or paid through it.
  */
 export function LabsScreen() {
   const { colors } = useTheme();
