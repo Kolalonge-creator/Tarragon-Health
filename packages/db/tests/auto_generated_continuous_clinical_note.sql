@@ -79,7 +79,7 @@ begin
   values (v_org, v_pat, 'open', v_doc, 'Continuous Note Test: escalation fixture')
   returning id into v_escalation;
 
-  update public.escalations set status = 'resolved', identity_confirmed = true where id = v_escalation;
+  update public.escalations set status = 'resolved', resolution_note = 'Proof resolution note (G11)', identity_confirmed = true where id = v_escalation;
 
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
@@ -99,7 +99,7 @@ begin
   perform set_config('role', 'authenticated', true);
 
   update public.escalations set status = 'under_review' where id = v_escalation;
-  update public.escalations set status = 'resolved', identity_confirmed = true where id = v_escalation;
+  update public.escalations set status = 'resolved', resolution_note = 'Proof resolution note (G11)', identity_confirmed = true where id = v_escalation;
 
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);

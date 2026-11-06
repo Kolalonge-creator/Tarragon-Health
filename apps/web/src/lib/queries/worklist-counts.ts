@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { excludeTestPatients, fetchTestPatientIds } from "@/lib/queries/real-patients";
+import { ACTIVE_ESCALATION_STATUSES } from "@tarragon/shared";
 
 type Client = SupabaseClient<Database>;
 
@@ -29,7 +30,7 @@ async function countOpenEscalations(supabase: Client, testPatientIds: readonly s
     supabase
       .from("escalations")
       .select("id", { count: "exact", head: true })
-      .in("status", ["open", "under_review"]),
+      .in("status", [...ACTIVE_ESCALATION_STATUSES]),
     testPatientIds
   );
   if (error) throw error;

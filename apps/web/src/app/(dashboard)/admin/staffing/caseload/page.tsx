@@ -20,6 +20,7 @@ import {
   type StaffLoadInput,
   type UtilisationInput,
 } from "@/lib/staffing/caseload";
+import { IN_PROGRESS_ESCALATION_STATUSES } from "@tarragon/shared";
 
 export const metadata = { title: "Doctor caseload" };
 
@@ -81,7 +82,7 @@ export default async function DoctorCaseloadPage() {
       .from("escalations")
       .select("assigned_doctor_id")
       .eq("organisation_id", orgId)
-      .eq("status", "under_review"),
+      .in("status", [...IN_PROGRESS_ESCALATION_STATUSES]),
     supabase
       .from("care_outreach_tasks")
       .select("assigned_to")

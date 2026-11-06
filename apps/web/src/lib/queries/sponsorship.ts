@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { CareAccessCategory } from "@/lib/queries/care-access";
+import { ACTIVE_ESCALATION_STATUSES } from "@tarragon/shared";
 
 export type SupportedPersonVoucher = {
   id: string;
@@ -323,7 +324,7 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
           .from("escalations")
           .select("id")
           .eq("patient_id", profileId)
-          .in("status", ["open", "under_review"]),
+          .in("status", [...ACTIVE_ESCALATION_STATUSES]),
         supabase
           .from("appointments")
           .select("id, scheduled_for, appointment_type")

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buildCaseloadReport, countBy, type StaffLoadInput } from "@/lib/staffing/caseload";
+import { IN_PROGRESS_ESCALATION_STATUSES } from "@tarragon/shared";
 
 /**
  * The Chief Medical Officer / Clinical Director's own view of the same
@@ -48,7 +49,7 @@ export default async function TeamCaseloadPage() {
         .from("escalations")
         .select("assigned_doctor_id")
         .eq("organisation_id", orgId)
-        .eq("status", "under_review"),
+        .in("status", [...IN_PROGRESS_ESCALATION_STATUSES]),
       supabase
         .from("care_outreach_tasks")
         .select("assigned_to")

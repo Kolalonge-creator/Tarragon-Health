@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
+import { ESCALATION_NOTE_MIN_LENGTH } from "@tarragon/shared";
 
 export function ResolveForm({
   escalationId,
@@ -49,7 +50,7 @@ export function ResolveForm({
           <Label htmlFor="resolution-note">Resolution note</Label>
           <Input
             id="resolution-note"
-            placeholder="Summary of the outcome"
+            placeholder={`Summary of the outcome (at least ${ESCALATION_NOTE_MIN_LENGTH} characters)`}
             value={resolutionNote}
             onChange={(e) => setResolutionNote(e.target.value)}
           />
@@ -70,7 +71,7 @@ export function ResolveForm({
         <Button
           disabled={
             resolve.isPending ||
-            resolutionNote.trim().length === 0 ||
+            resolutionNote.trim().length < ESCALATION_NOTE_MIN_LENGTH ||
             (status === "resolved" && !identityConfirmed)
           }
           onClick={() => {
