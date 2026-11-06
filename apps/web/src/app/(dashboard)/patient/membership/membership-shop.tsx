@@ -19,6 +19,7 @@ import { useRefundPolicy } from "@/lib/queries/order-refunds";
 import { RefundRequestDialog } from "./refund-request-dialog";
 import { RefundRule } from "./refund-rule";
 import { PlusStateSetup } from "./plus-state-setup";
+import { FreePlanCard } from "./free-plan-card";
 import { MonthlyEquivalent, NotIncludedList, PriceChangeCard } from "./price-transparency";
 
 const MUTED = "text-charcoal-ink/70 dark:text-night-ink/70";
@@ -394,6 +395,10 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
   const multiTier = arranged.tierCards.length > 1;
   const visible = [...arranged.tierCards, ...(arranged.upgrade ? [arranged.upgrade] : []), ...arranged.others].filter((item) => !chosenId || item.kind === "membership");
   const memberDate = memberUntil ? formatPatientDate(memberUntil) : "";
+  // Free beside Membership (spec 15.1) for someone choosing for themselves: never to a Member, never while buying for another
+  // person, and not until the membership read has answered (so a Member never sees it flash).
+  const showFree =
+    !chosenId && !beneficiary && !memberUntil && membership.isSuccess && !membership.data?.is_member && visible.some((i) => i.kind === "membership");
 
   return (
     <div className="space-y-6">
@@ -444,7 +449,8 @@ export function MembershipShop({ locale, fee, go = goTo, beneficiary, notInclude
           <JoinWaitlist feature="membership" />
         </div>
       ) : null}
-      <div className={multiTier ? "grid gap-6 md:grid-cols-2" : "space-y-6"} data-testid="shop-cards">
+      <div className={multiTier || showFree ? "grid gap-6 md:grid-cols-2" : "space-y-6"} data-testid="shop-cards">
+        {showFree ? <FreePlanCard /> : null}
         {visible.filter((item) => !chosenId || item.kind === "membership").map((item) => (
           <ItemCard key={item.code} item={item} locale={locale} fee={fee} memberUntil={memberUntil} go={go} beneficiary={chosenId} ladder={multiTier} beneficiaryName={beneficiary?.name ?? profiles.find((p) => p.id === chosenId)?.full_name ?? undefined} notIncluded={notIncluded[item.code] ?? []} showMonthly={showMonthly} />
         ))}

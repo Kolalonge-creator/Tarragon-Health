@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normaliseTrackedPath } from "@/lib/analytics/normalise-path";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -82,7 +83,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   const user = await getCurrentUser().catch(() => null);
 
   const row: TablesInsert<"web_events"> = {
-    path: body.path,
+    // Never a record id or a sensitive topic against a person (see normalise-path.ts).
+    path: normaliseTrackedPath(body.path),
     referrer_host: referrerHost(body.referrer),
     utm_source: body.utm_source ?? null,
     utm_medium: body.utm_medium ?? null,

@@ -37,6 +37,9 @@ export async function createMeeting(params: {
       settings: {
         join_before_host: false,
         waiting_room: true,
+        // Doctor workspace spec 16.1: consultations are never recorded by default. Set explicitly so an account-level
+        // "record automatically" setting cannot switch it on (matches the Edge path, _shared/integrations/video-zoom.ts).
+        auto_recording: "none",
       },
     },
   });

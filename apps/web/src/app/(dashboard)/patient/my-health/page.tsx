@@ -7,7 +7,9 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAccessLog } from "@/lib/my-health/access-log";
 import { getAccessLogPageSize } from "@/lib/my-health/share-config";
 import { t } from "@tarragon/i18n";
+import { HubLinks } from "@/components/ui/hub-links";
 import { AccessLogList } from "./access-log-list";
+import { MY_HEALTH_RELATED_LINKS } from "./related-links";
 
 const CARDS = [
   { href: "/patient/timeline", title: "my_health.card.timeline", body: "my_health.card.timeline_body" },
@@ -38,6 +40,8 @@ export default async function MyHealthPage() {
         icon={NAV_ICON.passport}
         description={t("my_health.description")}
       />
+
+      <HubLinks label="More of your health record" links={MY_HEALTH_RELATED_LINKS} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         {CARDS.map((c) => (

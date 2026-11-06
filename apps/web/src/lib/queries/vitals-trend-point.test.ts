@@ -21,6 +21,7 @@ const row = {
   pulse_bpm: null,
   assisted_entry: false,
   assisted_rate_exceeded: false,
+  source: "manual" as const,
 };
 
 describe("toTrendPoint", () => {
@@ -35,6 +36,6 @@ describe("toTrendPoint", () => {
     expect(toTrendPoint({ ...row, entry_origin: null, assisted_entry: true, assisted_rate_exceeded: true })).toMatchObject({ assisted: true, assistedOverLimit: true });
   });
   it("keeps what the chart plots", () => {
-    expect(toTrendPoint({ ...row, entry_origin: null })).toMatchObject({ taken_at: row.taken_at, systolic: 132, diastolic: 84 });
+    expect(toTrendPoint({ ...row, entry_origin: null })).toMatchObject({ taken_at: row.taken_at, systolic: 132, diastolic: 84, source: "manual" });
   });
 });

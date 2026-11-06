@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { AppIconName } from "@/lib/icons";
+import { addDays, lagosLocalDate } from "@tarragon/medicines";
 import { isDueNow, isOverdue, SCREENING_GRACE_DAYS } from "@/lib/patient/due-label";
 
 export type ActionItem = {
@@ -47,11 +48,12 @@ function formatLabel(value: string): string {
  */
 export async function resolveActionCentreItems(patientId: string): Promise<ActionItem[]> {
   const supabase = await createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  // Lagos calendar dates (Africa/Lagos), never the UTC date: Home's next step uses the same.
+  const today = lagosLocalDate(Date.now());
   // Wider than NextBestAction's 7-day refill window — this page is the full
   // list, not just "the next thing", so it can afford to surface a refill a
   // little further out.
-  const in14Days = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10);
+  const in14Days = addDays(today, 14);
 
   const [
     medReviews,
@@ -301,7 +303,7 @@ function byDueDateAscending(a: ActionItem, b: ActionItem): number {
  * now"; the other two buckets are pure due-date windows.
  */
 export function bucketActionItems(items: ActionItem[], now: Date = new Date()): BucketedActionItems {
-  const weekFromToday = new Date(now.getTime() + 7 * 86_400_000).toISOString().slice(0, 10);
+  const weekFromToday = addDays(lagosLocalDate(now.getTime()), 7);
 
   const buckets: BucketedActionItems = {
     highPriority: [],

@@ -38,9 +38,12 @@ describe("screen help", () => {
 });
 
 describe("tab tours", () => {
-  it("cover the four bottom tabs the app has, each with written words", () => {
+  it("cover the everyday screens, each with written words", () => {
+    // PD-01 moved Vitals and Medications from the tab bar into the drawer; their tours still play on first visit to those screens.
+    // The new My Health and Care plan tabs have no tour yet (new patient copy, written and reviewed separately).
     const primary = SECTIONS.filter((s) => s.primary).map((s) => s.id);
-    expect([...TOUR_TABS].sort()).toEqual([...primary].sort());
+    expect([...TOUR_TABS].sort()).toEqual(["medications", "messages", "overview", "vitals"]);
+    expect(primary).toEqual(expect.arrayContaining(["overview", "messages"]));
     for (const tab of TOUR_TABS) {
       const body = en[TOUR_BODY_KEYS[tab]];
       expect(body.length).toBeGreaterThan(40);
