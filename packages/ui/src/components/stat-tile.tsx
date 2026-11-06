@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "../utils";
+import { STATUS_CLASSES } from "../status";
 import type { StatTileValueProps } from "./stat-tile-value";
 
 const ICON_TINT = {
@@ -14,12 +15,13 @@ const DELTA_COLOR = {
   flat: "text-charcoal-ink/50 dark:text-night-ink/55",
 } as const;
 
-// Clinical status colours (the Badge palette), never brand tones — a severity
-// word like "Crisis range" must not render in decorative sprout-gold.
+// Clinical status colours (the status tokens, tokens.ts), never brand tones —
+// a severity word like "Crisis range" must not render in decorative
+// sprout-gold. The colour names are kept for existing callers.
 const STATUS_COLOR = {
-  green: "text-green-700 dark:text-green-300",
-  amber: "text-amber-700 dark:text-amber-300",
-  red: "text-red-700 dark:text-red-300",
+  green: STATUS_CLASSES.normal.text,
+  amber: STATUS_CLASSES.attention.text,
+  red: STATUS_CLASSES.critical.text,
 } as const;
 
 interface StatTileBaseProps {

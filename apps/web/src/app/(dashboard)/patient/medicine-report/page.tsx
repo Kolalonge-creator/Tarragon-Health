@@ -22,7 +22,11 @@ export default async function MedicineReportPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("medicines.report.title")} description={t("medicines.report.page_intro")} />
+      <PageHeader
+        title={t("medicines.report.title")}
+        backTo={{ href: "/patient/medications", label: "Medications" }}
+        description={t("medicines.report.page_intro")}
+      />
       {!report || !report.ok ? (
         <LoadFailure>We could not build the report just now. Please try again in a moment.</LoadFailure>
       ) : (

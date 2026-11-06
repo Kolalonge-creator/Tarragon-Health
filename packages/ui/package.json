@@ -10,6 +10,7 @@
     "./utils": "./src/utils.ts",
     "./icons": "./src/icons.ts",
     "./severity-tile-tint": "./src/severity-tile-tint.ts",
+    "./status": "./src/status.ts",
     "./components/stat-tile-value": "./src/components/stat-tile-value.ts",
     "./components/*": "./src/components/*.tsx"
   },
