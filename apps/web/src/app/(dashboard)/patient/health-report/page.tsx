@@ -5,7 +5,7 @@ import { getSignedReport, listSignedReports } from "@/lib/health-report/queries"
 import { buildRenderModel } from "@/lib/health-report/render-model";
 import { HealthReportView } from "@/components/health-report-view";
 import { ScreeningDisclaimer } from "@/components/screening-disclaimer";
-import { PageHeader } from "@/components/ui/page-header";
+import { BackLink, PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { PrintButton } from "./print-button";
@@ -44,6 +44,8 @@ export default async function PatientHealthReportPage({ searchParams }: { search
   const model = buildRenderModel(report.row, report.config, "self");
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 print:max-w-none print:px-0">
+      {/* The signed report draws its own title, so only the back link of the shared header is shown here. */}
+      <BackLink href="/patient" label="Overview" className="print:hidden" />
       <div className="flex flex-wrap gap-2 print:hidden">
         <PrintButton label={t("report.print", "en")} />
         <a className="inline-flex min-h-11 items-center rounded border px-3 text-sm" href={`/api/patient/health-report/${report.id}/pdf`}>

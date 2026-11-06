@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   countdownFor,
+  criticalBannerView,
   escalationsForDoctor,
   figure,
   lagosDayBounds,
@@ -127,5 +128,26 @@ describe("lagosDayBounds", () => {
   it("22:30Z is already the next Lagos day only after 23:00Z", () => {
     const b = lagosDayBounds(new Date("2026-10-30T22:30:00Z"));
     expect(b.startIso).toBe("2026-10-29T23:00:00.000Z");
+  });
+});
+
+describe("criticalBannerView", () => {
+  it("shows a count of emergency cases and links the most urgent one", () => {
+    const rows = [
+      esc("routine", "routine", null),
+      esc("late", "emergency", "2026-10-30T12:00:00Z"),
+      esc("soon", "emergency", "2026-10-30T10:30:00Z"),
+    ];
+    expect(criticalBannerView(rows, false)).toEqual({ kind: "critical", count: 2, firstId: "soon" });
+  });
+  it("draws nothing when no case is an emergency", () => {
+    expect(criticalBannerView([esc("a", "urgent_escalation", null), esc("b", null, null)], false)).toEqual({ kind: "none" });
+  });
+  it("never draws a count from a failed read", () => {
+    expect(criticalBannerView([esc("x", "emergency", null)], true)).toEqual({ kind: "none" });
+  });
+  it("a colleague's emergency, filtered out upstream, does not raise it", () => {
+    const theirs = { ...esc("theirs", "emergency", null), assignedDoctorId: "colleague" };
+    expect(criticalBannerView(escalationsForDoctor([theirs], "me"), false)).toEqual({ kind: "none" });
   });
 });

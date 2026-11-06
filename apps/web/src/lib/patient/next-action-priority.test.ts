@@ -104,3 +104,27 @@ describe("unknown red-alert state and the dose card", () => {
     expect(t("dp.next.dose.title")).toBe("A dose is due");
   });
 });
+
+describe("pickNextAction: consultation and care-team reply (patient dashboard 2.0, spec 4.3)", () => {
+  it("puts a joinable consultation after the safety items and before a due dose", () => {
+    expect(pickNextAction({ ...NONE, consultJoinableNow: true, hasDoseDue: true }).kind).toBe("consult_now");
+    expect(pickNextAction({ ...NONE, consultJoinableNow: true, hasUnansweredRedAlert: true }).kind).toBe("red_alert");
+    expect(pickNextAction({ ...NONE, consultJoinableNow: true, redAlertUnknown: true }).kind).toBe("safety_check");
+  });
+
+  it("puts an unread care-team reply after a refill and before a screening", () => {
+    expect(pickNextAction({ ...NONE, hasUnreadCareTeamReply: true, screeningName: "Pap" }).kind).toBe("care_reply");
+    expect(pickNextAction({ ...NONE, hasUnreadCareTeamReply: true, refillDrugName: "Drug" }).kind).toBe("refill_low");
+  });
+
+  it("leaves the founder's order unchanged when the new facts are absent", () => {
+    expect(pickNextAction({ ...NONE, hasDoseDue: true }).kind).toBe("dose_due");
+    expect(pickNextAction({ ...NONE, readingDue: true }).kind).toBe("reading_due");
+  });
+
+  it("has copy for both new kinds", () => {
+    for (const kind of ["consult_now", "care_reply"] as const) {
+      for (const part of ["title", "body", "cta"] as const) expect(t(NEXT_ACTION_COPY[kind][part], "en").length).toBeGreaterThan(0);
+    }
+  });
+});

@@ -10,7 +10,7 @@ import { NextBestAction } from "@/app/(dashboard)/patient/next-best-action";
  * client score zone; NextBestAction keeps its own Suspense so a slow
  * task-queue query never blocks the score from painting.
  */
-export function OverviewHero({ patientId, eyebrow }: { patientId: string; eyebrow: string }) {
+export function OverviewHero({ patientId, eyebrow, acting = false }: { patientId: string; eyebrow: string; acting?: boolean }) {
   return (
     <section
       aria-label="How you're doing and your next best step"
@@ -27,7 +27,7 @@ export function OverviewHero({ patientId, eyebrow }: { patientId: string; eyebro
             />
           }
         >
-          <NextBestAction patientId={patientId} />
+          <NextBestAction patientId={patientId} acting={acting} />
         </Suspense>
       </div>
     </section>
