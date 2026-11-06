@@ -39,6 +39,9 @@ export interface NavItem {
    * zero-state tiles ever were. A failed underlying query never renders as a
    * hidden (zero-looking) badge — see NavBadge in app-shell.tsx. */
   countKey?: WorklistCountKey;
+  /** Other pages this link stands in for: the link is shown as active on them too. The Governance index uses it
+   * so a page reached from that index still lights its sidebar entry and keeps its group open (DW-02). */
+  alsoActiveFor?: readonly string[];
 }
 
 /** How many `primary` links the phone bottom bar shows before the More
@@ -379,16 +382,70 @@ export function getNavSections(
           ]
         : [
             {
-              items: [{ label: "Dashboard", href: "/clinician", icon: "dashboard", exact: true }],
+              items: [{ label: "Today", href: "/clinician", icon: "dashboard", exact: true }],
             },
             {
-              // Inboxes — anything a patient or a colleague is waiting on a
-              // reply to. Every item a doctor can be blocking someone on
-              // carries a live countKey so the badge shows up here, not just
-              // on the dashboard's one-time landing view.
-              label: "Queue",
+              // DW-02 (2026-11-06): daily clinical work first. Inboxes and queues where a patient or colleague
+              // is waiting on this doctor; every item that can block someone keeps its live countKey badge.
+              label: "Work",
               items: [
+                // Declared hours, the on-call rota, cover requests (S18).
+                // Red event pages sent to you: acknowledge, open the chart, close with a note (S19).
+                // The Next task queue, the task I hold, and the patients I lead (S35).
+                { label: "Next task", href: "/clinician/queue", icon: "escalation" },
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation", countKey: "escalations" },
+                {
+                  label: "Results inbox",
+                  href: "/clinician/results-inbox",
+                  icon: "labs",
+                  countKey: "resultsInboxAwaitingAction",
+                },
+                // S27: lab results held before the patient can see them (INV-03, INV-04).
+                { label: "Lab results to review", href: "/clinician/lab-results", icon: "labs" },
+                {
+                  label: "Patient messages",
+                  href: "/clinician/messages",
+                  icon: "messages",
+                  countKey: "careThreadsAwaitingReply",
+                },
+                { label: "Written questions", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
+                {
+                  label: "Curbside consults",
+                  href: "/clinician/curbside-consults",
+                  icon: "messages",
+                  countKey: "curbsideConsultsAwaitingReply",
+                },
+                // Orders, referrals, lab requests and follow-up tasks I own or am tied to; each closes only with an outcome and a reason (S77).
+                { label: "My follow-ups", href: "/clinician/follow-ups", icon: "review" },
+                { label: "On call", href: "/clinician/on-call", icon: "siren" },
+              ],
+            },
+            {
+              label: "Patients",
+              items: [
+                { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
+                { label: "My lead patients", href: "/clinician/lead-patients", icon: "patientActivity" },
+                { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
+                // S21: today's and tomorrow's consultation rooms (spec 9.1, "Consultations").
+                { label: "Consultations", href: "/clinician/consultations", icon: "booking" },
+                { label: "Case management", href: "/clinician/case-management", icon: "carePlan", countKey: "activeCases" },
+                // Two-tier model: offer each Member several times for the monthly check-in, see who is due or missed a month.
+                { label: "Monthly check-ins", href: "/clinician/followups", icon: "booking" },
+                // Chief Medical Officer only (canAssignCases in
+                // lib/clinical/doctor-tier.ts) — shown to every clinician tier
+                // per this file's own gating philosophy above; the page
+                // itself redirects/shows a friendly message for anyone else.
+                // Patients ordered by who may need a call first; only your own tied patients (S38c).
+                { label: "Risk worklist", href: "/clinician/risk-worklist", icon: "analytics" },
+                // Tied patients who may need a mental health follow-up, by fixed rules the CMO signs; shows nothing until signed (S56b). Doctors only: the database refuses coordinators.
+                { label: "Mental health follow-ups", href: "/clinician/mental-health-worklist", icon: "mood", countKey: "mentalHealthWorklistWaiting" },
+              ],
+            },
+            {
+              // Specialist review queues. Kept in the sidebar (not on an index page) because most carry a live
+              // count, and the pending-jobs banner reads its pills from the sidebar's countKeys.
+              label: "Reviews",
+              items: [
                 // Symptom checks a patient asked the care team to look at, for patients the clinician holds a task for (S60).
                 { label: "Symptom check reviews", href: "/clinician/symptom-reviews", icon: "review" },
                 // Photos patients sent for the care team to look at, for patients the clinician holds a task for (S59).
@@ -399,151 +456,12 @@ export function getNavSections(
                   icon: "warning",
                   countKey: "openSafeguardingConcerns",
                 },
-                {
-                  label: "Operations queue",
-                  href: "/clinician/operations-queue",
-                  icon: "escalation",
-                  countKey: "operationsQueueAlerts",
-                },
-                {
-                  label: "Medication issues",
-                  href: "/clinician/medication-issues",
-                  icon: "medication",
-                  countKey: "openMedicationDispenseFlags",
-                },
-                {
-                  label: "Results inbox",
-                  href: "/clinician/results-inbox",
-                  icon: "labs",
-                  countKey: "resultsInboxAwaitingAction",
-                },
-                {
-                  label: "Support tickets",
-                  href: "/clinician/support-tickets",
-                  icon: "helpCenter",
-                  countKey: "openSupportTickets",
-                },
-                {
-                  label: "Complaints",
-                  href: "/clinician/complaints",
-                  icon: "governance",
-                  countKey: "openComplaints",
-                },
-                {
-                  label: "Patient messages",
-                  href: "/clinician/messages",
-                  icon: "messages",
-                  countKey: "careThreadsAwaitingReply",
-                },
-                // MSG-5: what is waiting across messages, alerts and monthly meetings, and who holds it.
-                { label: "Care operations", href: "/clinician/care-operations", icon: "operations" },
-                { label: "Written questions", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
-                // Real pages with no prior sidebar entry at all — previously
-                // reachable only via the dashboard's "All worklists" strip,
-                // so a doctor who didn't happen to scroll that far never
-                // found them. See the countKey doc comment above.
-                { label: "Second opinions", href: "/clinician/second-opinions", icon: "inbox", countKey: "secondOpinionRequests" },
-                { label: "Prescription renewals", href: "/clinician/prescription-renewals", icon: "medication", countKey: "prescriptionRenewalRequests" },
-                // Questions a partner pharmacy asked about a prescription, and where each one has got to (S36h, S28).
-                { label: "Pharmacy questions", href: "/clinician/pharmacy", icon: "medication" },
-                { label: "Verified documents", href: "/clinician/verified-documents", icon: "inbox", countKey: "verifiedDocumentRequests" },
-                { label: "Senior case reviews", href: "/clinician/senior-case-reviews", icon: "escalation", countKey: "seniorCaseReviews" },
-                {
-                  label: "Curbside consults",
-                  href: "/clinician/curbside-consults",
-                  icon: "messages",
-                  countKey: "curbsideConsultsAwaitingReply",
-                },
-              ],
-            },
-            {
-              label: "Patients & Care",
-              items: [
-                { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
-                { label: "Case management", href: "/clinician/case-management", icon: "carePlan", countKey: "activeCases" },
                 { label: "Care plan review", href: "/clinician/care-plan-review", icon: "carePlan", countKey: "carePlanReviewPrompts" },
-                { label: "Medication reviews", href: "/clinician/medication-reviews", icon: "medication", countKey: "medicationReviews" },
+                { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan", countKey: "recommendations" },
                 { label: "Lifestyle reviews", href: "/clinician/lifestyle-reviews", icon: "lifestyle", countKey: "lifestyleReviews" },
                 { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle", countKey: "lifestyleFlags" },
                 { label: "Annual reviews", href: "/clinician/annual-reviews", icon: "review", countKey: "annualReviews" },
                 { label: "Preventive reviews", href: "/clinician/preventive-reviews", icon: "preventive", countKey: "preventiveReviews" },
-                {
-                  label: "Sexual health cases",
-                  href: "/clinician/sexual-health",
-                  icon: "escalation",
-                  countKey: "pendingEcRequests",
-                },
-              ],
-            },
-            {
-              label: "Orders & Referrals",
-              items: [
-                { label: "Referrals", href: "/clinician/referrals", icon: "referral", countKey: "referralsNeedingUrgency" },
-                { label: "Waitlisted referrals", href: "/clinician/referrals/waitlisted", icon: "referral", countKey: "waitlistedReferrals" },
-                {
-                  label: "Orders",
-                  href: "/clinician/orders",
-                  icon: "logistics",
-                  countKey: "labOrdersAwaitingHomeVisitAssignment",
-                },
-                { label: "Vaccinations", href: "/clinician/vaccinations", icon: "vaccination", countKey: "vaccinationVerifications" },
-              ],
-            },
-            {
-              label: "Quality & Growth",
-              items: [
-                { label: "Diabetes quality", href: "/clinician/diabetes-quality", icon: "diabetes" },
-                { label: "Hypertension quality", href: "/clinician/hypertension-quality", icon: "bp" },
-                { label: "Obesity quality", href: "/clinician/obesity-quality", icon: "weight" },
-                {
-                  label: "Quality improvement",
-                  href: "/clinician/quality-improvement",
-                  icon: "review",
-                },
-                {
-                  label: "Safety incidents",
-                  href: "/clinician/safety-incidents",
-                  icon: "warning",
-                  countKey: "openSafetyIncidents",
-                },
-                { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication", countKey: "adherenceAlerts" },
-                { label: "Outreach", href: "/clinician/outreach", icon: "messages", countKey: "outreach" },
-                { label: "Population health", href: "/clinician/populations", icon: "population" },
-                { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan", countKey: "recommendations" },
-                { label: "Device operations", href: "/clinician/device-operations", icon: "devices" },
-                { label: "Data deletion requests", href: "/clinician/data-deletion-requests", icon: "compliance" },
-                {
-                  label: "FHIR partner review",
-                  href: "/clinician/fhir-review",
-                  icon: "inbox",
-                  countKey: "fhirProposedResourcesPending",
-                },
-                { label: "Yearly health reports", href: "/clinician/health-reports", icon: "carePlan" },
-                {
-                  label: "Record changes",
-                  href: "/clinician/record-changes",
-                  icon: "review",
-                  countKey: "recordChangeRequestsWaiting",
-                },
-              ],
-            },
-            {
-              label: "My work",
-              items: [
-                { label: "Availability", href: "/clinician/availability", icon: "booking" },
-                // S27: lab results held before the patient can see them (INV-03, INV-04).
-                { label: "Lab results to review", href: "/clinician/lab-results", icon: "labs" },
-                // Testing days and employer visits: urine and HbA1c results held for release, and ECG traces to read.
-                { label: "Testing-day results", href: "/clinician/poc-results", icon: "labs" },
-                { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
-                // S21: today's and tomorrow's consultation rooms (spec 9.1, "Consultations").
-                { label: "Consultations", href: "/clinician/consultations", icon: "booking" },
-                {
-                  label: "Lab result consults",
-                  href: "/clinician/lab-result-consults",
-                  icon: "labs",
-                  countKey: "labResultConsultsWaiting",
-                },
                 // Added 2026-09-22 alongside the Preventive Health Check
                 // Review SKU — before this, a paid-for Health Check review
                 // had no queue anywhere; a doctor could only find one by
@@ -554,6 +472,12 @@ export function getNavSections(
                   href: "/clinician/preventive-health-check-reviews",
                   icon: "preventive",
                   countKey: "preventiveHealthCheckReviewsWaiting",
+                },
+                {
+                  label: "Sexual health cases",
+                  href: "/clinician/sexual-health",
+                  icon: "escalation",
+                  countKey: "pendingEcRequests",
                 },
                 // Added 2026-09-10 with the therapy-approval clinical
                 // product. Shown to every clinician tier, per this file's
@@ -568,73 +492,138 @@ export function getNavSections(
                   icon: "mood",
                   countKey: "therapyApprovalsWaiting",
                 },
-                { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
-                // Documents, licence and cover dates, level and renewal uploads (S15).
-                { label: "Training and profile", href: "/clinician/credentials", icon: "review" },
-                // Declared hours, the on-call rota, cover requests (S18).
-                // Red event pages sent to you: acknowledge, open the chart, close with a note (S19).
-                // The Next task queue, the task I hold, and the patients I lead (S35).
-                { label: "Next task", href: "/clinician/queue", icon: "escalation" },
-                { label: "My lead patients", href: "/clinician/lead-patients", icon: "patientActivity" },
-                // Orders, referrals, lab requests and follow-up tasks I own or am tied to; each closes only with an outcome and a reason (S77).
-                { label: "My follow-ups", href: "/clinician/follow-ups", icon: "review" },
-                // Two-tier model: offer each Member several times for the monthly check-in, see who is due or missed a month.
-                { label: "Monthly check-ins", href: "/clinician/followups", icon: "booking" },
-                { label: "On call", href: "/clinician/on-call", icon: "siren" },
-                // Make this phone reliable for urgent pages, with a one-tap test page (S16-S20 Stage 5).
-                { label: "Device check", href: "/clinician/device-check", icon: "siren" },
-                // Cover offers after a busy night and the 11 hour rest rule (S16-S20 Stage 5).
-                { label: "Rest and cover", href: "/clinician/rest-and-cover", icon: "booking" },
-                { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
-                // What a contracted clinician has earned, line by line, and the fee schedule that applies (S30).
-                { label: "Earnings", href: "/clinician/earnings", icon: "analytics" },
-                // The concerns this clinician raised and the replies to them (S36i). Their own only.
-                { label: "My concerns", href: "/clinician/my-concerns", icon: "review" },
-                // Finished audits of this clinician's own work, the first-20 count and the advisory reliability score, with a reply box (S20 v2). Their own only.
-                { label: "My quality", href: "/clinician/my-quality", icon: "review" },
-                { label: "Payouts", href: "/clinician/payouts", icon: "analytics" },
-                // Chief Medical Officer only (canAssignCases in
-                // lib/clinical/doctor-tier.ts) — shown to every clinician tier
-                // per this file's own gating philosophy above; the page
-                // itself redirects/shows a friendly message for anyone else.
-                // Patients ordered by who may need a call first; only your own tied patients (S38c).
-                { label: "Risk worklist", href: "/clinician/risk-worklist", icon: "analytics" },
-                // Tied patients who may need a mental health follow-up, by fixed rules the CMO signs; shows nothing until signed (S56b). Doctors only: the database refuses coordinators.
-                { label: "Mental health follow-ups", href: "/clinician/mental-health-worklist", icon: "mood", countKey: "mentalHealthWorklistWaiting" },
+                {
+                  label: "Lab result consults",
+                  href: "/clinician/lab-result-consults",
+                  icon: "labs",
+                  countKey: "labResultConsultsWaiting",
+                },
+                // Testing days and employer visits: urine and HbA1c results held for release, and ECG traces to read.
+                { label: "Testing-day results", href: "/clinician/poc-results", icon: "labs" },
+                // Real pages with no prior sidebar entry at all — previously
+                // reachable only via the dashboard's "All worklists" strip,
+                // so a doctor who didn't happen to scroll that far never
+                // found them. See the countKey doc comment above.
+                { label: "Second opinions", href: "/clinician/second-opinions", icon: "inbox", countKey: "secondOpinionRequests" },
+                { label: "Senior case reviews", href: "/clinician/senior-case-reviews", icon: "escalation", countKey: "seniorCaseReviews" },
+                { label: "Verified documents", href: "/clinician/verified-documents", icon: "inbox", countKey: "verifiedDocumentRequests" },
+                {
+                  label: "Record changes",
+                  href: "/clinician/record-changes",
+                  icon: "review",
+                  countKey: "recordChangeRequestsWaiting",
+                },
+                {
+                  label: "FHIR partner review",
+                  href: "/clinician/fhir-review",
+                  icon: "inbox",
+                  countKey: "fhirProposedResourcesPending",
+                },
+                { label: "Yearly health reports", href: "/clinician/health-reports", icon: "carePlan" },
                 // Say whether the automatic grade was right for a task you completed; off until the CMO approves (S38e).
                 { label: "Review automatic grades", href: "/clinician/triage-review", icon: "review" },
+              ],
+            },
+            {
+              label: "Medicines",
+              items: [
+                {
+                  label: "Medication issues",
+                  href: "/clinician/medication-issues",
+                  icon: "medication",
+                  countKey: "openMedicationDispenseFlags",
+                },
+                { label: "Prescription renewals", href: "/clinician/prescription-renewals", icon: "medication", countKey: "prescriptionRenewalRequests" },
+                // Questions a partner pharmacy asked about a prescription, and where each one has got to (S36h, S28).
+                { label: "Pharmacy questions", href: "/clinician/pharmacy", icon: "medication" },
+                { label: "Medication reviews", href: "/clinician/medication-reviews", icon: "medication", countKey: "medicationReviews" },
+                { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication", countKey: "adherenceAlerts" },
+              ],
+            },
+            {
+              label: "Orders and referrals",
+              items: [
+                {
+                  label: "Orders",
+                  href: "/clinician/orders",
+                  icon: "logistics",
+                  countKey: "labOrdersAwaitingHomeVisitAssignment",
+                },
+                { label: "Referrals", href: "/clinician/referrals", icon: "referral", countKey: "referralsNeedingUrgency" },
+                { label: "Waitlisted referrals", href: "/clinician/referrals/waitlisted", icon: "referral", countKey: "waitlistedReferrals" },
+                { label: "Vaccinations", href: "/clinician/vaccinations", icon: "vaccination", countKey: "vaccinationVerifications" },
+              ],
+            },
+            {
+              label: "Team",
+              items: [
+                {
+                  label: "Operations queue",
+                  href: "/clinician/operations-queue",
+                  icon: "escalation",
+                  countKey: "operationsQueueAlerts",
+                },
+                // MSG-5: what is waiting across messages, alerts and monthly meetings, and who holds it.
+                { label: "Care operations", href: "/clinician/care-operations", icon: "operations" },
+                {
+                  label: "Support tickets",
+                  href: "/clinician/support-tickets",
+                  icon: "helpCenter",
+                  countKey: "openSupportTickets",
+                },
+                {
+                  label: "Complaints",
+                  href: "/clinician/complaints",
+                  icon: "governance",
+                  countKey: "openComplaints",
+                },
+                {
+                  label: "Safety incidents",
+                  href: "/clinician/safety-incidents",
+                  icon: "warning",
+                  countKey: "openSafetyIncidents",
+                },
+                { label: "Outreach", href: "/clinician/outreach", icon: "messages", countKey: "outreach" },
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
                 // Chief Medical Officer only: every consultation in the organisation, the same log as /admin/consultations.
                 { label: "Consultations log", href: "/clinician/consultations-log", icon: "booking" },
-                // Chief Medical Officer only: minutes of doctor time per Member per month, for planning and pricing (W-01).
-                { label: "Care team time", href: "/clinician/time", icon: "analytics" },
-                // Chief Medical Officer only: sign the AI Health Coach risk acceptance and see its dated re-evaluation (W-10).
-                { label: "AI coach risk acceptance", href: "/clinician/ai-risk-acceptance", icon: "review" },
-                // Chief Medical Officer only: the cascade of care (screened, diagnosed, on a medicine, controlled) for hypertension and diabetes; shows nothing until the CMO signs the definitions (WP3).
-                { label: "Cascade of care", href: "/clinician/outcomes/cascade", icon: "analytics" },
-                // Chief Medical Officer only: is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
-                { label: "Chain health", href: "/clinician/chain-health", icon: "operations" },
-                // Chief Medical Officer only: learning content coming up for its review date, who owns it and what is already hidden (S55 expiry backlog).
-                { label: "Learning content review", href: "/clinician/learning-review", icon: "review" },
-                // Chief Medical Officer only: alerts, pages, doctor reviews and emergencies as a ratio, and how often the lead handled the task (S16-S20 W6.3).
-                { label: "Care funnel", href: "/clinician/funnel", icon: "analytics" },
-                // Chief Medical Officer only: how AI scribe drafts are used, and a random sample to check (S35c).
-                { label: "Scribe quality", href: "/clinician/scribe-quality", icon: "analytics" },
+                // Community groups: the sign-off block lives on the hub above; this is the rest of the tools (rules, drill, member lookups). CMO and clinicians.
+                { label: "Community", href: "/clinician/community", icon: "members" },
+                { label: "Availability", href: "/clinician/availability", icon: "booking" },
+                { label: "Hours and rota", href: "/clinician/rota", icon: "booking" },
+                // Cover offers after a busy night and the 11 hour rest rule (S16-S20 Stage 5).
+                { label: "Rest and cover", href: "/clinician/rest-and-cover", icon: "booking" },
+                // Make this phone reliable for urgent pages, with a one-tap test page (S16-S20 Stage 5).
+                { label: "Device check", href: "/clinician/device-check", icon: "siren" },
               ],
             },
-            // Chief Medical Officer / Clinical Director governance surfaces
-            // (canAssignCases in lib/clinical/doctor-tier.ts) — first-class
-            // /clinician/* equivalents of admin/settings/protocols,
-            // admin/settings/triage-protocols and admin/provider-quality,
-            // reachable without an admin login (a CMO's account role is
-            // always `clinician`, per CLAUDE.md's "never re-split the
-            // account role" rule, and proxy.ts's /admin/* gate is
-            // deliberately admin-only). Shown to every clinician tier per
-            // this file's own gating philosophy above; each page
-            // redirects/shows a friendly message for anyone below CMO.
             {
-              label: "Clinical governance",
+              label: "You",
               items: [
+                { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
+                // Finished audits of this clinician's own work, the first-20 count and the advisory reliability score, with a reply box (S20 v2). Their own only.
+                { label: "My quality", href: "/clinician/my-quality", icon: "review" },
+                // The concerns this clinician raised and the replies to them (S36i). Their own only.
+                { label: "My concerns", href: "/clinician/my-concerns", icon: "review" },
+                // Documents, licence and cover dates, level and renewal uploads (S15).
+                { label: "Training and profile", href: "/clinician/credentials", icon: "review" },
+                // What a contracted clinician has earned, line by line, and the fee schedule that applies (S30).
+                { label: "Earnings", href: "/clinician/earnings", icon: "analytics" },
+                { label: "Payouts", href: "/clinician/payouts", icon: "analytics" },
+                // Chief Medical Officer only: minutes of doctor time per Member per month, for planning and pricing (W-01).
+                { label: "Care team time", href: "/clinician/time", icon: "analytics" },
+              ],
+            },
+            {
+              label: "Governance",
+              items: [
+                // DW-02: one door to the governance, quality, rules and operations pages (index page).
+                {
+                  label: "Governance home",
+                  href: "/clinician/governance",
+                  icon: "governance",
+                  alsoActiveFor: GOVERNANCE_HREFS,
+                },
                 // Leads the section on purpose: the one page that answers
                 // "what still needs my signature, and what do I press"
                 // across every governed table below, rather than making a
@@ -646,111 +635,6 @@ export function getNavSections(
                 // reachable only via /admin, which a real CMO account
                 // (always `profiles.role = "clinician"`) cannot open.
                 { label: "Sign-off hub", href: "/clinician/clinical-signoff", icon: "review" },
-                // Community groups: the sign-off block lives on the hub above; this is the rest of the tools (rules, drill, member lookups). CMO and clinicians.
-                { label: "Community", href: "/clinician/community", icon: "members" },
-                // New clinician applications, licence and cover expiry, and the training and test content (S15).
-                // Chief Medical Officer only; the pages redirect anyone below that tier.
-                { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
-                // The on-call rota, declared on-call hours and lead clinicians (S18). Chief Medical Officer only; the page redirects anyone below that tier.
-                { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
-                // Intake gate, surge mode, pause, rest-rule override and cover offers; and the monthly fire drills (S16-S20 Stage 5). CMO only; the pages redirect others.
-                { label: "Capacity and cover", href: "/clinician/capacity", icon: "caseload" },
-                { label: "Fire drills", href: "/clinician/fire-drills", icon: "siren" },
-                { label: "Ops desk", href: "/clinician/ops-desk", icon: "siren" },
-                // The go-live guards and the proposed values the CMO owns (S37). CMO only; the page redirects anyone below that tier.
-                { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
-                // The symptom checker's regulatory position, accuracy audit and safety settings (S60). CMO only; the page redirects others.
-                { label: "Symptom checker safety", href: "/clinician/symptom-safety", icon: "governance" },
-                // Do Health Points and taking part change outcomes, or do healthier people just take part more? Engagement and outcomes kept apart (OUTCOMES). CMO only; the page redirects others.
-                { label: "Engagement and outcomes", href: "/clinician/engagement-outcomes", icon: "analytics" },
-                // Weekly payout drafts the CMO may approve (S36j, founder decision 2026-10-06). CMO only; the page redirects others. Sending stays with the admin.
-                { label: "Payout approvals", href: "/clinician/payout-approvals", icon: "governance" },
-                // The monthly review of a sample of assistant conversations, plus every reported one (S52). CMO only; the page redirects anyone below that tier.
-                { label: "Assistant monthly review", href: "/clinician/assistant-review", icon: "review" },
-                // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
-                { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
-                { label: "AI answer review", href: "/clinician/ai-review", icon: "review" },
-                { label: "Content review backlog", href: "/clinician/content-review-backlog", icon: "review" },
-                { label: "AI monitoring", href: "/clinician/ai-monitoring", icon: "governance" },
-                { label: "Research protocols", href: "/clinician/research", icon: "governance" },
-                // Every clinician with status, licence, competencies; decide competency grants and reinstatements, pause someone (S36d). CMO only; the page redirects others.
-                { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
-                // Queue and page times against their limits, on-call cover and reliability bands (S36e). CMO only; the page redirects others.
-                { label: "Reliability and SLA", href: "/clinician/reliability", icon: "caseload" },
-                // Claims, completed, hand-backs and time to complete per clinician, advisory only (S78c). CMO only; the page redirects others.
-                { label: "Clinician workload", href: "/clinician/workload", icon: "caseload" },
-                // Private safety concerns raised by clinicians, backup readers and retaliation reviews (S36i). CMO only; the page redirects others.
-                { label: "Safety concerns", href: "/clinician/quality/concerns", icon: "governance" },
-                // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
-                { label: "Memberships", href: "/clinician/memberships", icon: "members" },
-                // The AI governance console's two CMO-only actions (approving
-                // an ai_system_versions row, labelling an ai_evaluation_cases
-                // clinical-accuracy scenario) — same reachability gap as
-                // Clinical sign-off above, closed the same way. See that
-                // page's own comment for the admin-banner/proxy.ts history.
-                { label: "AI governance sign-off", href: "/clinician/ai-governance", icon: "review" },
-                { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
-                { label: "Titration protocols", href: "/clinician/titration-protocols", icon: "review" },
-                { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
-                { label: "Compare triage versions", href: "/clinician/triage-protocols/compare", icon: "review" },
-                { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
-                { label: "Glucose triage rules", href: "/clinician/glucose-triage-rules", icon: "bp" },
-                { label: "Pulse, oxygen and temperature triage rules", href: "/clinician/vitals-triage-rules", icon: "bp" },
-                // N-overrides: the CMO's roster of personal alert thresholds, the monthly review and the kill switch.
-                { label: "Personal alert thresholds", href: "/clinician/threshold-overrides", icon: "bp" },
-                { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
-                { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
-                { label: "Alert rules", href: "/clinician/alert-rules", icon: "siren" },
-                { label: "Escalation SLAs", href: "/clinician/escalation-slas", icon: "escalation" },
-                { label: "CV-risk (cholesterol) config", href: "/clinician/cv-risk-config", icon: "bp" },
-                {
-                  label: "Risk questionnaire configuration",
-                  href: "/clinician/risk-questionnaire-config",
-                  icon: "review",
-                },
-                {
-                  label: "Mental health screening cadences",
-                  href: "/clinician/mental-health-screening",
-                  icon: "preventive",
-                },
-                {
-                  label: "Provider quality policy",
-                  href: "/clinician/provider-quality-policy",
-                  icon: "review",
-                },
-                { label: "Vaccination schedule", href: "/clinician/vaccination-schedule", icon: "vaccination" },
-                { label: "As-needed medicine limits", href: "/clinician/prn-limit-rules", icon: "review" },
-                { label: "Medicine interaction rules", href: "/clinician/medicine-interaction-rules", icon: "review" },
-                { label: "Medicine brand names", href: "/clinician/medicine-brand-map", icon: "review" },
-                { label: "Provider quality", href: "/clinician/provider-quality", icon: "analytics" },
-              ],
-            },
-            // Only reachable for a clinician holding a delegated
-            // ops.console.view/incidents.* grant (the "Clinical
-            // administrator" role preset) — self-gated, safe to always show.
-            // Support view-as is deliberately NOT listed here — the Clinical
-            // administrator preset carries no `support.view_as` grant, so
-            // the link would always bounce (see the identical note in the
-            // care_coordinator case above).
-            {
-              label: "Operations administration",
-              items: [
-                { label: "Operations console", href: "/admin/ops", icon: "operations" },
-                { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
-                { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
-                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
-                { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
-                { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
-                { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
-                { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
-                { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
-                { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
-                { label: "Partner chase list", href: "/admin/ops/directory-chase", icon: "review" },
-                { label: "Lab and imaging directory", href: "/admin/ops/diagnostic-directory", icon: "review" },
-                { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
-                { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
-                { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
-                { label: "AI monitoring", href: "/admin/ops/ai-monitoring", icon: "governance" },
               ],
             },
           ];
@@ -1129,4 +1013,183 @@ export function getNavSections(
     default:
       return [];
   }
+}
+
+
+/**
+ * Doctor workspace DW-02 (2026-11-06): the governance, quality and operations pages, moved out of the doctor's
+ * sidebar onto one index page (/clinician/governance) so the sidebar holds daily clinical work. No URL changed.
+ * Every page here is still reachable: from that index, and from the Chief Medical Officer's search, which
+ * indexes these sections alongside the sidebar (see (dashboard)/layout.tsx). No item here carries a countKey,
+ * so the pending-jobs banner, which reads the sidebar's countKeys, is unaffected.
+ *
+ * Carried over from the old sidebar groups:
+ *  - Governance pages are /clinician mirrors because a CMO account is always `clinician` and cannot open /admin.
+ *    They are listed for every doctor; each page redirects or explains for anyone below the CMO.
+ *  - "Operations administration" is reachable only with a delegated ops.console.view / incidents.* grant (the
+ *    "Clinical administrator" preset); the pages self-gate, so the links are safe to show. Support view-as is
+ *    deliberately NOT listed: that preset carries no `support.view_as` grant, so the link would always bounce.
+ */
+const GOVERNANCE_SECTIONS: NavSection[] = [
+  {
+    label: "Quality and outcomes",
+    items: [
+      // Audits of completed clinical work and hand-back reviews (S36c). CMO only; the page redirects anyone below that tier.
+      { label: "Quality and safety", href: "/clinician/quality", icon: "review" },
+      { label: "Diabetes quality", href: "/clinician/diabetes-quality", icon: "diabetes" },
+      { label: "Hypertension quality", href: "/clinician/hypertension-quality", icon: "bp" },
+      { label: "Obesity quality", href: "/clinician/obesity-quality", icon: "weight" },
+      {
+        label: "Quality improvement",
+        href: "/clinician/quality-improvement",
+        icon: "review",
+      },
+      { label: "Population health", href: "/clinician/populations", icon: "population" },
+      // Chief Medical Officer only: the cascade of care (screened, diagnosed, on a medicine, controlled) for hypertension and diabetes; shows nothing until the CMO signs the definitions (WP3).
+      { label: "Cascade of care", href: "/clinician/outcomes/cascade", icon: "analytics" },
+      // Do Health Points and taking part change outcomes, or do healthier people just take part more? Engagement and outcomes kept apart (OUTCOMES). CMO only; the page redirects others.
+      { label: "Engagement and outcomes", href: "/clinician/engagement-outcomes", icon: "analytics" },
+      // Chief Medical Officer only: alerts, pages, doctor reviews and emergencies as a ratio, and how often the lead handled the task (S16-S20 W6.3).
+      { label: "Care funnel", href: "/clinician/funnel", icon: "analytics" },
+      // Chief Medical Officer only: is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
+      { label: "Chain health", href: "/clinician/chain-health", icon: "operations" },
+      // Chief Medical Officer only: how AI scribe drafts are used, and a random sample to check (S35c).
+      { label: "Scribe quality", href: "/clinician/scribe-quality", icon: "analytics" },
+      { label: "Provider quality", href: "/clinician/provider-quality", icon: "analytics" },
+      { label: "Device operations", href: "/clinician/device-operations", icon: "devices" },
+      { label: "Data deletion requests", href: "/clinician/data-deletion-requests", icon: "compliance" },
+      // Chief Medical Officer only: learning content coming up for its review date, who owns it and what is already hidden (S55 expiry backlog).
+      { label: "Learning content review", href: "/clinician/learning-review", icon: "review" },
+      { label: "Content review backlog", href: "/clinician/content-review-backlog", icon: "review" },
+    ],
+  },
+  {
+    label: "Clinical oversight",
+    items: [
+      // Private safety concerns raised by clinicians, backup readers and retaliation reviews (S36i). CMO only; the page redirects others.
+      { label: "Safety concerns", href: "/clinician/quality/concerns", icon: "governance" },
+      // New clinician applications, licence and cover expiry, and the training and test content (S15).
+      // Chief Medical Officer only; the pages redirect anyone below that tier.
+      { label: "Clinician credentialing", href: "/clinician/credentialing", icon: "review" },
+      // Every clinician with status, licence, competencies; decide competency grants and reinstatements, pause someone (S36d). CMO only; the page redirects others.
+      { label: "Clinician roster", href: "/clinician/roster", icon: "members" },
+      // The on-call rota, declared on-call hours and lead clinicians (S18). Chief Medical Officer only; the page redirects anyone below that tier.
+      { label: "Rota and lead clinicians", href: "/clinician/team-rota", icon: "caseload" },
+      // Claims, completed, hand-backs and time to complete per clinician, advisory only (S78c). CMO only; the page redirects others.
+      { label: "Clinician workload", href: "/clinician/workload", icon: "caseload" },
+      // Intake gate, surge mode, pause, rest-rule override and cover offers; and the monthly fire drills (S16-S20 Stage 5). CMO only; the pages redirect others.
+      { label: "Capacity and cover", href: "/clinician/capacity", icon: "caseload" },
+      // Queue and page times against their limits, on-call cover and reliability bands (S36e). CMO only; the page redirects others.
+      { label: "Reliability and SLA", href: "/clinician/reliability", icon: "caseload" },
+      { label: "Fire drills", href: "/clinician/fire-drills", icon: "siren" },
+      { label: "Ops desk", href: "/clinician/ops-desk", icon: "siren" },
+      // The go-live guards and the proposed values the CMO owns (S37). CMO only; the page redirects anyone below that tier.
+      { label: "Go-live guards", href: "/clinician/go-live", icon: "governance" },
+      // The symptom checker's regulatory position, accuracy audit and safety settings (S60). CMO only; the page redirects others.
+      { label: "Symptom checker safety", href: "/clinician/symptom-safety", icon: "governance" },
+      // Weekly payout drafts the CMO may approve (S36j, founder decision 2026-10-06). CMO only; the page redirects others. Sending stays with the admin.
+      { label: "Payout approvals", href: "/clinician/payout-approvals", icon: "governance" },
+      // Grant or end a Membership by hand until checkout exists (S22b). CMO only; the page redirects others.
+      { label: "Memberships", href: "/clinician/memberships", icon: "members" },
+      { label: "Research protocols", href: "/clinician/research", icon: "governance" },
+    ],
+  },
+  {
+    label: "AI oversight",
+    items: [
+      // The AI governance console's two CMO-only actions (approving
+      // an ai_system_versions row, labelling an ai_evaluation_cases
+      // clinical-accuracy scenario) — same reachability gap as
+      // Clinical sign-off above, closed the same way. See that
+      // page's own comment for the admin-banner/proxy.ts history.
+      { label: "AI governance sign-off", href: "/clinician/ai-governance", icon: "review" },
+      { label: "AI answer review", href: "/clinician/ai-review", icon: "review" },
+      // The monthly review of a sample of assistant conversations, plus every reported one (S52). CMO only; the page redirects anyone below that tier.
+      { label: "Assistant monthly review", href: "/clinician/assistant-review", icon: "review" },
+      { label: "AI monitoring", href: "/clinician/ai-monitoring", icon: "governance" },
+      // Chief Medical Officer only: sign the AI Health Coach risk acceptance and see its dated re-evaluation (W-10).
+      { label: "AI coach risk acceptance", href: "/clinician/ai-risk-acceptance", icon: "review" },
+    ],
+  },
+  {
+    label: "Rules and protocols",
+    items: [
+      { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
+      { label: "Titration protocols", href: "/clinician/titration-protocols", icon: "review" },
+      { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
+      { label: "Compare triage versions", href: "/clinician/triage-protocols/compare", icon: "review" },
+      { label: "Blood pressure triage rules", href: "/clinician/triage-rules", icon: "bp" },
+      { label: "Glucose triage rules", href: "/clinician/glucose-triage-rules", icon: "bp" },
+      { label: "Pulse, oxygen and temperature triage rules", href: "/clinician/vitals-triage-rules", icon: "bp" },
+      // N-overrides: the CMO's roster of personal alert thresholds, the monthly review and the kill switch.
+      { label: "Personal alert thresholds", href: "/clinician/threshold-overrides", icon: "bp" },
+      { label: "Task types and priorities", href: "/clinician/task-types", icon: "review" },
+      { label: "Clinical rules engine", href: "/clinician/clinical-rules", icon: "governance" },
+      { label: "Alert rules", href: "/clinician/alert-rules", icon: "siren" },
+      { label: "Escalation SLAs", href: "/clinician/escalation-slas", icon: "escalation" },
+      { label: "CV-risk (cholesterol) config", href: "/clinician/cv-risk-config", icon: "bp" },
+      {
+        label: "Risk questionnaire configuration",
+        href: "/clinician/risk-questionnaire-config",
+        icon: "review",
+      },
+      {
+        label: "Mental health screening cadences",
+        href: "/clinician/mental-health-screening",
+        icon: "preventive",
+      },
+      {
+        label: "Provider quality policy",
+        href: "/clinician/provider-quality-policy",
+        icon: "review",
+      },
+      { label: "Vaccination schedule", href: "/clinician/vaccination-schedule", icon: "vaccination" },
+      { label: "As-needed medicine limits", href: "/clinician/prn-limit-rules", icon: "review" },
+      { label: "Medicine interaction rules", href: "/clinician/medicine-interaction-rules", icon: "review" },
+      { label: "Medicine brand names", href: "/clinician/medicine-brand-map", icon: "review" },
+    ],
+  },
+  {
+    label: "Operations administration",
+    items: [
+      { label: "Operations console", href: "/admin/ops", icon: "operations" },
+      { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+      { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
+      { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+      { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
+      { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
+      { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
+      { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
+      { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
+      { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
+      { label: "Partner chase list", href: "/admin/ops/directory-chase", icon: "review" },
+      { label: "Lab and imaging directory", href: "/admin/ops/diagnostic-directory", icon: "review" },
+      { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
+      { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+      { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
+      { label: "AI monitoring", href: "/admin/ops/ai-monitoring", icon: "governance" },
+    ],
+  },
+];
+/**
+ * Everything a doctor's search should reach: the sidebar plus the governance index (DW-02). The Chief Medical
+ * Officer's search box is built from this, so moving a page off the sidebar never makes it unfindable.
+ */
+export const CLINICIAN_GOVERNANCE_SECTIONS: readonly NavSection[] = GOVERNANCE_SECTIONS;
+
+/** Every href on the Governance index; the sidebar's Governance home link is lit on all of them. */
+export const GOVERNANCE_HREFS: readonly string[] = GOVERNANCE_SECTIONS.flatMap((s) => s.items.map((i) => i.href));
+
+export function clinicianSearchSections(): NavSection[] {
+  return [...getNavSections("clinician", null), ...CLINICIAN_GOVERNANCE_SECTIONS];
+}
+
+function isActive(pathname: string, href: string, exact?: boolean) {
+  if (exact) return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Whether a sidebar link is the current page (or one it stands in for, see `alsoActiveFor`). */
+export function itemIsActive(pathname: string, item: Pick<NavItem, "href" | "exact" | "alsoActiveFor">): boolean {
+  return isActive(pathname, item.href, item.exact) || (item.alsoActiveFor ?? []).some((h) => isActive(pathname, h));
 }
