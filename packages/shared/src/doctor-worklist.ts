@@ -61,6 +61,9 @@ export type DoctorWorklistRow = {
   status: string;
   nextAction: string;
   href: string;
+  /** Escalation rows only: the case id and the assigned doctor's profile id, so the CMO's row can offer reassignment (DW-15). */
+  escalationId?: string;
+  assignedProfileId?: string | null;
 };
 
 const time = (iso: string | null): number | null => {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { formatPatientDateTime } from "@/lib/format-date";
+import { AssignEscalationSelect } from "@/components/clinical/assign-escalation-select";
 import {
   isOverdue,
   WORKLIST_PRIORITY_LABEL,
@@ -68,12 +69,38 @@ function ActionLink({ row }: { row: DoctorWorklistRow }) {
  * The named worklist (DW-01). A table on wide screens, stacked cards on narrow ones; both show priority, patient
  * name and number, the issue, timing, owner, status and the next action, so nothing essential is hidden on a phone.
  */
-export function WorklistTable({ rows, now }: { rows: readonly DoctorWorklistRow[]; now: Date }) {
+/** The CMO's reassign control under an escalation row's action (DW-15). Nothing for alerts or queue items. */
+function AssignCell({ row, organisationId }: { row: DoctorWorklistRow; organisationId: string | undefined }) {
+  if (!organisationId || !row.escalationId) return null;
+  return (
+    <div className="mt-2">
+      <AssignEscalationSelect
+        escalationId={row.escalationId}
+        organisationId={organisationId}
+        assignedProfileId={row.assignedProfileId ?? null}
+        refreshOnSuccess
+      />
+    </div>
+  );
+}
+
+export function WorklistTable({
+  rows,
+  now,
+  caption = "Patients requiring attention, most urgent first",
+  assignOrganisationId,
+}: {
+  rows: readonly DoctorWorklistRow[];
+  now: Date;
+  caption?: string;
+  /** Set only for the Chief Medical Officer: adds "Assign to…" under each escalation row. */
+  assignOrganisationId?: string;
+}) {
   return (
     <>
       <div className="hidden overflow-x-auto rounded-2xl bg-white md:block">
         <table className="w-full text-left text-sm">
-          <caption className="sr-only">Patients requiring attention, most urgent first</caption>
+          <caption className="sr-only">{caption}</caption>
           <thead className="border-b border-charcoal-ink/10 text-xs uppercase tracking-wide text-charcoal-ink/60">
             <tr>
               <th scope="col" className="px-4 py-3">Priority</th>
@@ -109,6 +136,7 @@ export function WorklistTable({ rows, now }: { rows: readonly DoctorWorklistRow[
                   <td className="px-4 py-3">{row.status}</td>
                   <td className="px-4 py-3">
                     <ActionLink row={row} />
+                    <AssignCell row={row} organisationId={assignOrganisationId} />
                   </td>
                 </tr>
               );
@@ -117,7 +145,7 @@ export function WorklistTable({ rows, now }: { rows: readonly DoctorWorklistRow[
         </table>
       </div>
 
-      <ul className="space-y-3 md:hidden" aria-label="Patients requiring attention, most urgent first">
+      <ul className="space-y-3 md:hidden" aria-label={caption}>
         {rows.map((row) => {
           const overdue = isOverdue(row, now);
           return (
@@ -136,6 +164,7 @@ export function WorklistTable({ rows, now }: { rows: readonly DoctorWorklistRow[
                 {dueText(row, now)} · {ownerPhrase(row)}
               </p>
               <ActionLink row={row} />
+              <AssignCell row={row} organisationId={assignOrganisationId} />
             </li>
           );
         })}

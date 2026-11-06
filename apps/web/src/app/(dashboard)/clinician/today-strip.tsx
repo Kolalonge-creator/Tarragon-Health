@@ -15,9 +15,9 @@ type Tile = {
  * A tile whose count could not be loaded says so; it never shows 0. Each tile
  * is one link of at least 44px, so it works with a thumb.
  */
-export function TodayStrip({ tiles }: { tiles: readonly Tile[] }) {
+export function TodayStrip({ tiles, label = "Today" }: { tiles: readonly Tile[]; label?: string }) {
   return (
-    <section aria-label="Today" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <section aria-label={label} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {tiles.map((tile) => (
         <Link
           key={tile.label}

@@ -75,6 +75,8 @@ export function escalationToRow(e: EscalationRow, profileId: string | null): Doc
   const level = e.clinician_alert?.override_level ?? e.clinician_alert?.level ?? null;
   return {
     key: `escalation:${e.id}`,
+    escalationId: e.id,
+    assignedProfileId: e.assigned_doctor_id,
     source: "escalation",
     patientId: e.patient_id,
     patientName: e.patient?.full_name ?? null,

@@ -27,6 +27,8 @@ import { CriticalAttentionBanner } from "./critical-attention-banner";
 import { TodayStrip } from "./today-strip";
 import { WorklistTable } from "./worklist/worklist-table";
 import { loadDoctorWorklist } from "@/lib/worklist/doctor-worklist-load";
+import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
+import { CmoOversightSection, type OnLeaveDoctor } from "./cmo-oversight-section";
 import { loadWorklist } from "@/lib/security/worklists";
 import {
   criticalBannerView,
@@ -313,6 +315,31 @@ export default async function ClinicianPage() {
   const notesFigure = staff ? figure(pendingAutoDraftedNotes.length, pendingNotesFailed) : figure(null, true);
 
   const attention = await attentionPromise;
+
+  // DW-14: the CMO's oversight block. The sign-off hub is the same per-request read the layout banner already made (cached);
+  // leave is today's provider_time_off of kind 'leave'.
+  const isCmo = canAssignCases(staff);
+  let oversight: { signoffsWaiting: number; signoffsFailed: boolean; onLeave: OnLeaveDoctor[] | null } | null = null;
+  if (isCmo) {
+    const nowIso = now.toISOString();
+    const [hub, leaveRes] = await Promise.all([
+      getCmoSigningHubForRequest().catch(() => null),
+      supabase
+        .from("provider_time_off")
+        .select("ends_at, clinician:profiles!provider_time_off_clinician_id_fkey(full_name)")
+        .eq("kind", "leave")
+        .lte("starts_at", nowIso)
+        .gt("ends_at", nowIso)
+        .returns<{ ends_at: string; clinician: { full_name: string | null } | null }[]>(),
+    ]);
+    oversight = {
+      signoffsWaiting: hub?.items.length ?? 0,
+      signoffsFailed: hub === null || hub.failed,
+      onLeave: leaveRes.error
+        ? null
+        : (leaveRes.data ?? []).map((l) => ({ name: l.clinician?.full_name ?? "A doctor", until: l.ends_at })),
+    };
+  }
   const attentionTop = sortWorklist(attention.rows, now).slice(0, 8);
 
   return (
@@ -379,6 +406,18 @@ export default async function ClinicianPage() {
           <WorklistTable rows={attentionTop} now={now} />
         )}
       </section>
+
+      {oversight && (
+        <CmoOversightSection
+          rows={attention.rows}
+          failedSources={attention.failedSources}
+          now={now}
+          organisationId={profile?.organisation_id ?? null}
+          signoffsWaiting={oversight.signoffsWaiting}
+          signoffsFailed={oversight.signoffsFailed}
+          onLeave={oversight.onLeave}
+        />
+      )}
 
       {!staff && <ClinicalStaffSetupWarning roleLabel={roleLabel} />}
       {staff && <RedFlagAttestation />}
