@@ -75,7 +75,11 @@ export function PhotoBannerHero({
         alt={imageAlt}
         fill
         priority
-        sizes="100vw"
+        // On a phone the photo sits under a 70-85% dark overlay behind the text, so a 640px-wide file looks the same
+        // as the 1080px one a 100vw hint would pick, at about half the bytes; on a slow connection that is the
+        // difference between the hero arriving inside or outside the 2.5s LCP target (launch check 2026-11-06).
+        // 240px x a typical 2.6 device-pixel ratio selects the 640w candidate.
+        sizes="(max-width: 639px) 240px, 100vw"
         style={{ objectPosition: imagePosition }}
         className="object-cover"
       />
