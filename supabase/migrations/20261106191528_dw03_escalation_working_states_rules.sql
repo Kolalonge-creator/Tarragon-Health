@@ -95,9 +95,12 @@ begin
       new.status_changed_at := now();
       new.status_changed_by := v_uid;
     else
-      -- The note and its attribution belong to the state change; they are not edited in place.
+      -- The note and its attribution belong to the state change; they are not edited in place. Refuse a note change rather than
+      -- dropping it silently (a client that thinks it saved a note must hear that it did not).
+      if new.status_note is distinct from old.status_note then
+        raise exception 'A note is saved with a change of state. Choose the state to move the case to, then write the note.' using errcode = '23514';
+      end if;
       new.monitor_until := old.monitor_until;
-      new.status_note := old.status_note;
       new.status_changed_at := old.status_changed_at;
       new.status_changed_by := old.status_changed_by;
     end if;
@@ -133,6 +136,11 @@ begin
       end if;
     elsif not v_owner then
       raise exception 'Only the doctor this case is assigned to, or the Chief Medical Officer, can take it back into review.' using errcode = '42501';
+    end if;
+  elsif new.status = 'open' and old.status = any (v_working) then
+    -- Back to open is a reassignment (public.reassign_escalation, CMO) or the owner's own choice; never a coordinator or bystander.
+    if not v_owner then
+      raise exception 'Only the doctor this case is assigned to, or the Chief Medical Officer, can take it out of %.', old.status using errcode = '42501';
     end if;
   elsif new.status = 'resolved' then
     -- G11: a resolved case always says how it was resolved.
@@ -639,6 +647,44 @@ as $function$
                    where a.patient_id = p_patient and cs.id in (a.responsible_clinician_id, a.backup_clinician_id)
                      and a.status in ('open', 'acknowledged', 'snoozed'))
      )
+$function$;
+
+-- 5b. A refused working-state move is audited like a refused claim (useMoveEscalationState logs 'escalations.state_move_denied').
+-- public.log_denied_action redefined from its live body (md5 942260bd1675618e4ad415ce7f9b2b70); only the allowlist gains one entry.
+create or replace function public.log_denied_action(p_action text, p_entity_type text, p_entity_id uuid, p_organisation_id uuid, p_reason text default null::text)
+ returns uuid
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_reason text;
+begin
+  if p_organisation_id is null or not private.is_org_staff(p_organisation_id) then
+    raise exception 'not authorised' using errcode = '42501';
+  end if;
+
+  -- Deliberately not open-ended -- see this migration's header, finding 3.
+  -- Extend this list explicitly (with a matching app-layer call site) rather
+  -- than inferring one from a new action string.
+  if p_action not in (
+    'escalations.reassignment_denied',
+    'escalations.claim_denied',
+    'escalations.state_move_denied',
+    'medications.amendment_denied'
+  ) then
+    raise exception 'log_denied_action: unrecognised action %', p_action using errcode = '22023';
+  end if;
+
+  v_reason := nullif(btrim(coalesce(p_reason, '')), '');
+  if v_reason is not null and length(v_reason) > 300 then
+    raise exception 'Reason must be 300 characters or fewer' using errcode = '22001';
+  end if;
+
+  return private.audit_log_denied_action(
+    p_action, p_entity_type, p_entity_id, p_organisation_id, v_reason, 'denied'
+  );
+end;
 $function$;
 
 -- 6. Self-check ------------------------------------------------------------------------------------------------------------------

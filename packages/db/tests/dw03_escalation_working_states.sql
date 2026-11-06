@@ -146,6 +146,12 @@ begin
   v_r := pg_temp.try_as('cmo', format($q$update public.escalations set status = 'patient_contact_required', status_note = 'CMO: ring the patient about the ECG' where id = %L$q$, v_esc));
   if v_r <> 'ok' then raise exception 'FAIL 7: the CMO could not move the case: %', v_r; end if;
 
+  -- 7b. a coordinator cannot pull a working-state case back to open; a note cannot be edited without a state change
+  v_r := pg_temp.try_as('coord', format($q$update public.escalations set status = 'open' where id = %L$q$, v_esc));
+  if v_r not in ('42501', 'blocked') then raise exception 'FAIL 7b: a care coordinator moved a working-state case to open: %', v_r; end if;
+  v_r := pg_temp.try_as('doc_a', format($q$update public.escalations set status_note = 'Rewriting the note in place' where id = %L$q$, v_esc));
+  if v_r <> '23514' then raise exception 'FAIL 7c: a note edit without a state change was not refused: %', v_r; end if;
+
   -- 8. monitoring window
   v_r := pg_temp.try_as('doc_a', format($q$update public.escalations set status = 'monitoring', status_note = 'Watch BP readings for a week' where id = %L$q$, v_esc));
   if v_r <> '23514' then raise exception 'FAIL 8a: monitoring without a date was accepted: %', v_r; end if;

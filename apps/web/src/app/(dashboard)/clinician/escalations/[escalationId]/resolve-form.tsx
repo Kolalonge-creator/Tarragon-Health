@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
-import { ESCALATION_NOTE_MIN_LENGTH } from "@tarragon/shared";
+import { ESCALATION_NOTE_MIN_LENGTH, resolutionNoteProblem } from "@tarragon/shared";
 
 export function ResolveForm({
   escalationId,
@@ -71,7 +71,7 @@ export function ResolveForm({
         <Button
           disabled={
             resolve.isPending ||
-            resolutionNote.trim().length < ESCALATION_NOTE_MIN_LENGTH ||
+            resolutionNoteProblem(resolutionNote) !== null ||
             (status === "resolved" && !identityConfirmed)
           }
           onClick={() => {

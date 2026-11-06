@@ -233,6 +233,8 @@ export default async function EscalationDetailPage({
 
       {escalation.status !== "open" && caseIsActive && (
         <WorkingStateCard
+          // Remount on every state change so the "Move to" choice never points at the state the case is already in.
+          key={`${escalation.status}:${escalation.status_changed_at ?? ""}`}
           escalationId={escalation.id}
           organisationId={escalation.organisation_id}
           status={escalation.status}

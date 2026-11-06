@@ -25,8 +25,8 @@ import { ESCALATION_STATUS_LABEL, type EscalationStatus } from "@tarragon/shared
 
 const STATUS_FILTERS: { value: EscalationStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "open", label: "Unclaimed" },
-  { value: "under_review", label: "Under review" },
+  { value: "open", label: ESCALATION_STATUS_LABEL.open },
+  { value: "under_review", label: ESCALATION_STATUS_LABEL.under_review },
   { value: "awaiting_information", label: ESCALATION_STATUS_LABEL.awaiting_information },
   { value: "patient_contact_required", label: ESCALATION_STATUS_LABEL.patient_contact_required },
   { value: "monitoring", label: ESCALATION_STATUS_LABEL.monitoring },

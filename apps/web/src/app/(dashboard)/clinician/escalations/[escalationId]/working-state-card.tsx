@@ -35,21 +35,6 @@ function formatLagos(iso: string): string {
   });
 }
 
-/** Lagos wall-clock "YYYY-MM-DDTHH:mm" for a datetime-local input, from an ISO time. */
-function toLagosInput(date: Date): string {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Africa/Lagos",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
-  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
-}
-
 /** A datetime-local value typed in Lagos time (UTC+1, no daylight saving) as an ISO instant. */
 function lagosInputToIso(value: string): string | null {
   if (!value) return null;
@@ -148,9 +133,6 @@ export function WorkingStateCard({
     );
   }
 
-  const now = new Date();
-  const maxUntil = new Date(now.getTime() + ESCALATION_MONITORING_MAX_DAYS * 24 * 60 * 60 * 1000);
-
   return (
     <Card>
       <CardHeader>
@@ -211,8 +193,6 @@ export function WorkingStateCard({
                   id="working-state-until"
                   type="datetime-local"
                   value={until}
-                  min={toLagosInput(now)}
-                  max={toLagosInput(maxUntil)}
                   onChange={(e) => setUntil(e.target.value)}
                 />
               </div>
