@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Linking, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { asLocale, t } from "@tarragon/i18n";
 import { useUiLanguage } from "@/lib/ui-language";
@@ -53,9 +53,10 @@ function PartnerLabel() {
   const [shown, setShown] = useState(false);
   return (
     <View style={{ gap: 4 }}>
-      <View style={{ alignSelf: "flex-start", borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, opacity: 0.85 }}>
-        <AppText variant="caption" onPress={() => setShown((s) => !s)} accessibilityRole="button">{tr("dxsearch.partner.badge")}</AppText>
-      </View>
+      <Pressable onPress={() => setShown((s) => !s)} accessibilityRole="button" accessibilityState={{ expanded: shown }}
+        hitSlop={12} style={{ alignSelf: "flex-start", minHeight: 32, justifyContent: "center", borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, opacity: 0.85 }}>
+        <AppText variant="caption">{tr("dxsearch.partner.badge")}</AppText>
+      </Pressable>
       {shown ? <MutedText>{tr("dxsearch.partner.explainer")}</MutedText> : null}
     </View>
   );
@@ -280,13 +281,15 @@ function PlaceResult({ r }: { r: PlaceRow }) {
       <AppText variant="bodyStrong">{r.providerName}: {r.branchName}</AppText>
       {r.isPartner ? <PartnerLabel /> : null}
       <MutedText>{placeLine([r.address, r.neighbourhood, r.town, r.lga, r.state])}</MutedText>
-      {r.resultGroup === "unconfirmed" ? <ErrorText>{tr("dxsearch.find.unconfirmed")}</ErrorText> : null}
+      {r.resultGroup === "unconfirmed" ? <AppText variant="caption" tone="textSubtle">{tr("dxsearch.find.unconfirmed")}</AppText> : null}
       {r.byAppointment ? <MutedText>{tr("dxsearch.find.by_appointment")}</MutedText> : null}
       {r.performedElsewhere ? <MutedText>{tr("dxsearch.find.sent_elsewhere")}</MutedText> : null}
       {r.preparationNote ? <MutedText>{tr("dxsearch.place.prep", { note: r.preparationNote })}</MutedText> : null}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14 }}>
         <Link label={r.phone} onPress={() => open(`tel:${r.phone}`)} />
-        <Link label={tr("dxsearch.place.directions")} onPress={() => open(directionsUrl(r.latitude, r.longitude) ?? "")} />
+        {directionsUrl(r.latitude, r.longitude) ? (
+          <Link label={tr("dxsearch.place.directions")} onPress={() => open(directionsUrl(r.latitude, r.longitude) as string)} />
+        ) : null}
         <Link label={details ? tr("dxsearch.place.hide") : tr("dxsearch.find.details")} onPress={() => setDetails((d) => !d)} />
       </View>
       {details ? <BranchDetails branchListingId={r.branchListingId} /> : null}

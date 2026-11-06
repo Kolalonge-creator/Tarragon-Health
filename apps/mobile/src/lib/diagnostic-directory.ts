@@ -189,6 +189,7 @@ export async function findPlaces(input: { conceptId: string; state: string; lga?
     service_id: "string", branch_listing_id: "string", provider_name: "string", branch_name: "string", address: "string",
     state: "string", phone: "string", latitude: "number", longitude: "number", result_group: "string", is_partner: "boolean",
     availability: "string", appointment_required: "boolean", performed_elsewhere: "boolean", total_count: "number",
+    neighbourhood: "string?", town: "string?", lga: "string?", preparation_note: "string?",
   };
   if (!rows.every((r) => matches(r, shape))) return { ok: false, reason: "failed" };
   const typed = rows as Record<string, never>[];
