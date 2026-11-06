@@ -141,4 +141,6 @@ Phone bottom bar: see Q1.
 
 ## 7. Founder answers (2026-11-06)
 
-Logged as PD-01..PD-04 in `docs/DECISIONS.md`: phone tabs Home, My Health, Messages, Care Plan, More (Q1); keep "Community" (Q6); care journey for everyone, Free sees fewer stages (Q3); build Slice A and B first, PRs reviewed before merge. Q2, Q4, Q5 and Q7 stay open until those slices land.
+Logged as PD-01..PD-04 in `docs/DECISIONS.md`: phone tabs Home, My Health, Messages, Care Plan, More (Q1); keep "Community" (Q6); care journey for everyone, Free sees fewer stages (Q3); build Slice A and B first, PRs reviewed before merge. Q2, Q4, Q5 and Q7 answered the same day (PD-05..PD-08): Home order as proposed; build the care plan schema and patient view; keep the live Membership wording; build typed Care Circle help requests.
+
+Slices so far: A #1791 (fixes), B #1792 (status tokens, chart ranges, back links). Next: C navigation (PD-01), D Home + care journey (PD-03, PD-05), F care plan (PD-06), G includes Care Circle requests (PD-08).
