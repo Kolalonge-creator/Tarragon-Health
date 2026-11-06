@@ -186,9 +186,10 @@ export function getNavSections(
             },
             { label: "Vitals & symptoms", href: "/patient/vitals", icon: "bp" },
             { label: "Medications", href: "/patient/medications", icon: "medication" },
-            // The care plan lives on Care & support (my-care-plan-tasks.tsx), together with the "Need help" card and paid services.
+            // The care plan lives on Care & support (my-care-plan-tasks.tsx), together with the "Need help" card and paid services. The
+            // menu keeps the page's own name (onboarding copy points to it); the phone tab says "Care plan" (PD-01).
             {
-              label: "My care plan",
+              label: "Care & support",
               href: "/patient/care",
               icon: "clinicianFollowUp",
               primary: true,

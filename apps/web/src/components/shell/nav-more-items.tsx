@@ -14,27 +14,27 @@ import { useT } from "@/components/ui-language-provider";
 export function NavMoreItems({
   groupLabel,
   items,
-  activeInside,
+  activeHref,
   renderItem,
 }: {
   groupLabel: string;
   items: NavItem[];
-  /** True when the current page is one of `items`. */
-  activeInside: boolean;
+  /** The href of the one of `items` the current page belongs to, or null. */
+  activeHref: string | null;
   renderItem: (item: NavItem) => React.ReactNode;
 }) {
   const tr = useT();
   const panelId = React.useId();
   const [manual, setManual] = React.useState<boolean | undefined>(undefined);
-  // Landing on one of these pages re-opens the toggle even after a manual close (state-adjust-during-render).
-  const [prevActive, setPrevActive] = React.useState(activeInside);
-  if (prevActive !== activeInside) {
-    setPrevActive(activeInside);
-    if (activeInside) setManual(undefined);
+  // Landing on one of these pages re-opens the toggle even after a manual close, including when moving from one of them to another
+  // (state-adjust-during-render).
+  const [prevActive, setPrevActive] = React.useState(activeHref);
+  if (prevActive !== activeHref) {
+    setPrevActive(activeHref);
+    if (activeHref) setManual(undefined);
   }
   if (items.length === 0) return null;
-  const open = manual ?? activeInside;
-  const name = tr(groupLabel);
+  const open = manual ?? activeHref !== null;
 
   return (
     <li>
@@ -51,7 +51,8 @@ export function NavMoreItems({
           strokeWidth={2}
         />
         <span className="min-w-0 flex-1 truncate text-left">
-          {tr("More in")} {name}
+          {/* One whole phrase per group, so a translation can reorder it. */}
+          {tr(`More in ${groupLabel}`)}
         </span>
       </button>
       <div id={panelId} hidden={!open} inert={!open}>

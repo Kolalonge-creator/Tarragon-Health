@@ -17,7 +17,11 @@ export const PATIENT_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Exercise", href: "/patient/exercise", group: "Your habits", hint: "Programmes to build activity safely.", keywords: "walking workout fitness activity" },
   { label: "Nutrition", href: "/patient/nutrition", group: "Your habits", hint: "Meals and food.", keywords: "food diet eating meal calories" },
   { label: "Lab results", href: "/patient/labs", group: "Tests", hint: "Your results and lab requests.", keywords: "blood test results hba1c cholesterol lipid kidney liver" },
-  { label: "My Health Records", href: "/patient/health-records", group: "Your record", hint: "Every report, scan, letter and document on your record.", keywords: "documents reports scans xray ultrasound ecg letter discharge upload pdf biopsy smear" },
+  { label: "Reports and documents", href: "/patient/health-records", group: "Your record", hint: "My Health Records: every report, scan, letter and document on your record.", keywords: "my health records documents reports scans xray ultrasound ecg letter discharge upload pdf biopsy smear" },
+  // Pages folded into the Health summary hub (design audit P5). That hub left the menu in slice C, so search keeps them one step away.
+  { label: "Yearly health report", href: "/patient/health-report", group: "Your record", hint: "Your year in one report.", keywords: "annual yearly report year review" },
+  { label: "Your month", href: "/patient/progress", group: "Your record", hint: "How your month went.", keywords: "month monthly progress summary" },
+  { label: "Doses marked taken", href: "/patient/medicine-report", group: "Your record", hint: "The medicine doses you marked as taken.", keywords: "doses taken adherence report missed" },
   { label: "My health record", href: "/patient/my-health", group: "Your record", hint: "Your timeline, documents, passport and who has looked.", keywords: "record history timeline passport share access log immunisation" },
   { label: "Health summary", href: "/patient/health-summary", group: "Your record", hint: "Conditions, medicines, allergies and readings in one place.", keywords: "summary conditions allergies problems diagnoses overview record" },
   { label: "Health Passport", href: "/patient/health-passport", group: "Your record", hint: "Your health record to carry and share.", keywords: "passport travel carry share record card" },

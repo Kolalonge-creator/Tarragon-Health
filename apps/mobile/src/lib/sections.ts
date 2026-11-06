@@ -69,8 +69,9 @@ export interface SectionDef {
   id: SectionId;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
-  /** Drawer grouping — mirrors the web sidebar's bands (lib/navigation.ts) so
-   * the two surfaces describe the patient's world the same way. */
+  /** Drawer grouping. These are the web sidebar's OLD bands: the web menu moved to six groups (My health, Healthcare, My support,
+   * Resources, Account) in patient dashboard 2.0 slice C, and only the bottom tabs were brought across here. Regrouping this
+   * icon-grid drawer is a follow-up (docs/design/PATIENT-DASHBOARD-2.md P7). */
   group: "top" | "Your health" | "Stay well" | "Support" | "Your account";
   /** Promotes this section into the bottom tab bar. Only the first
    * MAX_PRIMARY_SECTIONS are used, ordered by `primaryOrder`. */

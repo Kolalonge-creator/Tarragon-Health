@@ -1,6 +1,7 @@
 import { getNavSections, primaryNavItems, MAX_PRIMARY_NAV_ITEMS } from "./navigation";
 import { buildPatientSearchIndex } from "./patient-search";
 import { MY_HEALTH_RELATED_LINKS } from "@/app/(dashboard)/patient/my-health/related-links";
+import { PATIENT_PAGE_GATES } from "@tarragon/shared";
 
 /**
  * Patient dashboard 2.0, slice C (PD-01). The patient menu was regrouped from five bands (43 links) into six groups. No page may fall
@@ -22,7 +23,9 @@ const menu = (communityOpen: boolean) => getNavSections("patient", true, { commu
 const hrefs = (communityOpen: boolean) => menu(communityOpen).flatMap((s) => s.items.map((i) => i.href));
 
 describe("patient menu regroup keeps every page reachable", () => {
-  const reachable = new Set([...hrefs(true), ...buildPatientSearchIndex(menu(true)).map((e) => e.href)]);
+  // Search only: the menu's own links are not counted twice, so a page that left the menu must be a curated search entry.
+  const curated = new Set(buildPatientSearchIndex([]).map((e) => e.href));
+  const reachable = new Set([...hrefs(true), ...curated]);
   it.each(OLD_PATIENT_MENU)("%s is still in the menu or in search", (href) => expect(reachable.has(href)).toBe(true));
 
   it("the record pages that left the menu are one tap from the My health record hub, and in search", () => {
@@ -36,6 +39,26 @@ describe("patient menu regroup keeps every page reachable", () => {
     // The passport is a card on the hub page itself (my-health/page.tsx CARDS) and stays in search.
     expect(hrefs(false)).not.toContain("/patient/health-passport");
     expect(search.has("/patient/health-passport")).toBe(true);
+  });
+
+  it("search reaches the pages folded into the Health summary hub, now that the hub left the menu", () => {
+    const search = new Set(buildPatientSearchIndex(menu(false)).map((e) => e.href));
+    for (const href of ["/patient/health-report", "/patient/progress", "/patient/medicine-report", "/patient/health-score"]) {
+      expect(search.has(href)).toBe(true);
+    }
+  });
+
+  it("no page that left the menu depends on an entry a page gate can hide", () => {
+    // The layout drops gated addresses (and Women's Health for a recorded male) from BOTH menu and search, so a page that survives
+    // only in search must not be one of those, or some patients would lose it entirely.
+    const now = new Set(hrefs(true));
+    const gated = new Set(PATIENT_PAGE_GATES.flatMap((g) => [...g.webHrefs]));
+    const leftMenu = OLD_PATIENT_MENU.filter((h) => !now.has(h));
+    expect(leftMenu.sort()).toEqual(["/patient/health-passport", "/patient/health-records", "/patient/health-summary"]);
+    for (const href of leftMenu) {
+      expect(gated.has(href)).toBe(false);
+      expect(href).not.toBe("/patient/womens-health");
+    }
   });
 
   it("lists each address once", () => {

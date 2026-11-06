@@ -325,7 +325,7 @@ function CollapsibleNavGroup({
             <NavMoreItems
               groupLabel={label}
               items={items.filter((item) => item.more)}
-              activeInside={items.some((item) => item.more && isActive(pathname, item.href, item.exact))}
+              activeHref={items.find((item) => item.more && isActive(pathname, item.href, item.exact))?.href ?? null}
               renderItem={(item) => (
                 <NavLinkItem
                   key={item.href}

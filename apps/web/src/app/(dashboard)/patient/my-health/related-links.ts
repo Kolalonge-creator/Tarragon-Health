@@ -5,7 +5,8 @@
  */
 export const MY_HEALTH_RELATED_LINKS = [
   { href: "/patient/health-summary", label: "Health summary" },
-  { href: "/patient/health-records", label: "All reports and documents" },
+  { href: "/patient/health-records", label: "Reports and documents" },
+  { href: "/patient/health-report", label: "Yearly health report" },
   { href: "/patient/vitals", label: "Vitals & symptoms" },
   { href: "/patient/medications", label: "Medications" },
   { href: "/patient/labs", label: "Labs & results" },
