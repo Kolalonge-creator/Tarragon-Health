@@ -66,14 +66,12 @@ export async function proxy(request: NextRequest) {
     inAppCall: isConsultationCallPath(pathname),
     dev: process.env.NODE_ENV === "development",
   });
-  // A NEW request with CLONED headers, the way Vercel's routing docs forward a header. Setting the header on request.headers in
-  // place worked locally but never reached the renderer in production (2026-11-05: policy on the response, 0 nonced scripts on a
-  // per-request page). The REQUEST header uses the plain name Next reads first; it is never enforced by anything. Only the
-  // response header reaches the browser, and it stays report-only.
+  // KNOWN LIMIT ON VERCEL (probe 2026-11-06): the renderer receives a content-security-policy request header WITHOUT this nonce
+  // (the enforced next.config policy), and Next reads that name first, so production scripts are not nonced while the enforced
+  // policy lives in next.config. A local production build stamps every script. Step 2 (one per-request ENFORCED policy carrying
+  // the nonce, set here instead of in next.config) removes the collision. The forwarded request header is never enforced.
   const forwarded = new Headers(request.headers);
   forwarded.set("content-security-policy", policy);
-  // TEMPORARY control header for /csp-probe (2026-11-06): tells "Vercel drops this name" from "drops all overrides". Remove with it.
-  forwarded.set("x-csp-probe", "1");
   const withNonce = new NextRequest(request.url, { method: request.method, headers: forwarded });
   const response = await proxyInner(withNonce);
   response.headers.set("Content-Security-Policy-Report-Only", policy);
