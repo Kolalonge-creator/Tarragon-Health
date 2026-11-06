@@ -93,7 +93,7 @@ export function ResourceCarousel({
             disabled={activeIndex === 0}
             onClick={() => scrollToIndex(Math.max(0, activeIndex - 1))}
           />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5">
             {articles.map((article, index) => (
               <button
                 key={article.slug}
@@ -101,11 +101,17 @@ export function ResourceCarousel({
                 aria-label={`Go to "${article.title}"`}
                 aria-current={index === activeIndex}
                 onClick={() => scrollToIndex(index)}
-                className={cn(
-                  "h-2.5 w-2.5 rounded-full transition",
-                  index === activeIndex ? "bg-clinical-navy" : "bg-charcoal-ink/15"
-                )}
-              />
+                // 24px tap area (WCAG 2.5.8) around a 10px dot.
+                className="group flex h-6 w-6 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "h-2.5 w-2.5 rounded-full transition",
+                    index === activeIndex ? "bg-clinical-navy" : "bg-charcoal-ink/25 group-hover:bg-charcoal-ink/40"
+                  )}
+                />
+              </button>
             ))}
           </div>
           <CarouselArrowButton

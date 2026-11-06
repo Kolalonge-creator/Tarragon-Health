@@ -308,6 +308,13 @@ const nextConfig: NextConfig = {
 export default withSentryConfig(nextConfig, {
   silent: true,
   telemetry: false,
+  // Website Phase 6 (speed): nothing on the platform uses Session Replay or the SDK's debug logging, so drop that code
+  // from every browser bundle, the public pages included. Tracing stays (NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE).
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+    excludeReplayShadowDom: true,
+    excludeReplayIframe: true,
+  },
   // SR1: tag the build with the deploy's commit so an error is tied to the release that shipped it. Undefined locally
   // (no VERCEL_GIT_COMMIT_SHA), in which case the plugin falls back to its own default.
   release: process.env.VERCEL_GIT_COMMIT_SHA ? { name: process.env.VERCEL_GIT_COMMIT_SHA } : undefined,

@@ -67,7 +67,7 @@ export default async function ChronicCarePage() {
       <Section className="pt-14">
         <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {CHRONIC_CARDS.map((service) => (
-            <ServiceCardLink key={service.key} service={service} />
+            <ServiceCardLink key={service.key} service={service} headingLevel="h2" />
           ))}
         </div>
       </Section>

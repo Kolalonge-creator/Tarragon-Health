@@ -135,6 +135,7 @@ export function ResourceThumbnail({
   icon,
   className,
   variant = "photo",
+  eager = false,
 }: {
   category: ResourceArticle["category"];
   icon: ResourceThumbnailIconId;
@@ -148,6 +149,8 @@ export function ResourceThumbnail({
    * the rest, so each article keeps its own visual identity.
    */
   variant?: "photo" | "icon";
+  /** The first photo on a page that is the largest thing a phone sees on load: fetch it straight away (LCP). */
+  eager?: boolean;
 }) {
   const photo = CATEGORY_PHOTO[category];
   if (variant === "icon") {
@@ -177,6 +180,8 @@ export function ResourceThumbnail({
         fill
         className="object-cover"
         sizes="(min-width: 640px) 288px, 256px"
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : undefined}
       />
       <span
         className="absolute bottom-3 left-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-brand-green shadow-sm"

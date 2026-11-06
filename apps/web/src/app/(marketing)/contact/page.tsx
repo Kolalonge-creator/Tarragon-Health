@@ -30,7 +30,7 @@ export default function ContactPage() {
           <Suspense fallback={<div className="min-h-[28rem]" />}>
             <ContactForm />
           </Suspense>
-          <p className="mt-6 text-center text-sm text-charcoal-ink/60">
+          <p className="mt-6 text-center text-sm text-charcoal-ink/70">
             To contact us by email, write to{" "}
             <a href="mailto:hello@tarragonhealth.ng" className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               hello@tarragonhealth.ng
@@ -45,12 +45,12 @@ export default function ContactPage() {
             </a>
             .
           </p>
-          <p className="mt-2 text-center text-xs text-charcoal-ink/65">
+          <p className="mt-2 text-center text-xs text-charcoal-ink/70">
             TarragonHealth · RC 9702108
           </p>
           {/* Headquarters, not a walk-in address: care happens in the app, so
               this says where the company is registered, not where to turn up. */}
-          <p className="mt-1 text-center text-xs text-charcoal-ink/65">
+          <p className="mt-1 text-center text-xs text-charcoal-ink/70">
             Headquarters: {SITE.headquarters}. We are an online service, so
             there is no walk-in clinic to visit.
           </p>

@@ -155,7 +155,13 @@ export default function ForYouPage() {
           title="The care most people receive, compared with Tarragon"
           description="This is what changes when someone monitors your readings between visits."
         />
-        <div className="mx-auto max-w-4xl overflow-x-auto">
+        {/* Scrolls sideways on phones, so it takes keyboard focus (WCAG 2.1.1, axe scrollable-region-focusable). */}
+        <div
+          className="mx-auto max-w-4xl overflow-x-auto rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+          tabIndex={0}
+          role="region"
+          aria-label="Comparison table"
+        >
           <table className="w-full min-w-[40rem] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white text-sm">
             <thead>
               <tr className="bg-warm-ivory text-left">
@@ -171,7 +177,7 @@ export default function ForYouPage() {
               {CARE_COMPARISON.map((row) => (
                 <tr key={row.theOldWay.label} className="border-t border-charcoal-ink/10">
                   <td className="border-t border-charcoal-ink/10 p-4 align-top">
-                    <p className="font-medium text-charcoal-ink/60">{row.theOldWay.label}</p>
+                    <p className="font-medium text-charcoal-ink/70">{row.theOldWay.label}</p>
                     <p className="mt-1 text-charcoal-ink/70">{row.theOldWay.body}</p>
                   </td>
                   <td className="border-t border-charcoal-ink/10 p-4 align-top">

@@ -78,10 +78,10 @@ export default async function ImpactPage() {
               </p>
               <p className="mt-2 text-sm font-medium text-charcoal-ink">{metric.label}</p>
               {metric.description && (
-                <p className="mt-1 text-xs text-charcoal-ink/60">{metric.description}</p>
+                <p className="mt-1 text-xs text-charcoal-ink/70">{metric.description}</p>
               )}
               {metric.suppressed && (
-                <p className="mt-2 text-xs text-charcoal-ink/65">
+                <p className="mt-2 text-xs text-charcoal-ink/70">
                   Not enough activity yet to show without risking anyone&apos;s privacy.
                 </p>
               )}
@@ -89,7 +89,7 @@ export default async function ImpactPage() {
           ))}
         </div>
         {computedAt && (
-          <p className="mx-auto mt-6 max-w-4xl text-center text-xs text-charcoal-ink/65">
+          <p className="mx-auto mt-6 max-w-4xl text-center text-xs text-charcoal-ink/70">
             Last updated {new Date(computedAt).toLocaleDateString("en-NG", {
               day: "numeric",
               month: "long",

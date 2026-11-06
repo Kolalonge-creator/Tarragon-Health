@@ -1,0 +1,88 @@
+name: Website accessibility
+
+# Website upgrade Phase 6. Builds apps/web and scans every public marketing page with axe-core against WCAG 2.2 A/AA,
+# on a phone and a desktop viewport, plus a reduced-motion check (apps/web/playwright.a11y.config.ts and
+# apps/web/e2e-a11y/). Needs no secrets and no database. The proxy refuses to start without a Supabase URL and key,
+# so the job sets placeholders pointing at a closed local port: every database read fails at once and the marketing
+# pages fall back to their built-in content, the same markup the live site serves. These are not credentials.
+#
+# Not yet a required check: that is a branch-protection setting for the founder to switch on once it has run cleanly
+# on a few PRs.
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/src/app/(marketing)/**"
+      - "apps/web/src/app/globals.css"
+      - "apps/web/src/lib/marketing/**"
+      - "apps/web/src/components/**"
+      - "apps/web/e2e-a11y/**"
+      - "apps/web/playwright.a11y.config.ts"
+      - "apps/web/next.config.ts"
+      - "apps/web/package.json"
+      - "packages/ui/**"
+      - ".github/workflows/website-a11y.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-a11y-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  axe:
+    name: Website accessibility (WCAG 2.2 AA)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --max-old-space-size=6144
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:59999
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-not-a-key
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Get installed Playwright version
+        id: playwright-version
+        working-directory: apps/web
+        run: echo "version=$(node -e "console.log(require('@playwright/test/package.json').version)")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright's Chromium download
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright's Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Chromium's OS dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: apps/web
+        run: npx playwright install-deps chromium
+
+      - name: Build the web app
+        working-directory: apps/web
+        run: pnpm exec next build
+
+      - name: Scan the marketing pages
+        working-directory: apps/web
+        env:
+          CI: true
+        run: pnpm test:a11y

@@ -145,7 +145,7 @@ export function ActivityIntensityCalculator() {
               style={{ width: `${progressPct}%` }}
             />
           </div>
-          <p className="mt-2 text-xs text-charcoal-ink/60">
+          <p className="mt-2 text-xs text-charcoal-ink/70">
             {activity.intensity === "light"
               ? "Light activity is great for recovery and daily movement, but does not count towards this particular guideline."
               : `This session alone is about ${progressPct}% of the weekly target${activity.intensity === "vigorous" ? " (vigorous minutes count double)" : ""}.`}
@@ -157,7 +157,7 @@ export function ActivityIntensityCalculator() {
         <MembershipCtaCard className="mt-6" />
       ) : null}
 
-      <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">
+      <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/70">
         A general estimate from average energy-expenditure tables, not a personalised
         prescription. Actual calories burned vary with fitness level, terrain, and effort. If
         you are starting a new routine and live with a heart condition, high blood pressure, or

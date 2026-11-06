@@ -311,7 +311,7 @@ export function FrontDeskChat() {
             </form>
           )}
 
-          <footer className="border-t border-charcoal-ink/10 px-4 py-2 text-xs text-charcoal-ink/60">
+          <footer className="border-t border-charcoal-ink/10 px-4 py-2 text-xs text-charcoal-ink/70">
             <span>{EMERGENCY_NOTE}</span>{" "}
             <a href="/privacy" className="underline underline-offset-2">Privacy Notice</a>
             {" "}

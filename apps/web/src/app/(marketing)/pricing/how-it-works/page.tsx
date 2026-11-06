@@ -133,7 +133,7 @@ export default async function HowPricingWorksPage() {
           title="Keep your HMO. Add the layer that watches."
           description={HMO_COMPARE_INTRO}
         />
-        <div className="mx-auto max-w-3xl overflow-x-auto">
+        <div className="mx-auto max-w-3xl overflow-x-auto rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green" tabIndex={0} role="region" aria-label="Comparison table">
           <table className="w-full min-w-[32rem] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white text-sm">
             <thead>
               <tr className="bg-warm-ivory text-left">
@@ -153,13 +153,13 @@ export default async function HowPricingWorksPage() {
                 <tr key={row.need} className="border-t border-charcoal-ink/10">
                   <td className="border-t border-charcoal-ink/10 p-4 text-charcoal-ink/80">{row.need}</td>
                   <td className="border-t border-charcoal-ink/10 p-4 text-center">
-                    <span aria-hidden className={row.hmo ? "text-brand-green" : "text-charcoal-ink/30"}>
+                    <span aria-hidden className={row.hmo ? "text-brand-green" : "text-charcoal-ink/70"}>
                       {row.hmo ? "✓" : "No"}
                     </span>
                     <span className="sr-only">{row.hmo ? "Covered by your HMO" : "Not covered by your HMO"}</span>
                   </td>
                   <td className="border-t border-charcoal-ink/10 p-4 text-center">
-                    <span aria-hidden className={row.tarragon ? "text-brand-green" : "text-charcoal-ink/30"}>
+                    <span aria-hidden className={row.tarragon ? "text-brand-green" : "text-charcoal-ink/70"}>
                       {row.tarragon ? "✓" : "No"}
                     </span>
                     <span className="sr-only">{row.tarragon ? "Covered by TarragonHealth" : "Not covered by TarragonHealth"}</span>
@@ -180,7 +180,7 @@ export default async function HowPricingWorksPage() {
           title="The result is the same. What happens next is not."
           description={CHECKUP_COMPARE_INTRO}
         />
-        <div className="mx-auto max-w-3xl overflow-x-auto">
+        <div className="mx-auto max-w-3xl overflow-x-auto rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green" tabIndex={0} role="region" aria-label="Comparison table">
           <table className="w-full min-w-[32rem] border-separate border-spacing-0 overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white text-sm">
             <thead>
               <tr className="bg-warm-ivory text-left">
@@ -200,13 +200,13 @@ export default async function HowPricingWorksPage() {
                 <tr key={row.need} className="border-t border-charcoal-ink/10">
                   <td className="border-t border-charcoal-ink/10 p-4 text-charcoal-ink/80">{row.need}</td>
                   <td className="border-t border-charcoal-ink/10 p-4 text-center">
-                    <span aria-hidden className={row.oneOff ? "text-brand-green" : "text-charcoal-ink/30"}>
+                    <span aria-hidden className={row.oneOff ? "text-brand-green" : "text-charcoal-ink/70"}>
                       {row.oneOff ? "✓" : "No"}
                     </span>
                     <span className="sr-only">{row.oneOff ? "Included" : "Not included"}</span>
                   </td>
                   <td className="border-t border-charcoal-ink/10 p-4 text-center">
-                    <span aria-hidden className={row.tarragon ? "text-brand-green" : "text-charcoal-ink/30"}>
+                    <span aria-hidden className={row.tarragon ? "text-brand-green" : "text-charcoal-ink/70"}>
                       {row.tarragon ? "✓" : "No"}
                     </span>
                     <span className="sr-only">{row.tarragon ? "Included" : "Not included"}</span>

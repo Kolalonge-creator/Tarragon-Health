@@ -265,10 +265,17 @@ export function HomeServices() {
       <div className="mb-10 grid max-w-3xl gap-3">
         <Eyebrow>Services</Eyebrow>
         <Heading id="home-services-title">Everything you need to stay ahead of your health.</Heading>
+        <p className="text-[15px] text-mk-muted sm:hidden">Swipe to see every service.</p>
       </div>
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Website Phase 6: on a phone the cards sit in a swipeable row (scroll-snap, no script, same pattern as the
+          app screens above) instead of a single column about 1,800px tall; from sm up they are the grid. Each card
+          is a link, so the row is reachable by keyboard without a tabIndex of its own. */}
+      <ul
+        aria-label="Services"
+        className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3"
+      >
         {SERVICES.map(({ title, items, href, cta, Icon }) => (
-          <li key={title}>
+          <li key={title} className="w-[82%] shrink-0 snap-center sm:w-auto">
             <Link
               href={href}
               className={`group grid h-full content-start gap-3 rounded-2xl border border-mk-border bg-white p-6 transition-colors hover:border-brand-green/50 ${FOCUS}`}
@@ -421,7 +428,7 @@ export function HomeEmployers({ seatPrice }: { seatPrice: string }) {
           </ul>
         </div>
         <div className="grid gap-3 rounded-3xl border border-white/20 bg-white/[0.07] p-7" data-testid="home-employer-seat-line">
-          <p className="text-sm font-semibold uppercase tracking-wider text-sprout-gold">Employer Membership</p>
+          <p className="text-sm font-semibold uppercase tracking-wider text-[color-mix(in_oklab,var(--color-sprout-gold)_70%,white)]">Employer Membership</p>
           <p className="font-heading font-bold text-4xl text-white">
             {seatPrice} <span className="font-sans text-base text-white/80">per person per year</span>
           </p>
