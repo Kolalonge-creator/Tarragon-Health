@@ -19,6 +19,9 @@ type Patient = {
   full_name: string | null;
   patient_number: string | null;
   phone: string | null;
+  /** "DOB 3 Sept 1970 (55), female", built on the server so the age never differs between server and browser.
+   * Shown so two patients with the same name can be told apart (spec 6, 25, 28). Optional for other callers. */
+  identity?: string | null;
 };
 
 type FrequencyPreset = "weekly" | "every_3_days" | "custom";
@@ -131,8 +134,9 @@ export function ReminderFrequencySelector({ patients }: { patients: Patient[] })
                   {p.full_name ?? "Unnamed patient"}
                 </span>
                 <span className="block text-xs text-charcoal-ink/50">
-                  {p.patient_number ?? "No patient number"}
-                  {p.phone ? ` · ${p.phone}` : ""}
+                  {[p.patient_number ?? "No patient number", p.identity, p.phone]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               </span>
               <span aria-hidden className="text-charcoal-ink/30">
