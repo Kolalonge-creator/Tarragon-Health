@@ -1,11 +1,16 @@
-/** @jest-environment node */
+/** @jest-environment jsdom */
 import { describe, expect, it } from "@jest/globals";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DoctorWorklistRow } from "@tarragon/shared";
 import { dueText, WorklistTable } from "./worklist-table";
 
 const NOW = new Date("2026-11-06T10:00:00Z");
-const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+// Read the rendered text through the DOM (not a tag-stripping regex), so entities decode and no markup can slip through.
+const text = (html: string) => {
+  const box = document.createElement("div");
+  box.innerHTML = html;
+  return (box.textContent ?? "").replace(/\s+/g, " ").trim();
+};
 
 const row = (over: Partial<DoctorWorklistRow>): DoctorWorklistRow => ({
   key: "k",
