@@ -22,10 +22,21 @@ export default function robots(): MetadataRoute.Robots {
         "/analytics",
         "/dashboard",
         "/onboarding",
-        "/login",
-        "/signup",
+        // /login and /signup are crawlable on purpose: they carry noindex
+        // (website Phase 5), and a disallow would hide that from crawlers.
         "/auth",
         "/api",
+        // Signed-in or token-only areas the live audit found missing here.
+        "/payer",
+        "/provider-org",
+        "/reader",
+        "/share",
+        "/claim",
+        "/circle",
+        "/account",
+        "/credentialing",
+        "/doctor",
+        "/rota",
       ],
     },
     sitemap: absoluteUrl("/sitemap.xml"),

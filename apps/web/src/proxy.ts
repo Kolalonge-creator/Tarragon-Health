@@ -6,7 +6,7 @@ import {
   isRoleHomePrefixed,
   pathMatchesRole,
 } from "@/lib/auth/roles";
-import { isAppHost } from "@/lib/marketing/host";
+import { isAppHost, wwwRedirectTarget } from "@/lib/marketing/host";
 import { isMarketingPath } from "@/lib/marketing/routes";
 import { consoleBaseUrl, consoleRedirectTarget } from "@/lib/console-redirect";
 import { rateLimit } from "@/lib/rate-limit";
@@ -48,6 +48,16 @@ async function isMfaRequiredForPhoneCaller(token: string): Promise<boolean> {
 // REQUEST header (plain name) so Next stamps it on the scripts it renders (updateSession forwards the request headers), and on the RESPONSE so
 // the browser reports what a strict policy would block. The enforced policy from next.config.ts is untouched.
 export async function proxy(request: NextRequest) {
+  // www.* is never canonical: one permanent hop to the bare host, path and
+  // query kept (website Phase 5). First, so nothing else runs twice.
+  const bareHost = wwwRedirectTarget(
+    request.url,
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host")
+  );
+  if (bareHost) {
+    return NextResponse.redirect(bareHost, 308);
+  }
+
   const host = request.headers.get("host") ?? "";
   const { pathname } = request.nextUrl;
   // Page loads only (GET/HEAD): that is where Next renders scripts, and a POST (a server action) keeps its body untouched.

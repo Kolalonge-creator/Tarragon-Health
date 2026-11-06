@@ -48,7 +48,7 @@ describe("isPublicPath", () => {
 
   it("allows marketing site paths without auth", () => {
     expect(isPublicPath("/hypertension")).toBe(true);
-    expect(isPublicPath("/parentcare")).toBe(true);
+    expect(isPublicPath("/families")).toBe(true);
   });
 
   it("rejects a protected dashboard path", () => {

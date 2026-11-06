@@ -7,6 +7,14 @@ import { isInviteOnlySignup } from "@/lib/auth/signup-gate";
 import { safeJoinRedirect } from "@/lib/care-circle/join-link";
 import { googleSignInAvailable } from "@/lib/auth/google-sign-in";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import type { Metadata } from "next";
+
+/**
+ * Not for search results (website Phase 5, 2026-11-05). robots.txt used to
+ * disallow this path, which stops a crawler from ever reading a noindex, so a
+ * bare URL could still be listed; the path is now crawlable and says noindex.
+ */
+export const metadata: Metadata = { robots: { index: false, follow: true } };
 
 /**
  * The first screen a new user sees, so nothing on it may outlive the business

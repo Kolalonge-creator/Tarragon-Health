@@ -159,7 +159,7 @@ export default function VaccinationsPage() {
             If you care for an adult relative, such as a parent, they keep their own Tarragon account and
             their own vaccination schedule. You follow it as next of kin once they have agreed,
             rather than by adding them to your account. See{" "}
-            <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+            <Link href={MARKETING_ROUTES.families} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Caring for a parent
             </Link>{" "}
             for how this works. Vaccinations are one part of{" "}

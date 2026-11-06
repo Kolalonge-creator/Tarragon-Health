@@ -94,7 +94,7 @@ export default async function ChronicCarePage() {
         </div>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
           If you are looking after a parent with a long-term condition,{" "}
-          <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+          <Link href={MARKETING_ROUTES.families} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Caring for a parent
           </Link>{" "}
           offers the same monitoring for your relative, with family updates that they choose to share.

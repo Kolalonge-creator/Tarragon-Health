@@ -139,14 +139,14 @@ export default async function PreventionPage() {
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           You take your request to whichever laboratory you like and pay them directly: we set no
           price on any test and add nothing to it. Contact the laboratory for current pricing. Your{" "}
-          <Link href={MARKETING_ROUTES.annualHealthCheck} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+          <Link href={MARKETING_ROUTES.membership} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             yearly health check
           </Link>{" "}
           works the same way: you upload the report, and on Membership a doctor reviews it.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           If you are not sure which screenings apply to you, follow the{" "}
-          <Link href={MARKETING_ROUTES.screeningJourney} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+          <Link href={MARKETING_ROUTES.howItWorks} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Screening Journey
           </Link>
           . Enter your age and sex and see each recommended screening, step by step, from booking
