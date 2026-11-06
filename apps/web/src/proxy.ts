@@ -72,6 +72,8 @@ export async function proxy(request: NextRequest) {
   // response header reaches the browser, and it stays report-only.
   const forwarded = new Headers(request.headers);
   forwarded.set("content-security-policy", policy);
+  // TEMPORARY control header for /csp-probe (2026-11-06): tells "Vercel drops this name" from "drops all overrides". Remove with it.
+  forwarded.set("x-csp-probe", "1");
   const withNonce = new NextRequest(request.url, { method: request.method, headers: forwarded });
   const response = await proxyInner(withNonce);
   response.headers.set("Content-Security-Policy-Report-Only", policy);
