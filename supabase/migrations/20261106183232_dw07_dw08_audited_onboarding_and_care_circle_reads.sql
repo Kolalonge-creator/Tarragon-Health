@@ -80,18 +80,17 @@ begin
                'expires_at', m.expires_at)
              order by m.created_at)
         from public.care_circle_members m
-        join public.profiles s on s.id = m.supporter_id
+        -- Same rule as every Care Circle gate (private.circle_member_for): a closed supporter account sees nothing, so is not listed.
+        join public.profiles s on s.id = m.supporter_id and s.is_active
        where m.patient_id = p_patient
          and m.state = 'active'
          and m.expires_at > now()), '[]'::jsonb),
-    'paused_until', (
-      select p.paused_until
+    'pause', (
+      select jsonb_build_object('paused_until', p.paused_until, 'pause_alerts', p.pause_alerts)
         from public.care_circle_pauses p
        where p.patient_id = p_patient
          and p.paused_from <= now()
-         and p.paused_until > now()
-       order by p.paused_until desc
-       limit 1));
+         and p.paused_until > now()));
 end;
 $$;
 

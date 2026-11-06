@@ -68,9 +68,12 @@ export function CareCircleCard({ read }: { read: AuditedRead<CareCircleView> }) 
           <Unavailable what="The Care Circle" status={read.status} />
         ) : (
           <>
-            {read.value.pausedUntil && (
+            {read.value.pause && (
               <p className="font-medium text-amber-800">
-                Sharing is paused by the patient until {formatPatientDate(read.value.pausedUntil)}. Supporters see nothing new until then.
+                The patient has paused sharing until {formatPatientDate(read.value.pause.until)}.{" "}
+                {read.value.pause.alertsPaused
+                  ? "Alerts are paused too, though a help request the patient sends still reaches their supporters."
+                  : "Urgent alerts still reach supporters who receive them."}
               </p>
             )}
             {read.value.supporters.length === 0 ? (

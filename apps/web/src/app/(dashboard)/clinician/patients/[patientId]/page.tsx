@@ -179,6 +179,9 @@ export default async function ClinicianPatientPage({
   // opened it — this is the one explicit read-logging call site on the platform so far
   // (see 20260812034612_clinician_patient_record_view_audit.sql). Best-effort: a logging
   // failure must never block the clinician from seeing the patient's notes.
+  // DW-07 / DW-08: the patient's own sign-up answers and their Care Circle, each through a logged, care-tie-gated read.
+  // Started here (after openPatientRecord) so it runs alongside the reads below; it never throws.
+  const onboardingAndCirclePromise = readOnboardingAndCircle(supabase, patient.id);
   const [{ error: viewLogError }, headerAllergyRead, openEscalationsRes, openAlertsRes, snoozedAlertsRes] = await Promise.all([
     supabase.rpc("log_patient_record_view", { p_patient_id: patient.id }),
     readAuditedSection(supabase, patient.id, "allergies"),
@@ -278,8 +281,7 @@ export default async function ClinicianPatientPage({
     .order("created_at", { ascending: false })
     .limit(25);
 
-  // DW-07 / DW-08: the patient's own sign-up answers and their Care Circle, each through a logged, care-tie-gated read.
-  const { onboarding: onboardingRead, circle: circleRead } = await readOnboardingAndCircle(supabase, patient.id);
+  const { onboarding: onboardingRead, circle: circleRead } = await onboardingAndCirclePromise;
 
   const tabs: PatientRecordTab[] = [
           {

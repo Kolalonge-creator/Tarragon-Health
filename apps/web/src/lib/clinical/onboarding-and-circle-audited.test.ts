@@ -23,7 +23,7 @@ describe("parseCareCircle", () => {
   it("reads supporters, drops unknown permissions, and keeps the pause", () => {
     const out = parseCareCircle({
       status: "ok",
-      paused_until: "2026-11-10T00:00:00Z",
+      pause: { paused_until: "2026-11-10T00:00:00Z", pause_alerts: false },
       supporters: [
         { supporter_name: "Ngozi", relationship: "Daughter", permissions: ["appointments", "new_thing"], contact_role: "primary", since: "2026-10-01T00:00:00Z", expires_at: null },
       ],
@@ -31,7 +31,7 @@ describe("parseCareCircle", () => {
     expect(out).toEqual({
       status: "ok",
       value: {
-        pausedUntil: "2026-11-10T00:00:00Z",
+        pause: { until: "2026-11-10T00:00:00Z", alertsPaused: false },
         supporters: [{ name: "Ngozi", relationship: "Daughter", permissions: ["appointments"], primaryContact: true, since: "2026-10-01T00:00:00Z" }],
       },
     });

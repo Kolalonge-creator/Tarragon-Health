@@ -33,7 +33,9 @@ export type CircleSupporter = {
   primaryContact: boolean;
   since: string | null;
 };
-export type CareCircleView = { supporters: CircleSupporter[]; pausedUntil: string | null };
+/** A current pause. `alertsPaused` false means urgent alerts still reach supporters who receive them. */
+export type CirclePause = { until: string; alertsPaused: boolean };
+export type CareCircleView = { supporters: CircleSupporter[]; pause: CirclePause | null };
 
 const okEnvelope = z.object({ status: z.literal("ok") }).passthrough();
 const deniedEnvelope = z.object({ status: z.literal("denied") });
@@ -56,14 +58,14 @@ export function parseCareCircle(data: unknown): AuditedRead<CareCircleView> {
   if (deniedEnvelope.safeParse(data).success) return { status: "denied" };
   const env = okEnvelope.safeParse(data);
   if (!env.success) return { status: "error" };
-  const body = env.data as { supporters?: unknown; paused_until?: unknown };
+  const body = env.data as { supporters?: unknown; pause?: unknown };
   const rows = z.array(supporterRow).safeParse(body.supporters);
-  const paused = z.string().nullable().optional().safeParse(body.paused_until);
+  const paused = z.object({ paused_until: z.string(), pause_alerts: z.boolean() }).nullable().optional().safeParse(body.pause);
   if (!rows.success || !paused.success) return { status: "error" };
   return {
     status: "ok",
     value: {
-      pausedUntil: paused.data ?? null,
+      pause: paused.data ? { until: paused.data.paused_until, alertsPaused: paused.data.pause_alerts } : null,
       supporters: rows.data.map((r) => ({
         name: r.supporter_name ?? "Name not on file",
         relationship: r.relationship,

@@ -29,7 +29,7 @@ describe("CareCircleCard", () => {
         read={{
           status: "ok",
           value: {
-            pausedUntil: "2026-11-10T00:00:00Z",
+            pause: { until: "2026-11-10T00:00:00Z", alertsPaused: false },
             supporters: [{ name: "Ngozi", relationship: "Daughter", permissions: ["appointments"], primaryContact: true, since: null }],
           },
         }}
@@ -37,7 +37,8 @@ describe("CareCircleCard", () => {
     ));
     expect(out).toContain("Ngozi (Daughter)");
     expect(out).toContain("Main contact");
-    expect(out).toContain("Sharing is paused");
+    expect(out).toContain("paused sharing");
+    expect(out).toContain("Urgent alerts still reach supporters");
     expect(out).toContain("May see:");
   });
   it("never shows a refused read as no supporters", () => {

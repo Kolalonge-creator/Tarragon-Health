@@ -58,7 +58,8 @@ begin
   values (v_org, v_pat, now() - interval '1 hour', now() + interval '1 day');
 
   select count(*) into v_audit_before from public.audit_log
-   where subject_patient_id = v_pat and action = 'staff.chart_read';
+   where subject_patient_id = v_pat and action = 'staff.chart_read'
+     and event -> 'sections' ?| array['onboarding_answers', 'care_circle'];
 
   -- 1. the tied clinician reads both (the gate opens)
   perform set_config('request.jwt.claims', json_build_object('sub', v_tied, 'role', 'authenticated')::text, true);
@@ -77,7 +78,9 @@ begin
      or v_json -> 'supporters' -> 0 -> 'permissions' <> '["appointments", "weekly_bp_trend"]'::jsonb then
     raise exception 'FAIL 1c: supporter name or permissions wrong: %', v_json;
   end if;
-  if v_json ->> 'paused_until' is null then raise exception 'FAIL 1d: the current pause is missing: %', v_json; end if;
+  if v_json -> 'pause' ->> 'paused_until' is null or (v_json -> 'pause' ->> 'pause_alerts')::boolean is not false then
+    raise exception 'FAIL 1d: the current pause (alerts still on) is missing or wrong: %', v_json;
+  end if;
 
   -- 2. the untied clinician is refused by both and reads nothing directly
   perform set_config('request.jwt.claims', json_build_object('sub', v_untied, 'role', 'authenticated')::text, true);
@@ -92,7 +95,8 @@ begin
 
   -- 3. every call wrote one audit row (2 allowed + 2 refused)
   select count(*) into v_audit_after from public.audit_log
-   where subject_patient_id = v_pat and action = 'staff.chart_read';
+   where subject_patient_id = v_pat and action = 'staff.chart_read'
+     and event -> 'sections' ?| array['onboarding_answers', 'care_circle'];
   if v_audit_after - v_audit_before <> 4 then
     raise exception 'FAIL 3: expected 4 audit rows, got %', v_audit_after - v_audit_before;
   end if;
