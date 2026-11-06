@@ -22,6 +22,8 @@ import { BookingTermsCard } from "@/components/consultation/booking-terms";
 import { IntakeForm } from "@/components/consultation/intake-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { joinOpensAt, joinWindowState } from "@/lib/consultation/join-window";
+import { useHalfMinuteClock } from "@/lib/consultation/use-half-minute-clock";
 import { Button } from "@/components/ui/button";
 import { CALENDAR_APPOINTMENT_STATUSES } from "@/lib/calendar/ics";
 import { ConsultationRuleCard } from "@/components/consultation/consultation-rule";
@@ -29,6 +31,13 @@ import type { Locale } from "@tarragon/i18n";
 
 import { formatPatientDateTime } from "@/lib/format-date";
 const JOINABLE_STATUSES = ["booked", "confirmed", "checked_in", "in_progress"];
+/** A visit already under way stays joinable past the usual closing minute, so a dropped patient can always get back in. */
+const UNDER_WAY_STATUSES = ["checked_in", "in_progress"];
+
+function canJoinNow(status: string, scheduledFor: string, now: Date): boolean {
+  const state = joinWindowState(scheduledFor, now);
+  return state === "open" || (state === "closed" && UNDER_WAY_STATUSES.includes(status));
+}
 
 function formatSlot(iso: string): string {
   return formatPatientDateTime(iso, {
@@ -57,6 +66,11 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
+  // Re-check the join window every 30 seconds so "Join call" appears on time
+  // without a reload. Null on the server and during hydration, so the button
+  // shows only once the browser clock has been read.
+  const clockMs = useHalfMinuteClock();
+  const now = clockMs === null ? null : new Date(clockMs);
 
   /**
    * A paid appointment type (telemedicine/result_interpretation) with no
@@ -173,11 +187,22 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
                         {payingId === appt.id ? "Redirecting to payment…" : "Pay to confirm"}
                       </Button>
                     )}
-                    {appt.consultation_method === "telemedicine" && JOINABLE_STATUSES.includes(appt.status) && (
-                      <Button size="sm" disabled={ensureVideo.isPending} onClick={() => handleJoinCall(appt.id)}>
-                        {ensureVideo.isPending ? "Opening…" : "Join call"}
-                      </Button>
-                    )}
+                    {appt.consultation_method === "telemedicine" &&
+                      JOINABLE_STATUSES.includes(appt.status) &&
+                      now !== null &&
+                      canJoinNow(appt.status, appt.scheduled_for, now) && (
+                        <Button size="sm" disabled={ensureVideo.isPending} onClick={() => handleJoinCall(appt.id)}>
+                          {ensureVideo.isPending ? "Opening…" : "Join call"}
+                        </Button>
+                      )}
+                    {appt.consultation_method === "telemedicine" &&
+                      JOINABLE_STATUSES.includes(appt.status) &&
+                      now !== null &&
+                      joinWindowState(appt.scheduled_for, now) === "too_early" && (
+                        <span className="self-center text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                          You can join from {formatSlot(joinOpensAt(appt.scheduled_for).toISOString())}
+                        </span>
+                      )}
                     {(CALENDAR_APPOINTMENT_STATUSES as readonly string[]).includes(appt.status) && (
                       <Button asChild size="sm" variant="outline">
                         <a href={`/api/calendar/appointment/${appt.id}`}>Add to calendar</a>
