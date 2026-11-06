@@ -90,7 +90,7 @@ export function PartnerMap({
                   <p className="font-heading text-sm font-semibold text-charcoal-ink">
                     {selected.name}
                   </p>
-                  <p className="text-xs text-charcoal-ink/60">
+                  <p className="text-xs text-charcoal-ink/70">
                     {TYPE_LABEL[selected.type]}
                   </p>
                   <p className="mt-1 text-xs text-charcoal-ink/70">
@@ -103,7 +103,7 @@ export function PartnerMap({
         </div>
       </APIProvider>
 
-      <div className="mt-3 flex flex-wrap gap-4 text-xs text-charcoal-ink/60">
+      <div className="mt-3 flex flex-wrap gap-4 text-xs text-charcoal-ink/70">
         {(
           Object.entries(TYPE_LABEL) as [PartnerLocation["type"], string][]
         ).map(([type, label]) => (

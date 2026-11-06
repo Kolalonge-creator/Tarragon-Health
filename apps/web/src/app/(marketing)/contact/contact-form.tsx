@@ -180,7 +180,7 @@ export function ContactForm() {
         <Label htmlFor="consent" className="text-sm font-normal leading-relaxed text-charcoal-ink/80">
           {ENQUIRY_CONSENT_WORDING}{" "}
           <a href="/privacy" className="font-medium text-brand-green underline underline-offset-2">Privacy Notice</a>
-          <span className="block text-charcoal-ink/60">Optional. We will reply to your message either way.</span>
+          <span className="block text-charcoal-ink/70">Optional. We will reply to your message either way.</span>
         </Label>
       </div>
       <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-auto">

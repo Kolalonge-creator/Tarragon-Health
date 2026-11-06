@@ -130,7 +130,7 @@ export function SupporterViewIllustration({ className }: { className?: string })
               </span>
               <div>
                 <p className="font-heading text-base font-semibold leading-tight text-charcoal-ink">{d.name}</p>
-                <p className="text-xs text-charcoal-ink/65">{d.sharedUntil}</p>
+                <p className="text-xs text-charcoal-ink/70">{d.sharedUntil}</p>
               </div>
             </div>
             <span className="rounded-full border border-charcoal-ink/15 px-2.5 py-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-charcoal-ink/70">
@@ -143,7 +143,7 @@ export function SupporterViewIllustration({ className }: { className?: string })
             <div className="rounded-2xl bg-warm-ivory/70 p-4">
               <div className="flex items-baseline justify-between gap-2">
                 <p className="text-sm font-semibold text-charcoal-ink">Blood pressure, weekly averages</p>
-                <p className="whitespace-nowrap text-xs text-charcoal-ink/65">6 weeks</p>
+                <p className="whitespace-nowrap text-xs text-charcoal-ink/70">6 weeks</p>
               </div>
               <svg viewBox={`0 0 ${CHART.w} ${CHART.h}`} className="mt-3 h-auto w-full" aria-hidden focusable="false">
                 {[90, 120, 140].map((g) => {
@@ -156,7 +156,7 @@ export function SupporterViewIllustration({ className }: { className?: string })
                 <circle cx={lastDia.x} cy={lastDia.y} r={4} fill="white" stroke="var(--clinical-navy)" strokeWidth={2.5} />
                 {d.weeks.map((w, i) =>
                   i % 2 === 1 || i === d.weeks.length - 1 ? null : (
-                    <text key={w.label} x={chartPoint(i, 0, d.weeks.length).x} y={CHART.h - 4} fontSize="10" fill="currentColor" className="text-charcoal-ink/60" textAnchor={i === 0 ? "start" : "middle"}>
+                    <text key={w.label} x={chartPoint(i, 0, d.weeks.length).x} y={CHART.h - 4} fontSize="10" fill="currentColor" className="text-charcoal-ink/70" textAnchor={i === 0 ? "start" : "middle"}>
                       {w.label}
                     </text>
                   )
@@ -164,9 +164,9 @@ export function SupporterViewIllustration({ className }: { className?: string })
               </svg>
               <p className="mt-2 text-sm text-charcoal-ink">
                 Week of {last.label}: <span className="font-semibold">{last.systolic} over {last.diastolic}</span>{" "}
-                <span className="text-charcoal-ink/65">({d.latestReadings} readings)</span>
+                <span className="text-charcoal-ink/70">({d.latestReadings} readings)</span>
               </p>
-              <p className="mt-0.5 text-xs text-charcoal-ink/65">{direction}</p>
+              <p className="mt-0.5 text-xs text-charcoal-ink/70">{direction}</p>
               <p className="mt-2 flex gap-4 text-xs text-charcoal-ink/70">
                 <span className="inline-flex items-center gap-1.5"><span aria-hidden className="h-0.5 w-3 rounded bg-brand-green" />Upper number</span>
                 <span className="inline-flex items-center gap-1.5"><span aria-hidden className="h-0.5 w-3 rounded bg-clinical-navy" />Lower number</span>
@@ -196,8 +196,8 @@ export function SupporterViewIllustration({ className }: { className?: string })
                   </svg>
                   <p className="text-sm leading-snug text-charcoal-ink">
                     <span className="font-heading text-xl font-semibold">{d.dosesTaken}</span>
-                    <span className="text-charcoal-ink/65"> of {d.dosesDue}</span>
-                    <span className="block text-xs text-charcoal-ink/65">doses taken, {percent} percent</span>
+                    <span className="text-charcoal-ink/70"> of {d.dosesDue}</span>
+                    <span className="block text-xs text-charcoal-ink/70">doses taken, {percent} percent</span>
                   </p>
                 </div>
               </div>
@@ -209,7 +209,7 @@ export function SupporterViewIllustration({ className }: { className?: string })
                 <p className="mt-2 text-xs leading-snug text-charcoal-ink">
                   Next: <span className="font-semibold">{d.nextAppointment}</span>
                 </p>
-                <p className="mt-1 text-xs text-charcoal-ink/65">Missed in the last 30 days: {d.missedLast30Days}</p>
+                <p className="mt-1 text-xs text-charcoal-ink/70">Missed in the last 30 days: {d.missedLast30Days}</p>
               </div>
             </div>
 
@@ -229,7 +229,7 @@ export function SupporterViewIllustration({ className }: { className?: string })
           </div>
         </div>
       </div>
-      <figcaption className="mt-4 text-center text-xs leading-relaxed text-charcoal-ink/65">
+      <figcaption className="mt-4 text-center text-xs leading-relaxed text-charcoal-ink/70">
         An illustration of what a Care Circle member sees. The name, dates and numbers are examples. The check-in request appears only if one is sent.
       </figcaption>
     </figure>

@@ -1,20 +1,6 @@
-import { isAppHost } from "@/lib/marketing/host";
-
 /**
- * Nonce-based script policy, step 1 of 2: REPORT-ONLY (security audit 2026-11-05, follow-up to H-headers).
- *
- * The enforced policy in next.config.ts still allows 'unsafe-inline' scripts, because Next streams its RSC payload through inline
- * <script> tags and a static page has no request to carry a nonce. This file adds a SECOND, report-only policy on the app host
- * with a fresh nonce per request. Next reads the nonce from the request's CSP header (it accepts the report-only header too:
- * next/dist/server/app-render/app-render.js) and stamps it on every script it renders dynamically. Nothing is blocked; the
- * browser only reports what a strict policy WOULD have blocked to /api/csp-report.
- *
- * Step 2 (enforcing) waits for evidence from those reports: every app-host page that is still statically prerendered would
- * lose its scripts under an enforced nonce policy, and the reports name them. Do not enforce before the reports are clean.
- *
- * Only script-src is tested here (plus object-src and base-uri, which a strict policy always sets). style-src stays out: React
- * renders inline style="" attributes everywhere and CSP has no nonce for those. The marketing host is left out: its pages are
- * statically generated, so every page would report, which is known and not useful.
+ * Helpers for the app host's per-request nonce policy (src/proxy.ts builds it with lib/security/csp-policy.ts) and for the
+ * violation reports it sends to /api/csp-report. Reports are summarised without ids, tokens or query strings.
  */
 
 /** A fresh 128-bit nonce, base64. Unpredictable per request, which is the whole point of a nonce. */
@@ -31,29 +17,6 @@ export const CSP_REPORT_PATH = "/api/csp-report";
 /** The in-app Zoom call pages: same routes next.config.ts gives the consultation policy. Its WebAssembly engine needs wasm eval. */
 export function isConsultationCallPath(pathname: string): boolean {
   return /^\/(patient|clinician)\/consultation\/[^/]+\/?$/.test(pathname) || /^\/patient\/supporting\/consultation\/[^/]+\/?$/.test(pathname);
-}
-
-/** Pages on the app host only. API routes return JSON, so a policy on them governs nothing. */
-export function shouldAddNonceCsp(host: string, pathname: string): boolean {
-  return isAppHost(host) && pathname !== "/api" && !pathname.startsWith("/api/");
-}
-
-/**
- * 'strict-dynamic' lets a nonced script load the scripts it needs (Next's chunks, the Google Maps loader, the Zoom SDK), so no host
- * list is needed. 'self' and https: are ignored by browsers that understand 'strict-dynamic' and keep older ones working.
- * Development adds 'unsafe-eval', which React needs for its dev error overlay and never in production.
- */
-export function buildNonceCsp(nonce: string, opts: { inAppCall: boolean; dev: boolean }): string {
-  const script = [
-    "script-src",
-    `'nonce-${nonce}'`,
-    "'strict-dynamic'",
-    "'self'",
-    "https:",
-    ...(opts.inAppCall ? ["'wasm-unsafe-eval'"] : []),
-    ...(opts.dev ? ["'unsafe-eval'"] : []),
-  ].join(" ");
-  return [script, "object-src 'none'", "base-uri 'self'", `report-uri ${CSP_REPORT_PATH}`].join("; ");
 }
 
 /** Never logs a query string (tokens, signed links), an id or a token: such a path segment becomes ":id". */

@@ -39,7 +39,7 @@ export function DashboardPreview() {
           Once you have named someone as your next of kin, that person can
           follow your care too.
         </p>
-        <p className="mt-4 text-sm text-charcoal-ink/60">
+        <p className="mt-4 text-sm text-charcoal-ink/70">
           Illustrative example with made-up figures, not a real patient.
         </p>
       </div>
@@ -92,7 +92,7 @@ export function DashboardPreview() {
                 You pay the laboratory
               </span>
             </div>
-            <p className="mt-2 text-sm text-charcoal-ink/65">
+            <p className="mt-2 text-sm text-charcoal-ink/70">
               Suggested because blood pressure monitoring and medication review are
               recorded together over time in the same record.
             </p>

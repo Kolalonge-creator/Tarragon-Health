@@ -72,7 +72,7 @@ export default function CorporatePage() {
             </ul>
           </div>
           <div className="self-start rounded-3xl bg-clinical-navy p-7 text-white">
-            <p className="text-sm font-semibold uppercase tracking-wider text-sprout-gold">Employer {name}</p>
+            <p className="text-sm font-semibold uppercase tracking-wider text-sprout-gold-soft">Employer {name}</p>
             <p className="mt-3 text-white/90" data-testid="employer-seat-line">{employerSeatLine(seatPrice)}</p>
             <p className="mt-4 text-sm text-white/80">
               Laboratory tests are paid to the laboratory, and medicines to the pharmacy, as for any member.

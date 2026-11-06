@@ -116,7 +116,7 @@ export function SymptomToTestCheck() {
         </div>
       </fieldset>
       <div className="mt-8 flex items-center justify-between gap-4">
-        <p className="text-xs text-charcoal-ink/50">{selected.size} selected</p>
+        <p className="text-xs text-charcoal-ink/70">{selected.size} selected</p>
         <button
           type="button"
           disabled={selected.size === 0}
@@ -138,7 +138,7 @@ export function SymptomToTestCheck() {
 function ClusterResultCard({ cluster }: { cluster: SymptomCluster }) {
   return (
     <div className="rounded-2xl border-2 border-brand-green bg-brand-green/5 p-6 sm:p-8">
-      <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+      <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/70">
         Suggested next step
       </p>
       <h3 className="mt-1 font-heading text-2xl font-semibold text-charcoal-ink">{cluster.name}</h3>
@@ -157,7 +157,7 @@ function ClusterResultCard({ cluster }: { cluster: SymptomCluster }) {
           Talk to a doctor first
         </Link>
       </div>
-      <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/50">
+      <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/70">
         Sign up to request this test or book a consultation. Nothing here is a diagnosis,
         and nothing you answered was saved or sent anywhere.
       </p>

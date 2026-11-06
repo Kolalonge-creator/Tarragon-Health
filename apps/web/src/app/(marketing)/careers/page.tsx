@@ -53,7 +53,7 @@ export default function CareersPage() {
                 {role.title}
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{role.teaser}</p>
-              <p className="mt-3 flex-1 text-sm leading-relaxed text-charcoal-ink/60">
+              <p className="mt-3 flex-1 text-sm leading-relaxed text-charcoal-ink/70">
                 {role.scope}
               </p>
               <Link

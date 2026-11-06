@@ -35,7 +35,7 @@ export default async function ResourcesPage() {
           </p>
         </div>
       </Section>
-      {categories.map((category) => (
+      {categories.map((category, categoryIndex) => (
         <Section key={category}>
           <SectionHeading title={category} />
           <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
@@ -55,6 +55,7 @@ export default async function ResourcesPage() {
                     // the category photo on all of them reads as duplication;
                     // keep it on the lead card, give the rest their own icons.
                     variant={index === 0 ? "photo" : "icon"}
+                    eager={categoryIndex === 0 && index === 0}
                   />
                   <div className="p-6">
                     <p className="text-xs font-medium uppercase tracking-wide text-deep-forest">

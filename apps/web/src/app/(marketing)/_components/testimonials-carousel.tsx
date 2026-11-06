@@ -62,7 +62,7 @@ export function TestimonialsCarousel({ items }: { items: MarketingTestimonial[] 
             type="button"
             aria-label="Previous testimonial"
             onClick={() => go(index - 1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-charcoal-ink/15 text-lg text-charcoal-ink/60 transition-colors hover:border-brand-green/40 hover:text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-charcoal-ink/15 text-lg text-charcoal-ink/70 transition-colors hover:border-brand-green/40 hover:text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
           >
             ‹
           </button>
@@ -85,7 +85,7 @@ export function TestimonialsCarousel({ items }: { items: MarketingTestimonial[] 
             type="button"
             aria-label="Next testimonial"
             onClick={() => go(index + 1)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-charcoal-ink/15 text-lg text-charcoal-ink/60 transition-colors hover:border-brand-green/40 hover:text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-charcoal-ink/15 text-lg text-charcoal-ink/70 transition-colors hover:border-brand-green/40 hover:text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
           >
             ›
           </button>

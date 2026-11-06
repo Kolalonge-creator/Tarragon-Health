@@ -28,16 +28,30 @@ export function MarketingMediaFrame({
       {media.videoSrc ? (
         // Ambient footage: muted, looping, no controls: decorative texture
         // beside real text content, never a player UI (Omada/Virta pattern).
-        <video
-          src={media.videoSrc}
-          poster={media.imageSrc}
-          autoPlay
-          muted
-          loop
-          playsInline
-          aria-hidden
-          className="aspect-[4/3] h-auto w-full object-cover"
-        />
+        // A visitor who asked for reduced motion gets the still poster instead
+        // (WCAG 2.3.3 / 2.2.2), same pattern as marketing-photo-banner-hero.
+        <>
+          <video
+            src={media.videoSrc}
+            poster={media.imageSrc}
+            autoPlay
+            muted
+            loop
+            playsInline
+            aria-hidden
+            className="aspect-[4/3] h-auto w-full object-cover motion-reduce:hidden"
+          />
+          {media.imageSrc ? (
+            <Image
+              src={media.imageSrc}
+              alt=""
+              width={1120}
+              height={840}
+              className="hidden aspect-[4/3] h-auto w-full object-cover motion-reduce:block"
+              sizes={sizes}
+            />
+          ) : null}
+        </>
       ) : media.imageSrc ? (
         <Image
           src={media.imageSrc}

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { MARKETING_ROUTES, MARKETING_ROUTES_BUILT } from "@/lib/marketing/routes";
+import { impactPageIndexable, loadImpactMetrics } from "@/lib/marketing/impact-data";
 import { absoluteUrl } from "@/lib/marketing/site";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
@@ -8,6 +9,10 @@ import { loadResourceArticles } from "@/lib/marketing/resources-data";
  * (app.*) routes are intentionally excluded — they live behind auth and are
  * disallowed in robots.ts.
  */
+// Re-render on the impact page's cadence (its revalidate is 300) so /impact joins the sitemap within minutes of
+// becoming indexable, rather than waiting for the next deploy (a sitemap is cached by default).
+export const revalidate = 300;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const lastModified = new Date();
 
@@ -39,7 +44,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     cookies: 0.3,
   };
 
-  const pages: MetadataRoute.Sitemap = MARKETING_ROUTES_BUILT.map((key) => ({
+  // A page marked noindex has no place in the sitemap (launch check 2026-11-06: /impact was in both).
+  const [impactMetrics, resourceArticles] = await Promise.all([loadImpactMetrics(), loadResourceArticles()]);
+  const impactIndexable = impactPageIndexable(impactMetrics);
+  const pages: MetadataRoute.Sitemap = MARKETING_ROUTES_BUILT.filter((key) => key !== "impact" || impactIndexable).map((key) => ({
     url: absoluteUrl(MARKETING_ROUTES[key]),
     lastModified,
     changeFrequency: key === "home" ? "weekly" : "monthly",
@@ -51,7 +59,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Uses each row's real updated_at where available — claiming "changed
   // today" on every crawl (the old `new Date()` default) trains crawlers to
   // distrust the signal.
-  const resourceArticles = await loadResourceArticles();
   const articles: MetadataRoute.Sitemap = resourceArticles.map((article) => ({
     url: absoluteUrl(`/resources/${article.slug}`),
     lastModified: article.updatedAt ? new Date(article.updatedAt) : lastModified,

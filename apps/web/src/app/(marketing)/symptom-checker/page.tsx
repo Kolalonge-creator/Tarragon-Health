@@ -80,7 +80,7 @@ export default function SymptomCheckerPage() {
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Once you have signed up, the same check is available in your dashboard, and your{" "}
-            <Link href="/patient/care" className="text-brand-green hover:underline">
+            <Link href="/patient/care" className="font-medium text-brand-green underline underline-offset-2 hover:no-underline">
               AI Health Coach
             </Link>{" "}
             can give the same suggestion during a conversation, using your health record

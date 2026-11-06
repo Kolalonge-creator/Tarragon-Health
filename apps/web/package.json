@@ -20,7 +20,8 @@
     "ai-coach-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-safety-eval.ts",
     "ai-coach-governance-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/ai-coach-governance-suites-eval.ts",
     "ai016-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/eval-ai016-imaging-report.ts",
-    "ai018-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/eval-ai018-document-capture.ts"
+    "ai018-eval": "tsx --tsconfig tsconfig.scripts.json --env-file=.env.local scripts/eval-ai018-document-capture.ts",
+    "test:a11y:site": "playwright test --config=playwright.a11y.config.ts"
   },
   "dependencies": {
     "@langchain/anthropic": "1.6.0",
@@ -72,6 +73,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "axe-core": "4.12.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "jest": "^30.4.2",

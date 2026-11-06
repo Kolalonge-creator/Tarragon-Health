@@ -46,7 +46,7 @@ export default function ServicesPage() {
                   "sm:max-lg:col-span-2 sm:max-lg:mx-auto sm:max-lg:w-full sm:max-lg:max-w-md"
               )}
             >
-              <ServiceCardLink service={service} />
+              <ServiceCardLink service={service} headingLevel="h2" />
             </div>
           ))}
         </div>
@@ -59,7 +59,7 @@ export default function ServicesPage() {
           <div className="mt-6">
             <ConditionsMarquee items={[...WHAT_WE_TRACK]} />
           </div>
-          <p className="mt-2 text-sm text-charcoal-ink/60">
+          <p className="mt-2 text-sm text-charcoal-ink/70">
             All kept on one record over time, which your care team reviews.
           </p>
         </div>

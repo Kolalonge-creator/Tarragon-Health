@@ -115,7 +115,7 @@ export default function GiftPage() {
       />
 
       <Section className="pb-0 pt-10 sm:pt-14">
-        <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/60">
+        <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/70">
           Already on Tarragon? Once they have added you to their Care Circle, open People you support on your dashboard to give a year of Membership. Not on Tarragon yet? Share your referral link; joining is free.
         </p>
       </Section>

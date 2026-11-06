@@ -248,7 +248,7 @@ export function ConditionMonitoringGrid({ categories }: { categories: Monitoring
                   <span className="font-heading text-lg font-semibold text-charcoal-ink">
                     {category.title}
                   </span>
-                  <span className="mt-1 block text-sm leading-relaxed text-charcoal-ink/65">
+                  <span className="mt-1 block text-sm leading-relaxed text-charcoal-ink/70">
                     {category.description}
                   </span>
                 </span>
@@ -264,11 +264,11 @@ export function ConditionMonitoringGrid({ categories }: { categories: Monitoring
               {category.items.map((item) => (
                 <li key={item.name}>
                   <span className="text-sm font-medium text-charcoal-ink">{item.name}</span>
-                  <p className="mt-1 text-sm leading-relaxed text-charcoal-ink/65">
+                  <p className="mt-1 text-sm leading-relaxed text-charcoal-ink/70">
                     {item.explanation}
                   </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/65">
+                    <span className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/70">
                       {item.cadence}
                     </span>
                     <span
@@ -286,7 +286,7 @@ export function ConditionMonitoringGrid({ categories }: { categories: Monitoring
           </details>
         ))}
       </div>
-      <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/60">
+      <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
         <strong className="text-charcoal-ink/75">Reminded automatically</strong> means the app itself
         schedules the check and sends you reminders. <strong className="text-charcoal-ink/75">Followed by your care team</strong>{" "}
         means the check is part of your care protocol and your care team keeps track of it, even where the app does not yet

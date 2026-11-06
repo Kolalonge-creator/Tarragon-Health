@@ -572,35 +572,38 @@ describe("2FA required per group, phone app (/api/mobile/*, bearer token)", () =
   });
 });
 
-describe("report-only nonce script policy", () => {
-  it("puts the same fresh nonce policy on the forwarded request and the response for an app-host page", async () => {
+describe("enforced nonce script policy on the app host (CSP step 2)", () => {
+  const nonceOf = (policy: string | null) => policy?.match(/'nonce-([A-Za-z0-9+/=]+)'/)?.[1];
+
+  it("sets one enforced policy with a fresh nonce, and forwards the same policy on the request for Next to read", async () => {
     stubSession({ user: null });
     const res = await proxy(request("/login"));
-    const policy = res.headers.get("content-security-policy-report-only");
+    const policy = res.headers.get("content-security-policy");
     expect(policy).toMatch(/script-src 'nonce-[A-Za-z0-9+/=]{24}' 'strict-dynamic'/);
     expect(policy).toContain("report-uri /api/csp-report");
-    // Next reads the nonce from the request header; updateSession forwards it (x-middleware-request-*).
+    expect(policy).toContain("object-src 'none'");
     expect(res.headers.get("x-middleware-request-content-security-policy")).toBe(policy);
-    // Never the enforcing header: this step only reports.
-    expect(res.headers.get("content-security-policy")).toBeNull();
+    // No second policy: on Vercel a second, nonce-less one shadows the nonce.
+    expect(res.headers.get("content-security-policy-report-only")).toBeNull();
   });
 
   it("uses a different nonce on every request", async () => {
     stubSession({ user: null });
-    const a = (await proxy(request("/login"))).headers.get("content-security-policy-report-only");
-    const b = (await proxy(request("/login"))).headers.get("content-security-policy-report-only");
+    const a = nonceOf((await proxy(request("/login"))).headers.get("content-security-policy"));
+    const b = nonceOf((await proxy(request("/login"))).headers.get("content-security-policy"));
+    expect(a).toBeDefined();
     expect(a).not.toEqual(b);
   });
 
-  it("adds wasm eval only on the in-app consultation call pages", async () => {
+  it("adds the Zoom allowances only on the in-app consultation call pages", async () => {
     stubSession({ user: null });
     const call = await proxy(request("/patient/consultation/0b7e2f7a-1111-4a4a-9999-123456789abc"));
-    expect(call.headers.get("content-security-policy-report-only")).toContain("'wasm-unsafe-eval'");
+    expect(call.headers.get("content-security-policy")).toContain("'wasm-unsafe-eval'");
     const other = await proxy(request("/login"));
-    expect(other.headers.get("content-security-policy-report-only")).not.toContain("wasm-unsafe-eval");
+    expect(other.headers.get("content-security-policy")).not.toContain("wasm-unsafe-eval");
   });
 
-  it("forwards a new request carrying the policy, and leaves a POST (server action) untouched", async () => {
+  it("forwards a rebuilt request for a page load, and leaves a POST (server action) body untouched but still protected", async () => {
     stubSession({ user: null });
     const original = request("/login");
     await proxy(original);
@@ -617,16 +620,22 @@ describe("report-only nonce script policy", () => {
     });
     const res = await proxy(postReq);
     expect(updateSession.mock.calls[0][0]).toBe(postReq);
-    expect(res.headers.get("content-security-policy-report-only")).toBeNull();
+    expect(res.headers.get("content-security-policy")).toMatch(/'nonce-/);
   });
 
-  it("leaves the marketing host and API routes alone", async () => {
+  it("protects redirects and API answers on the app host too", async () => {
+    stubSession({ user: null });
+    const redirect = await proxy(request("/patient/vitals"));
+    expect(redirect.status).toBe(307);
+    expect(redirect.headers.get("content-security-policy")).toMatch(/'nonce-/);
+  });
+
+  it("leaves the marketing host to next.config's static policy", async () => {
     stubSession({ user: null });
     const marketing = await proxy(
       new NextRequest(new URL("/pricing", "https://tarragonhealth.ng"), { headers: { host: "tarragonhealth.ng" } }),
     );
-    expect(marketing.headers.get("content-security-policy-report-only")).toBeNull();
-    const api = await proxy(request("/api/csp-report"));
-    expect(api.headers.get("content-security-policy-report-only")).toBeNull();
+    expect(marketing.headers.get("content-security-policy")).toBeNull();
+    expect(marketing.headers.get("x-middleware-request-content-security-policy")).toBeNull();
   });
 });
