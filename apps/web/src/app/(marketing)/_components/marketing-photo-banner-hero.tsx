@@ -93,7 +93,7 @@ export function PhotoBannerHero({
         />
       ) : null}
       <div
-        className="absolute inset-0 bg-gradient-to-t from-charcoal-ink/85 via-charcoal-ink/30 to-transparent sm:bg-gradient-to-r sm:from-charcoal-ink/80 sm:via-charcoal-ink/35 sm:to-transparent"
+        className="absolute inset-0 bg-gradient-to-t from-charcoal-ink/85 via-charcoal-ink/75 to-charcoal-ink/70 sm:bg-gradient-to-r sm:from-charcoal-ink/80 sm:via-charcoal-ink/35 sm:to-transparent"
         aria-hidden
       />
       <div className="relative flex min-h-[420px] flex-col justify-end px-4 py-10 sm:min-h-[460px] sm:justify-center sm:px-0 sm:py-14 lg:min-h-[560px] lg:py-16">
