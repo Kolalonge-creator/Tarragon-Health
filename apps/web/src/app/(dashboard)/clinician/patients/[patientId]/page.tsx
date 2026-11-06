@@ -15,6 +15,8 @@ import { MaskedCallButton } from "@/components/masked-call-button";
 import { readAuditedSection } from "@/lib/clinical/audited-chart";
 import { ageInYears, ageSexLine, allergyHeaderView } from "@/lib/clinical/allergy-header-view";
 import { PatientSafetyStrip } from "./patient-safety-strip";
+import { CareCircleCard, OnboardingAnswersCard } from "./onboarding-and-circle-cards";
+import { readOnboardingAndCircle } from "@/lib/clinical/onboarding-and-circle-audited";
 import { PatientOpenWork, type OpenCount } from "./patient-open-work";
 import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
@@ -276,6 +278,9 @@ export default async function ClinicianPatientPage({
     .order("created_at", { ascending: false })
     .limit(25);
 
+  // DW-07 / DW-08: the patient's own sign-up answers and their Care Circle, each through a logged, care-tie-gated read.
+  const { onboarding: onboardingRead, circle: circleRead } = await readOnboardingAndCircle(supabase, patient.id);
+
   const tabs: PatientRecordTab[] = [
           {
             id: "overview",
@@ -287,6 +292,8 @@ export default async function ClinicianPatientPage({
                   sex={patient.sex}
                   dateOfBirth={patient.date_of_birth}
                 />
+                <OnboardingAnswersCard read={onboardingRead} />
+                <CareCircleCard read={circleRead} />
                 {/* Two facts with outsized weight in a Nigerian emergency, and
                     the platform had nowhere to keep them until now. */}
                 <BloodProfileForm
