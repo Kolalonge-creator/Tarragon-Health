@@ -22,7 +22,7 @@ export function withCommunityNav(sections: NavSection[], role: string | null | u
   if (!showsCommunityEntry(role, ctx) || (role !== "care_coordinator" && role !== "clinician" && role !== "analyst" && role !== "finance")) return sections;
   const href = COMMUNITY_HREF[role];
   if (sections.some((s) => s.items.some((i) => i.href === href))) return sections;
-  const targetIndex = role === "clinician" ? Math.max(0, sections.findIndex((s) => s.label === "My work")) : 0;
+  const targetIndex = role === "clinician" ? Math.max(0, sections.findIndex((s) => s.label === "Team")) : 0;
   return sections.map((section, i) =>
     i === targetIndex ? { ...section, items: [...section.items, { label: "Community", href, icon: "members" }] } : section,
   );

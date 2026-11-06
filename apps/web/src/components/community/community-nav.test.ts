@@ -3,7 +3,7 @@ import type { NavSection } from "@/lib/navigation";
 import type { StaffContext } from "@/lib/community/model";
 
 const none: StaffContext = { is_admin: false, is_cmo: false, is_moderator: false, is_safety_reviewer: false, is_clinician: false };
-const sections: NavSection[] = [{ items: [{ label: "Dashboard", href: "/x", icon: "dashboard" }] }, { label: "My work", items: [] }];
+const sections: NavSection[] = [{ items: [{ label: "Dashboard", href: "/x", icon: "dashboard" }] }, { label: "Team", items: [] }];
 
 describe("Community nav gating", () => {
   it("shows to a care coordinator only with a moderator or safety reviewer duty", () => {

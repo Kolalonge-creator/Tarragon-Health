@@ -10,7 +10,7 @@ import { OnCallAlarm } from "@/components/paging/on-call-alarm";
 import { SafetyConcernButton } from "@/components/clinician/safety-concern";
 import { OfflineBanner } from "@/components/shell/offline-banner";
 import { SigningHubBanner } from "@/components/shell/signing-hub-banner";
-import { getNavSections } from "@/lib/navigation";
+import { clinicianSearchSections, getNavSections } from "@/lib/navigation";
 import { getCommunityStaffContext } from "@/components/community/staff-rpc";
 import { withCommunityNav } from "@/components/community/community-nav";
 import { groupListSchema } from "@/lib/community/model";
@@ -166,7 +166,7 @@ export default async function DashboardLayout({
           ),
         )
       : profile?.role === "clinician" && isChiefMedicalOfficer
-        ? buildAdminSearchIndex(getNavSections("clinician", null), [], CMO_EXTRA_PAGES)
+        ? buildAdminSearchIndex(clinicianSearchSections(), [], CMO_EXTRA_PAGES)
         : isPatient
           ? withoutHiddenSearch(buildPatientSearchIndex(patientMenu), hiddenPatientHrefs)
           : undefined;
