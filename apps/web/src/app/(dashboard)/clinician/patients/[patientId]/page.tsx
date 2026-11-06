@@ -15,6 +15,7 @@ import { MaskedCallButton } from "@/components/masked-call-button";
 import { readAuditedSection } from "@/lib/clinical/audited-chart";
 import { ageInYears, ageSexLine, allergyHeaderView } from "@/lib/clinical/allergy-header-view";
 import { PatientSafetyStrip } from "./patient-safety-strip";
+import { PatientOpenWork, type OpenCount } from "./patient-open-work";
 import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
@@ -176,10 +177,24 @@ export default async function ClinicianPatientPage({
   // opened it — this is the one explicit read-logging call site on the platform so far
   // (see 20260812034612_clinician_patient_record_view_audit.sql). Best-effort: a logging
   // failure must never block the clinician from seeing the patient's notes.
-  const [{ error: viewLogError }, headerAllergyRead] = await Promise.all([
+  const [{ error: viewLogError }, headerAllergyRead, openEscalationsRes, openAlertsRes] = await Promise.all([
     supabase.rpc("log_patient_record_view", { p_patient_id: patient.id }),
     readAuditedSection(supabase, patient.id, "allergies"),
+    // Header "open work" counts (spec 11.1): head counts only, under the same RLS as the escalations and alert lists.
+    supabase
+      .from("escalations")
+      .select("id", { count: "exact", head: true })
+      .eq("patient_id", patient.id)
+      .in("status", ["open", "under_review"]),
+    supabase
+      .from("clinician_alerts")
+      .select("id", { count: "exact", head: true })
+      .eq("patient_id", patient.id)
+      .in("status", ["open", "acknowledged", "snoozed"])
+      .eq("suppressed", false),
   ]);
+  const openCount = (res: { count: number | null; error: unknown }): OpenCount =>
+    res.error || res.count === null ? { state: "unknown" } : { state: "known", value: res.count };
   const headerAllergies = allergyHeaderView(headerAllergyRead);
   if (viewLogError) {
     console.error("Failed to log patient record view", viewLogError);
@@ -538,7 +553,9 @@ export default async function ClinicianPatientPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start gap-3">
+      {/* Identity and safety stay in view while the doctor scrolls a long tab (spec 11.1, 28). Wide screens only: on a
+          phone a sticky block this tall would take most of the screen. The offset clears the shell's sticky header. */}
+      <div className="z-30 -mx-4 flex items-start gap-3 border-b border-charcoal-ink/10 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 md:sticky md:top-[61px] lg:-mx-8 lg:px-8">
         <Avatar fullName={patient.full_name ?? "Unnamed patient"} photoUrl={patient.avatar_url} size="xl" />
         <div>
           <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
@@ -561,6 +578,9 @@ export default async function ClinicianPatientPage({
               ageSex={ageSexLine(ageInYears(patient.date_of_birth, new Date()), patient.sex)}
               allergies={headerAllergies}
             />
+          </div>
+          <div className="mt-1">
+            <PatientOpenWork escalations={openCount(openEscalationsRes)} alerts={openCount(openAlertsRes)} />
           </div>
         </div>
       </div>
