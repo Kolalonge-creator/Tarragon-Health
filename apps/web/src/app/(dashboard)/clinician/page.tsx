@@ -27,6 +27,8 @@ import { CriticalAttentionBanner } from "./critical-attention-banner";
 import { TodayStrip } from "./today-strip";
 import { WorklistTable } from "./worklist/worklist-table";
 import { loadDoctorWorklist } from "@/lib/worklist/doctor-worklist-load";
+import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
+import { CmoOversightSection, type OnLeaveDoctor } from "./cmo-oversight-section";
 import { loadWorklist } from "@/lib/security/worklists";
 import {
   criticalBannerView,
@@ -147,6 +149,33 @@ export default async function ClinicianPage() {
   const testPatientIds = await getTestPatientIdsForRequest();
   // DW-01: the named "Patients requiring your attention" list; the full list with filters is /clinician/worklist.
   const attentionPromise = loadDoctorWorklist(supabase, { profileId: profile?.id ?? null, staffId: staff?.id ?? null }, testPatientIds);
+  // DW-14: the CMO's oversight reads start now, alongside the rest of the page. The sign-off hub is the same per-request
+  // read the layout banner already made (cached); leave is today's provider_time_off of kind 'leave', one line per clinician.
+  const isCmo = canAssignCases(staff);
+  const nowIso = now.toISOString();
+  const oversightPromise = isCmo
+    ? Promise.all([
+        getCmoSigningHubForRequest().catch(() => null),
+        supabase
+          .from("provider_time_off")
+          .select("clinician_id, ends_at, clinician:profiles!provider_time_off_clinician_id_fkey(full_name)")
+          .eq("kind", "leave")
+          .lte("starts_at", nowIso)
+          .gt("ends_at", nowIso)
+          .returns<{ clinician_id: string; ends_at: string; clinician: { full_name: string | null } | null }[]>(),
+      ]).then(([hub, leaveRes]) => {
+        const latest = new Map<string, OnLeaveDoctor>();
+        for (const l of leaveRes.data ?? []) {
+          const prev = latest.get(l.clinician_id);
+          if (!prev || l.ends_at > prev.until) latest.set(l.clinician_id, { name: l.clinician?.full_name ?? "A clinician", until: l.ends_at });
+        }
+        return {
+          signoffsWaiting: hub?.items.length ?? 0,
+          signoffsFailed: hub === null || hub.failed,
+          onLeave: leaveRes.error ? null : [...latest.values()],
+        };
+      })
+    : Promise.resolve(null);
   const [patientCountRes, escalationsRes, medReviewsRes, carePlanReviewsRes, appointmentsTodayRes, uploadsToReviewRes] = await Promise.all([
     supabase
       .from("profiles")
@@ -315,6 +344,8 @@ export default async function ClinicianPage() {
   const notesFigure = staff ? figure(pendingAutoDraftedNotes.length, pendingNotesFailed) : figure(null, true);
 
   const attention = await attentionPromise;
+  const oversight = await oversightPromise;
+
   const attentionTop = sortWorklist(attention.rows, now).slice(0, 8);
 
   return (
@@ -381,6 +412,18 @@ export default async function ClinicianPage() {
           <WorklistTable rows={attentionTop} now={now} />
         )}
       </section>
+
+      {oversight && (
+        <CmoOversightSection
+          rows={attention.rows}
+          failedSources={attention.failedSources}
+          now={now}
+          organisationId={profile?.organisation_id ?? null}
+          signoffsWaiting={oversight.signoffsWaiting}
+          signoffsFailed={oversight.signoffsFailed}
+          onLeave={oversight.onLeave}
+        />
+      )}
 
       {!staff && <ClinicalStaffSetupWarning roleLabel={roleLabel} />}
       {staff && <RedFlagAttestation />}
