@@ -46,6 +46,9 @@ import { CareTeamContact } from "@/app/(dashboard)/patient/care-team-contact";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { formatPatientDate } from "@/lib/format-date";
 import { STATUS_CLASSES } from "@tarragon/ui/status";
+import { HomeOverviewSection } from "@/app/(dashboard)/patient/home/home-overview-section";
+import { EducationPickCard } from "@/app/(dashboard)/patient/home/education-pick-card";
+import { LazyFold } from "@/app/(dashboard)/patient/home/lazy-fold";
 
 // Clinical status tokens (packages/ui tokens.ts; a separate system from brand
 // colour, per the brand guide), split into StatTile's separate icon-circle /
@@ -102,11 +105,13 @@ export default async function PatientOverviewPage() {
     isAssistantOffered(supabase),
   ]);
 
+  // Spec 4.1 (PD-05): "Good morning, {first name}." on Lagos time, then one supporting line. While acting for someone, the line
+  // says whose health this is instead of greeting them by the supporter's name.
   const greetingWord = getLagosGreetingWord();
-  const actingSubject = acting ? (acting.fullName ? `${acting.fullName}'s` : "their") : null;
-  const weekSummaryLine = `Good ${greetingWord}. Here's how ${
-    actingSubject ? `${actingSubject} week` : "this week"
-  } is going.`;
+  const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? null;
+  const weekSummaryLine = acting
+    ? `Good ${greetingWord}. You are looking after ${acting.fullName ?? "someone"}'s health.`
+    : `Good ${greetingWord}${firstName ? `, ${firstName}` : ""}. Your health journey, all in one place.`;
 
   // Day-one state. Every analytic card below is right for a patient with a
   // history and useless for one without: on an empty account they collectively
@@ -164,7 +169,25 @@ export default async function PatientOverviewPage() {
           gradient). The old greeting line rides along as the band's eyebrow,
           still warm, still Lagos-time-aware, without repeating the name
           DashboardPlaceholder's "Hi, {name}" already gave a moment ago. */}
-      <OverviewHero patientId={subjectId} eyebrow={weekSummaryLine} />
+      <OverviewHero patientId={subjectId} eyebrow={weekSummaryLine} acting={!!acting} />
+
+      {/* For a new patient the set-up steps are the real next step, so they sit straight under it. */}
+      {showGetStarted && (
+        <GetStartedCard
+          progress={progress}
+          acting={acting?.fullName ?? null}
+        />
+      )}
+
+      {/* PD-05 order: status strip, next appointment, care journey (PD-03, every patient). Streamed: its reads never hold up the hero. */}
+      <Suspense fallback={<CardSkeleton className="h-64" />}>
+        <HomeOverviewSection
+          patientId={subjectId}
+          acting={!!acting}
+          hasRiskAssessment={prevention.hasRiskAssessment}
+          hasAnyVitals={stats.hasAnyVitals}
+        />
+      </Suspense>
 
       {/* States plainly whether a clinician is actually watching this account right now: a free/self-tracking patient must never be
           left to infer a funded clinician relationship that does not exist. */}
@@ -173,22 +196,13 @@ export default async function PatientOverviewPage() {
       {/* Informational "while you were away" reel; renders only after a real gap and only when something happened. */}
       <SinceYouWereLastHere patientId={subjectId} acting={!!acting} />
 
-      {showGetStarted && (
-        <GetStartedCard
-          progress={progress}
-          acting={acting?.fullName ?? null}
-        />
-      )}
-
       {/* The everyday jobs, one tap from the top of the page. */}
       <QuickActions showCycle={shouldOfferCycleTracking(subjectSex)} />
 
       {/* A brand-new patient has nothing else to read yet, so the "ask" card stays in view for them; everyone else finds it under "More". */}
       {firstRun && <AskTarragonCard patientId={subjectId} coachAccess={coachAccess} />}
 
-      {/* Home is a short "today" list (design audit P2): today's doses, the readings the patient pins, the next appointment, and any
-          clinical risk signals. Everything else sits under "More about your health" below. On an empty account none of this can say
-          anything but "nothing yet", so it is not rendered until there is something real (GetStartedCard stands in its place). */}
+      {/* Today (PD-05): doses and the readings the patient pins. Not rendered on an empty account (GetStartedCard stands in). */}
       {!firstRun && (
         <>
           <TodaysDoses patientId={subjectId} />
@@ -212,21 +226,28 @@ export default async function PatientOverviewPage() {
             />
           </section>
 
-          <Suspense fallback={<CardSkeleton className="h-56" />}>
-            <CareScheduleCard patientId={subjectId} />
-          </Suspense>
-
-          {/* Clinical signals stay in view: they self-hide when there is nothing behind them. */}
+          {/* Clinical signals stay in view (never folded away): they self-hide when there is nothing behind them. */}
           <RiskSignalsCard patientId={subjectId} />
-          {/* Clinician-reviewed lab categories, including any that need attention, so they are not folded away with the rest. Self-hides without a reviewed result. */}
+          {/* Clinician-reviewed lab categories, including any that need attention. Self-hides without a reviewed result. */}
           <BiomarkerCategoriesCard patientId={subjectId} />
 
-          <details className="group rounded-2xl border border-charcoal-ink/10 bg-white p-1 dark:border-night-ink/15 dark:bg-night-card">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-xl px-4 py-2 text-sm font-semibold text-charcoal-ink hover:bg-charcoal-ink/[0.03] dark:text-night-ink [&::-webkit-details-marker]:hidden">
-              More about your health
-              <span aria-hidden className="text-charcoal-ink/60 transition-transform group-open:rotate-180 dark:text-night-ink/60">⌄</span>
-            </summary>
-            <div className="space-y-6 p-3 pt-4">
+          {/* Recent activity (spec 4.6), each row linking to its own record. */}
+          <PatientTimeline patientId={subjectId} limit={4} viewAllHref="/patient/timeline" linkBasePath="/patient" />
+        </>
+      )}
+
+      {/* One reading from the patient's own personalised feed (spec 4.8). */}
+      <Suspense fallback={null}>
+        <EducationPickCard acting={!!acting} />
+      </Suspense>
+
+      {/* Everything else (PD-05), mounted only when the patient opens it. */}
+      {!firstRun && (
+        <LazyFold title="More about your health">
+              <Suspense fallback={<CardSkeleton className="h-56" />}>
+                <CareScheduleCard patientId={subjectId} />
+              </Suspense>
+
               {/* The long "ask" form lives here; Quick actions above already offers "Upload a result" and "Message your care team". */}
               <AskTarragonCard patientId={subjectId} coachAccess={coachAccess} />
 
@@ -304,7 +325,6 @@ export default async function PatientOverviewPage() {
               </Suspense>
 
               <LazyVitalsTrendChart patientId={subjectId} />
-              <PatientTimeline patientId={subjectId} limit={6} viewAllHref="/patient/timeline" linkBasePath="/patient" />
 
               <ServicesPromoCard />
 
@@ -318,9 +338,7 @@ export default async function PatientOverviewPage() {
               </Suspense>
               {/* MSG-1: messaging is open to every plan; only clinical and medicine topics need Membership, and the database enforces that. */}
               <CareTeamContact patientId={subjectId} />
-            </div>
-          </details>
-        </>
+        </LazyFold>
       )}
     </div>
   );
