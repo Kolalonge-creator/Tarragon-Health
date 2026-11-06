@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { MARKETING_ROUTES, MARKETING_ROUTES_BUILT } from "@/lib/marketing/routes";
+import { impactPageIndexable, loadImpactMetrics } from "@/lib/marketing/impact-data";
 import { absoluteUrl } from "@/lib/marketing/site";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
 
@@ -39,7 +40,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     cookies: 0.3,
   };
 
-  const pages: MetadataRoute.Sitemap = MARKETING_ROUTES_BUILT.map((key) => ({
+  // A page marked noindex has no place in the sitemap (launch check 2026-11-06: /impact was in both).
+  const impactIndexable = impactPageIndexable(await loadImpactMetrics());
+  const pages: MetadataRoute.Sitemap = MARKETING_ROUTES_BUILT.filter((key) => key !== "impact" || impactIndexable).map((key) => ({
     url: absoluteUrl(MARKETING_ROUTES[key]),
     lastModified,
     changeFrequency: key === "home" ? "weekly" : "monthly",
