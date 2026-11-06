@@ -157,3 +157,23 @@ export function lagosDayBounds(now: Date): { startIso: string; endIso: string } 
     endIso: new Date(startUtc + 24 * 60 * 60 * 1000).toISOString(),
   };
 }
+
+/**
+ * The critical-attention banner on the clinician home (doctor workspace spec 8.2): shown only when at least one
+ * emergency-level case is routed to this doctor or still unassigned. Pass rows already narrowed with
+ * {@link escalationsForDoctor}, so a colleague's case does not raise the banner.
+ *
+ * A failed read returns "none" on purpose: the page already shows its load-failure notice and the hero already
+ * says "unknown", so a second, louder message would only repeat it. It never returns a count drawn from a failed read.
+ */
+export type CriticalBannerView = { kind: "none" } | { kind: "critical"; count: number; firstId: string };
+
+export function criticalBannerView(
+  rows: readonly HomeEscalation[],
+  loadFailed: boolean,
+): CriticalBannerView {
+  if (loadFailed) return { kind: "none" };
+  const critical = rankEscalations(rows).filter((r) => r.level === "emergency");
+  const first = critical[0];
+  return first ? { kind: "critical", count: critical.length, firstId: first.id } : { kind: "none" };
+}

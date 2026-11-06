@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "./notification-bell";
 import { PushSubscribePrompt } from "./push-subscribe-prompt";
 import { DeviceHeartbeat } from "./device-heartbeat";
+import { EnvironmentBadge } from "./environment-badge";
 import { ProfileMenu } from "./profile-menu";
 import { AdminSearch } from "./admin-search";
 import type { AdminSearchEntry } from "@/lib/admin-search";
 import { ThemeToggle, type ThemePreference } from "./theme-toggle";
 import { Avatar } from "@/components/avatar";
-import { itemIsActive, MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
+import { itemIsActive, primaryNavItems, type NavItem, type NavSection } from "@/lib/navigation";
+import { NavMoreItems } from "./nav-more-items";
 import { UiLanguageProvider, useT } from "@/components/ui-language-provider";
 import { useSupportingAttention } from "@/lib/queries/care-circle";
 import { DEFAULT_UI_LANGUAGE, type UiLanguage } from "@tarragon/shared";
@@ -307,15 +309,31 @@ function CollapsibleNavGroup({
             accessibility tree while grid-template-rows animates the height. */}
         <div className="overflow-hidden" inert={!open}>
           <ul className="space-y-0.5">
-            {items.map((item) => (
-              <NavLinkItem
-                key={item.href}
-                item={item}
-                pathname={pathname}
-                navCounts={navCounts}
-                onNavigate={onNavigate}
-              />
-            ))}
+            {items
+              .filter((item) => !item.more)
+              .map((item) => (
+                <NavLinkItem
+                  key={item.href}
+                  item={item}
+                  pathname={pathname}
+                  navCounts={navCounts}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            <NavMoreItems
+              groupLabel={label}
+              items={items.filter((item) => item.more)}
+              activeHref={items.find((item) => item.more && itemIsActive(pathname, item))?.href ?? null}
+              renderItem={(item) => (
+                <NavLinkItem
+                  key={item.href}
+                  item={item}
+                  pathname={pathname}
+                  navCounts={navCounts}
+                  onNavigate={onNavigate}
+                />
+              )}
+            />
           </ul>
         </div>
       </div>
@@ -612,7 +630,7 @@ export function AppShell({
   // nothing to collapse, so this falls through to the flat SidebarNav for
   // them exactly as before.
   const useCollapsibleNav = navSections.some((s) => s.label);
-  const primaryItems = allItems.filter((item) => item.primary).slice(0, MAX_PRIMARY_NAV_ITEMS);
+  const primaryItems = primaryNavItems(navSections);
 
   // One batched fetch for every countKey any link in this role's nav sets,
   // rather than one query per badge — a role that sets none (still true of
@@ -777,6 +795,7 @@ export function AppShell({
               >
                 TarragonHealth
               </span>
+              <EnvironmentBadge />
             </div>
             <div className="flex items-center gap-3 text-sm">
               {surface === "warm" && <ThemeToggle theme={theme} onChange={setTheme} />}

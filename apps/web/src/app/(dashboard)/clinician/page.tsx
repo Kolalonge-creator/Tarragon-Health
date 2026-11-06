@@ -23,9 +23,21 @@ import { RedFlagAttestation } from "./red-flag-attestation";
 import { AttestationCard } from "./attestation-card";
 import { HtnAttestationCard } from "./htn-attestation-card";
 import { NextActionHero } from "./next-action-hero";
+import { CriticalAttentionBanner } from "./critical-attention-banner";
 import { TodayStrip } from "./today-strip";
 import { loadWorklist } from "@/lib/security/worklists";
-import { escalationsForDoctor, figure, lagosDayBounds, nextActionView, rankEscalations, type EscalationLevel, type HomeEscalation, ACTIVE_ESCALATION_STATUSES, type EscalationStatus } from "@tarragon/shared";
+import {
+  criticalBannerView,
+  escalationsForDoctor,
+  figure,
+  lagosDayBounds,
+  nextActionView,
+  rankEscalations,
+  type EscalationLevel,
+  type HomeEscalation,
+  ACTIVE_ESCALATION_STATUSES,
+  type EscalationStatus,
+} from "@tarragon/shared";
 
 type OverviewEscalationRow = {
   id: string;
@@ -285,11 +297,10 @@ export default async function ClinicianPage() {
   const urgentEscalations = urgentIds.flatMap((id) => openEscalations.filter((e) => e.id === id));
   // "Your next case" is drawn only from cases routed to this doctor or still unassigned; a colleague's
   // case is theirs to start (private.enforce_emergency_escalation_tier), so it must not be the hero.
-  const nextView = nextActionView(
-    escalationsForDoctor(homeEscalations, profile?.id ?? null),
-    escalationsFailed,
-    now,
-  );
+  const myEscalations = escalationsForDoctor(homeEscalations, profile?.id ?? null);
+  const nextView = nextActionView(myEscalations, escalationsFailed, now);
+  // Spec 8.2: shown only while an emergency case is routed to this doctor or unassigned; never from a failed read.
+  const criticalView = criticalBannerView(myEscalations, escalationsFailed);
 
   const medReviewsFigure = figure(medReviewsRes.count, medReviewsRes.error !== null);
   const carePlanReviewsFigure = figure(carePlanReviewsRes.count, carePlanReviewsRes.error !== null);
@@ -317,6 +328,8 @@ export default async function ClinicianPage() {
           themselves until it comes back.
         </LoadFailure>
       )}
+
+      <CriticalAttentionBanner view={criticalView} />
 
       <NextActionHero view={nextView} />
 

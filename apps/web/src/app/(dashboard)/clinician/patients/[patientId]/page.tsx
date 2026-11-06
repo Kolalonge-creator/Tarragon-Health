@@ -1,4 +1,4 @@
-import { ageFromDateOfBirth } from "@tarragon/shared";
+import { ageFromDateOfBirth, ACTIVE_ESCALATION_STATUSES } from "@tarragon/shared";
 import { formatPatientDate } from "@/lib/format-date";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
@@ -12,6 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar } from "@/components/avatar";
 import { TestAccountBadge } from "@/components/clinical/test-account-badge";
 import { MaskedCallButton } from "@/components/masked-call-button";
+import { readAuditedSection } from "@/lib/clinical/audited-chart";
+import { ageInYears, ageSexLine, allergyHeaderView } from "@/lib/clinical/allergy-header-view";
+import { PatientSafetyStrip } from "./patient-safety-strip";
+import { CareCircleCard, OnboardingAnswersCard } from "./onboarding-and-circle-cards";
+import { readOnboardingAndCircle } from "@/lib/clinical/onboarding-and-circle-audited";
+import { PatientOpenWork, type OpenCount } from "./patient-open-work";
 import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
@@ -166,13 +172,46 @@ export default async function ClinicianPatientPage({
     );
   }
 
+  // Doctor workspace spec 11.2: allergies in the header on every tab. Read through the audited, tie-gated chart path
+  // (INV-10) after openPatientRecord, which grants the read window. A refused or failed read is shown as such, never as "none".
+
   // Read-access audit: a trigger can log who changed a patient row, but not who merely
   // opened it — this is the one explicit read-logging call site on the platform so far
   // (see 20260812034612_clinician_patient_record_view_audit.sql). Best-effort: a logging
   // failure must never block the clinician from seeing the patient's notes.
-  const { error: viewLogError } = await supabase.rpc("log_patient_record_view", {
-    p_patient_id: patient.id,
-  });
+  // DW-07 / DW-08: the patient's own sign-up answers and their Care Circle, each through a logged, care-tie-gated read.
+  // Started here (after openPatientRecord) so it runs alongside the reads below; it never throws.
+  const onboardingAndCirclePromise = readOnboardingAndCircle(supabase, patient.id);
+  const [{ error: viewLogError }, headerAllergyRead, openEscalationsRes, openAlertsRes, snoozedAlertsRes] = await Promise.all([
+    supabase.rpc("log_patient_record_view", { p_patient_id: patient.id }),
+    readAuditedSection(supabase, patient.id, "allergies"),
+    // Header "open work" counts (spec 11.1): head counts only, under the same RLS as the escalations and alert lists.
+    // One id comes back too, so a single open escalation can be linked straight to its case.
+    supabase
+      .from("escalations")
+      .select("id", { count: "exact" })
+      .eq("patient_id", patient.id)
+      .in("status", [...ACTIVE_ESCALATION_STATUSES])
+      .order("created_at", { ascending: true })
+      .limit(1),
+    // Counted exactly as the alert list it links to shows them (open and acknowledged); snoozed ones are counted apart.
+    supabase
+      .from("clinician_alerts")
+      .select("id", { count: "exact", head: true })
+      .eq("patient_id", patient.id)
+      .in("status", ["open", "acknowledged"])
+      .eq("suppressed", false),
+    supabase
+      .from("clinician_alerts")
+      .select("id", { count: "exact", head: true })
+      .eq("patient_id", patient.id)
+      .eq("status", "snoozed")
+      .eq("suppressed", false),
+  ]);
+  const onlyEscalationId = openEscalationsRes.count === 1 ? (openEscalationsRes.data?.[0]?.id ?? null) : null;
+  const openCount = (res: { count: number | null; error: unknown }): OpenCount =>
+    res.error || res.count === null ? { state: "unknown" } : { state: "known", value: res.count };
+  const headerAllergies = allergyHeaderView(headerAllergyRead);
   if (viewLogError) {
     console.error("Failed to log patient record view", viewLogError);
   }
@@ -242,6 +281,8 @@ export default async function ClinicianPatientPage({
     .order("created_at", { ascending: false })
     .limit(25);
 
+  const { onboarding: onboardingRead, circle: circleRead } = await onboardingAndCirclePromise;
+
   const tabs: PatientRecordTab[] = [
           {
             id: "overview",
@@ -253,6 +294,8 @@ export default async function ClinicianPatientPage({
                   sex={patient.sex}
                   dateOfBirth={patient.date_of_birth}
                 />
+                <OnboardingAnswersCard read={onboardingRead} />
+                <CareCircleCard read={circleRead} />
                 {/* Two facts with outsized weight in a Nigerian emergency, and
                     the platform had nowhere to keep them until now. */}
                 <BloodProfileForm
@@ -529,8 +572,12 @@ export default async function ClinicianPatientPage({
         ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start gap-3">
+    // Anchors inside the record stop below the pinned header instead of under it.
+    <div className="space-y-6 lg:[&_[id]]:scroll-mt-64">
+      {/* Identity and safety stay in view while the doctor scrolls a long tab (spec 11.1, 28). Wide screens only: on a
+          phone or tablet a sticky block this tall would take too much of the screen. The offset clears the shell's
+          sticky header (py-3 around h-9 controls, plus its border); keep it in step if that header changes. */}
+      <div className="z-30 -mx-4 flex items-start gap-3 border-b border-charcoal-ink/10 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:sticky lg:top-[61px] lg:-mx-8 lg:px-8">
         <Avatar fullName={patient.full_name ?? "Unnamed patient"} photoUrl={patient.avatar_url} size="xl" />
         <div>
           <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
@@ -548,6 +595,20 @@ export default async function ClinicianPatientPage({
             )}
           </p>
           {patient.phone && <p className="text-charcoal-ink/60">{patient.phone}</p>}
+          <div className="mt-2">
+            <PatientSafetyStrip
+              ageSex={ageSexLine(ageInYears(patient.date_of_birth, new Date()), patient.sex)}
+              allergies={headerAllergies}
+            />
+          </div>
+          <div className="mt-1">
+            <PatientOpenWork
+              escalations={openCount(openEscalationsRes)}
+              alerts={openCount(openAlertsRes)}
+              snoozedAlerts={openCount(snoozedAlertsRes)}
+              onlyEscalationId={onlyEscalationId}
+            />
+          </div>
         </div>
       </div>
       <div>
