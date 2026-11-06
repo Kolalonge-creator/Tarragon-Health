@@ -132,7 +132,9 @@ begin
     (select count(*)::text from public.ops_incidents where external_reference = 'ops_alert:payment_webhooks_unprocessed:unprocessed'));
   perform pg_temp.rec('a rule is not re-run before its interval', '0',
     ((private.ops_evaluate_alerts(false, false)) ->> 'evaluated'));
-  update public.ops_alerts set last_notified_at = now() - interval '31 minutes' where rule_code = 'payment_webhooks_unprocessed';
+  -- one minute past the rule's own renotify_minutes (30 at SR5, 240 since the 2026-11-06 noise controls)
+  update public.ops_alerts set last_notified_at = now() - make_interval(mins => (select renotify_minutes + 1 from public.ops_alert_rules where code = 'payment_webhooks_unprocessed'))
+   where rule_code = 'payment_webhooks_unprocessed';
   v_ev := private.ops_evaluate_alerts(false, true);
   perform pg_temp.rec('a reminder follows after renotify_minutes, to the same contact', 'open:2:0|4', pg_temp.alert_state('payment_webhooks_unprocessed') || '|' || pg_temp.nn(v_admin, 'ops_alert')::text);
   update public.payment_transactions set processed_at = now() where id = v_pay;
