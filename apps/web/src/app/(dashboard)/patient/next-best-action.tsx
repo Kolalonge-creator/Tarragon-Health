@@ -110,7 +110,8 @@ export async function resolveNextAction(patientId: string, opts: { acting?: bool
       .in("status", [...JOINABLE_STATUSES])
       .gte("scheduled_for", new Date(nowMs - 6 * 3600_000).toISOString())
       .lte("scheduled_for", new Date(nowMs + 3600_000).toISOString())
-      .limit(5),
+      .order("scheduled_for", { ascending: false })
+      .limit(10),
     // A care-team reply the patient has not opened. The read marker is the patient's own, so not while a supporter is acting.
     opts.acting
       ? Promise.resolve({ data: [] as { last_care_team_reply_at: string | null; patient_last_read_at: string | null }[], error: null })

@@ -41,7 +41,17 @@ function builder(table: string) {
   b.then = (resolve: (r: Result) => unknown) => resolve({ data: null, count: 0, error: null, ...next() });
   return b;
 }
-jest.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: (t: string) => builder(t) }) }));
+let labRpc: Result = { data: [], error: null };
+const rpcCalls: string[] = [];
+jest.mock("@/lib/supabase/server", () => ({
+  createClient: async () => ({
+    from: (t: string) => builder(t),
+    rpc: (name: string) => {
+      rpcCalls.push(name);
+      return Promise.resolve({ data: null, error: null, ...labRpc });
+    },
+  }),
+}));
 
 import { loadHomeOverview } from "./home-overview";
 
@@ -49,6 +59,8 @@ const NOW = new Date("2026-11-10T10:00:00Z");
 
 beforeEach(() => {
   tablesQueried.length = 0;
+  rpcCalls.length = 0;
+  labRpc = { data: [], error: null };
   patientFilters.length = 0;
   resolveServiceAccess.mockResolvedValue({ status: "membership_active" });
   resolveActionCentreItems.mockResolvedValue([{ bucket: "high" }, { bucket: "today" }, { bucket: "later" }]);
@@ -111,6 +123,7 @@ describe("loadHomeOverview", () => {
   it("does not read the patient's message read markers while a supporter is acting", async () => {
     const o = await loadHomeOverview("p-1", { ...known, acting: true }, NOW);
     expect(tablesQueried).not.toContain("care_message_threads");
+    expect(rpcCalls).not.toContain("my_lab_results");
     expect(o.unreadCareTeamReply).toBeNull();
   });
 
@@ -126,5 +139,17 @@ describe("loadHomeOverview", () => {
     resolveServiceAccess.mockResolvedValue({ status: "self_tracking" });
     const o = await loadHomeOverview("p-1", known, NOW);
     expect(o.journey.filter((s) => s.state === "membership").map((s) => s.id)).toEqual(["review", "plan", "results"]);
+  });
+
+  it("adds held partner results to the documents waiting for a doctor, without double-counting own uploads", async () => {
+    labRpc = {
+      data: [
+        { status: "under_review", own_upload: false },
+        { status: "under_review", own_upload: true },
+        { status: "released", own_upload: false },
+      ],
+    };
+    const o = await loadHomeOverview("p-1", known, NOW);
+    expect(o.resultsAwaitingDoctor).toBe(4);
   });
 });

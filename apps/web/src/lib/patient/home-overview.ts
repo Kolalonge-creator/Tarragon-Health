@@ -52,7 +52,7 @@ export async function loadHomeOverview(
   const supabase = await createClient();
   const nowMs = now.getTime();
 
-  const [access, actionItems, appointment, baseline, carePlans, openTests, resultedTests, awaiting, reviewed, recentReading, threads] =
+  const [access, actionItems, appointment, baseline, carePlans, openTests, resultedTests, awaiting, reviewed, recentReading, threads, labResults] =
     await Promise.all([
       resolveServiceAccess(patientId),
       resolveActionCentreItems(patientId).catch((e: unknown) => {
@@ -106,6 +106,9 @@ export async function loadHomeOverview(
             .not("last_care_team_reply_at", "is", null)
             .order("last_care_team_reply_at", { ascending: false })
             .limit(20),
+      // Structured and partner lab results held for review (S27) have no document row, so they are counted from the patient's own
+      // results list. That function answers for the signed-in person, so it is not used while a supporter is acting.
+      known.acting ? Promise.resolve(null) : supabase.rpc("my_lab_results"),
     ]);
 
   const failed = (
@@ -119,6 +122,7 @@ export async function loadHomeOverview(
       ["record_items_reviewed", reviewed],
       ["vitals", recentReading],
       ["threads", threads],
+      ["my_lab_results", labResults],
     ] as const
   ).filter(([, r]) => r !== null && r.error);
   if (failed.length > 0) {
@@ -149,6 +153,18 @@ export async function loadHomeOverview(
         }
       : null;
 
+  // Held results that are not the patient's own uploads (those are already counted as documents above). Null while acting or
+  // on a failed read: then only documents are counted, and the total is null if documents failed too.
+  const heldLabResults =
+    labResults === null || labResults.error
+      ? null
+      : ((labResults.data ?? []) as { status?: string; own_upload?: boolean }[]).filter(
+          (r) => r.status === "under_review" && r.own_upload !== true,
+        ).length;
+  const documentsAwaiting = count(awaiting);
+  const resultsAwaitingDoctor =
+    documentsAwaiting === null ? null : documentsAwaiting + (heldLabResults ?? 0);
+
   const unreadCareTeamReply =
     threads === null
       ? null
@@ -173,7 +189,7 @@ export async function loadHomeOverview(
       activePlans === null ? null : activePlans > 0 || baselineState === "authorised" || baselineState === "adjusted",
     openTestCount: count(openTests),
     resultedTestCount: count(resultedTests),
-    resultsAwaitingDoctor: count(awaiting),
+    resultsAwaitingDoctor,
     resultsReviewed: count(reviewed),
     recentReading: recentReading.error ? null : !!recentReading.data,
     anyReading: known.hasAnyVitals,
@@ -181,7 +197,7 @@ export async function loadHomeOverview(
 
   return {
     actionsDue,
-    resultsAwaitingDoctor: count(awaiting),
+    resultsAwaitingDoctor,
     nextAppointment,
     unreadCareTeamReply,
     journey,

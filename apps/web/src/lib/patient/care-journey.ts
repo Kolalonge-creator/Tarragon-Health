@@ -108,7 +108,8 @@ function results(f: JourneyFacts): JourneyStage {
   if (f.resultsAwaitingDoctor > 0) {
     return { ...base, state: "care_team", detail: `${plural(f.resultsAwaitingDoctor, "result", "results")} waiting for a doctor.` };
   }
-  if (f.resultsReviewed > 0) return { ...base, state: "done", detail: "Your results have been reviewed." };
+  // "Done" only says nothing is waiting: a past review says nothing about a newer upload, so it never claims "all reviewed".
+  if (f.resultsReviewed > 0) return { ...base, state: "done", detail: "No results waiting for a doctor." };
   return { ...base, state: "not_started", detail: "No results yet. Upload one any time." };
 }
 
