@@ -3,7 +3,14 @@ import { createClient } from "@/lib/supabase/client";
 import { computeBmi } from "@/lib/obesity/classify";
 import { fetchHeightStatus, type HeightStatus } from "@/lib/health-metrics/height";
 import { readPatientVitalsOrThrow } from "@/lib/clinical/vitals-audited";
-import { parseAssistedAttribution, type AssistedAttribution, type Tables } from "@tarragon/shared";
+import {
+  parseAssistedAttribution,
+  TREND_MAX_POINTS,
+  trendRangeStart,
+  type AssistedAttribution,
+  type Tables,
+  type TrendRange,
+} from "@tarragon/shared";
 import { readModuleEnabled } from "@/lib/vitals/extended-observations";
 import { readTrendBandsEligible } from "./trend-bands-eligibility";
 
@@ -75,9 +82,11 @@ const TREND_WINDOW_DAYS = 90;
  * The fields a trend chart plots, from one stored reading. `entry_origin` is carried (S07y) so the chart can say how many of its points were taken at a
  * pharmacy or clinic machine or copied from a paper diary: a point whose label is dropped here would look like an ordinary home reading.
  */
-export function toTrendPoint(r: Pick<Tables<"vitals_readings">, "taken_at" | "systolic" | "diastolic" | "glucose_mmol_l" | "glucose_context" | "weight_kg" | "pulse_bpm" | "entry_origin" | "assisted_entry" | "assisted_rate_exceeded">) {
+export function toTrendPoint(r: Pick<Tables<"vitals_readings">, "taken_at" | "systolic" | "diastolic" | "glucose_mmol_l" | "glucose_context" | "weight_kg" | "pulse_bpm" | "entry_origin" | "assisted_entry" | "assisted_rate_exceeded" | "source">) {
   return {
     taken_at: r.taken_at,
+    // Where the reading came from (typed, device, wearable...), for the chart's table alternative (P17).
+    source: r.source,
     systolic: r.systolic,
     diastolic: r.diastolic,
     glucose_mmol_l: r.glucose_mmol_l,
@@ -93,20 +102,38 @@ export function toTrendPoint(r: Pick<Tables<"vitals_readings">, "taken_at" | "sy
 
 export type VitalsTrendType = "blood_pressure" | "glucose" | "weight" | "pulse";
 
+/** The `since` bound for a trend read: a number of days back, or one of the shared chart ranges (P17). Undefined means no lower bound ("all"). */
+export function trendSince(window: number | TrendRange, now: Date = new Date()): string | undefined {
+  if (typeof window === "number") return new Date(now.getTime() - window * 24 * 60 * 60 * 1000).toISOString();
+  return trendRangeStart(window, now)?.toISOString();
+}
+
+/** Row cap for a read bounded by a number of days (the weight page's toggle, BMI); unchanged from before the shared ranges. */
+const DAY_WINDOW_ROW_CAP = 5000;
+
 /** Ascending-order readings for charting (opposite of useVitalsReadings's
- * newest-first list order — a trend chart reads left to right). `windowDays`
- * overrides the default 90-day cutoff — used by the weight-goal card's
- * Week/Month/All-time toggle; every other caller keeps the default. */
+ * newest-first list order — a trend chart reads left to right). `window`
+ * is a number of days (the weight-goal card's Week/Month/All-time toggle) or
+ * one of the shared chart ranges (7d to all, the main trend chart). Every read
+ * is bounded and keeps the NEWEST rows (the audited read selects newest first
+ * and `ascending` only reorders them). A shared-range read asks for one row
+ * more than TREND_MAX_POINTS, so the chart can tell "exactly the cap" from
+ * "older readings were left out" (trendHitCap in @tarragon/shared) and say so. */
 export function useVitalsTrend(
   patientId: string,
   vitalType: VitalsTrendType,
-  windowDays: number = TREND_WINDOW_DAYS,
+  window: number | TrendRange = TREND_WINDOW_DAYS,
 ) {
   return useQuery({
-    queryKey: ["vitals-trend", patientId, vitalType, windowDays],
+    queryKey: ["vitals-trend", patientId, vitalType, window],
     queryFn: async () => {
-      const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
-      const rows = await readPatientVitalsOrThrow(createClient(), patientId, { vitalType, since, ascending: true, limit: 5000 });
+      const since = trendSince(window);
+      const rows = await readPatientVitalsOrThrow(createClient(), patientId, {
+        vitalType,
+        ...(since === undefined ? {} : { since }),
+        ascending: true,
+        limit: typeof window === "number" ? DAY_WINDOW_ROW_CAP : TREND_MAX_POINTS + 1,
+      });
       return rows.map(toTrendPoint);
     },
     staleTime: 60_000,
@@ -171,7 +198,15 @@ export function useHeightStatus(patientId: string) {
   });
 }
 
-export type BmiTrendPoint = { taken_at: string; weight_kg: number; bmi: number };
+export type BmiTrendPoint = {
+  taken_at: string;
+  weight_kg: number;
+  bmi: number;
+  /** Carried from the weight reading, so the BMI table names the same source the weight table does. */
+  source: Tables<"vitals_readings">["source"];
+  entry_origin: string | null;
+  assisted: boolean;
+};
 
 /** BMI has no reading of its own — each logged weight is combined with the
  * patient's current height (see useHeightStatus) to derive a point. Height
@@ -184,9 +219,9 @@ export function useBmiTrend(patientId: string, windowDays: number = TREND_WINDOW
     queryKey: ["bmi-trend", patientId, windowDays],
     queryFn: async (): Promise<BmiTrendPoint[]> => {
       const supabase = createClient();
-      const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+      const since = trendSince(windowDays);
       const [weightRows, heightStatus] = await Promise.all([
-        readPatientVitalsOrThrow(supabase, patientId, { vitalType: "weight", since, ascending: true, limit: 5000 }),
+        readPatientVitalsOrThrow(supabase, patientId, { vitalType: "weight", since, ascending: true, limit: DAY_WINDOW_ROW_CAP }),
         fetchHeightStatus(supabase, patientId),
       ]);
 
@@ -201,7 +236,7 @@ export function useBmiTrend(patientId: string, windowDays: number = TREND_WINDOW
         // Y-axis ticks, unlike every other trend series here whose readings
         // are already 1-2dp as entered.
         const bmi = rawBmi != null ? Math.round(rawBmi * 10) / 10 : null;
-        return bmi != null ? [{ taken_at: row.taken_at, weight_kg: row.weight_kg as number, bmi }] : [];
+        return bmi != null ? [{ taken_at: row.taken_at, weight_kg: row.weight_kg as number, bmi, source: row.source, entry_origin: row.entry_origin, assisted: row.assisted_entry === true }] : [];
       });
     },
     enabled: !!patientId,

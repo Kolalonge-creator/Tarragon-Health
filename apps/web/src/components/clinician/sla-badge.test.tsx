@@ -13,11 +13,11 @@ describe("SlaBadge", () => {
     render(<SlaBadge dueAt="2026-10-06T10:30:00Z" now={now} />);
     expect(screen.getByText("Due in 30 minutes")).toBeTruthy();
   });
-  it("is amber inside the proposed warning window and blue outside it", () => {
+  it("is attention (amber) inside the proposed warning window and info (blue) outside it", () => {
     const { container, rerender } = render(<SlaBadge dueAt="2026-10-06T10:10:00Z" now={now} />);
-    expect(container.innerHTML).toMatch(/amber/);
+    expect(container.innerHTML).toMatch(/status-attention/);
     rerender(<SlaBadge dueAt="2026-10-06T13:00:00Z" now={now} />);
-    expect(container.innerHTML).not.toMatch(/amber/);
+    expect(container.innerHTML).not.toMatch(/status-attention/);
   });
   it("renders nothing without a due time", () => {
     const { container } = render(<SlaBadge dueAt={null} now={now} />);

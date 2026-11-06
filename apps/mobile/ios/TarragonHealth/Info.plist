@@ -19,7 +19,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>1.0.0</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -50,13 +50,15 @@
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>TarragonHealth uses Bluetooth to sync readings from your paired blood pressure cuff, glucometer, or scale.</string>
     <key>NSCameraUsageDescription</key>
-    <string>TarragonHealth uses your camera to photograph a lab result so it can be read into your record.</string>
+    <string>TarragonHealth uses your camera to photograph a lab result so it can be read into your record, and to take a photo to send with a written question to your care team.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>TarragonHealth uses Face ID to lock the app so only you can open your health record.</string>
     <key>NSHealthShareUsageDescription</key>
     <string>TarragonHealth reads the blood pressure, blood sugar, weight, oxygen level, heart rate and step data you already keep in Apple Health, so your care team sees it alongside the rest of your record.</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>TarragonHealth only reads from Apple Health. It does not save or change anything in Apple Health.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>TarragonHealth accesses your photos so you can upload a lab result you've already photographed.</string>
+    <string>TarragonHealth accesses your photos so you can upload a lab result you&apos;ve already photographed, attach a photo to a written question to your care team, or add one picture to a Community post. A person on our team checks a Community picture before anyone else sees it.</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>

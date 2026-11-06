@@ -21,6 +21,12 @@ export interface NavItem {
    * which opens the same full drawer as before. A role that flags nothing
    * gets no bottom bar at all, so this is purely additive per role. */
   primary?: boolean;
+  /** Position among the phone tabs when the tabs come from different groups (the patient's Home, My Health, Messages, Care plan:
+   * PD-01). Lower first; flagged items without it follow in declaration order. See primaryNavItems. */
+  primaryOrder?: number;
+  /** Puts this link behind the group's "More in this group" toggle in the sidebar, so a long group stays scannable. It stays in
+   * search, and the toggle opens on its own when the current page is one of these links. */
+  more?: boolean;
   /** Short label for the bottom tab bar, where a full label like
    * "Vitals & symptoms" cannot fit. Falls back to `label`. */
   shortLabel?: string;
@@ -42,6 +48,18 @@ export interface NavItem {
  * button. Four plus More keeps every target above the ~44px tap-target floor
  * on a 320px-wide screen. */
 export const MAX_PRIMARY_NAV_ITEMS = 4;
+
+/** The links the phone bottom bar shows: the `primary` ones, ordered by `primaryOrder` (then declaration order), capped at
+ * MAX_PRIMARY_NAV_ITEMS. */
+export function primaryNavItems(sections: readonly NavSection[]): NavItem[] {
+  return sections
+    .flatMap((s) => s.items)
+    .filter((item) => item.primary)
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => (a.item.primaryOrder ?? Number.MAX_SAFE_INTEGER) - (b.item.primaryOrder ?? Number.MAX_SAFE_INTEGER) || a.index - b.index)
+    .slice(0, MAX_PRIMARY_NAV_ITEMS)
+    .map(({ item }) => item);
+}
 
 /** A labelled group of sidebar links. `label` is omitted for the top group. */
 export interface NavSection {
@@ -126,40 +144,21 @@ export function getNavSections(
           },
         ];
       }
-      // Grouped into four labelled bands (2026-08-12 patient-navigation pass),
-      // replacing the flat single-level list of the 2026-08-09 redesign. The
-      // flat list was right to promote every section out of the old
-      // second-level PatientNav pill bar, but it kept growing: fifteen
-      // equally-weighted links with no headings is past the point where a
-      // patient scans rather than reads, and "Wellness" sat two rows from
-      // "My services" with nothing to say they belong to different parts of
-      // their life. Nothing is hidden or demoted — the same links, banded by
-      // the question each one answers:
-      //   (top)        where am I / what needs me today
-      //   Your health  the clinical record they log into and read back
-      //   Stay well    the things that keep a well person well
-      //   Support      the humans: care team, messages, family
-      //   Your account admin they touch a few times a year
-      // Two real pages that were previously reachable only through an inline
-      // link from another page are now listed: Lifestyle coaching
-      // (/patient/lifestyle, the hub the nutrition/weight/activity trackers
-      // all link "back" to, which nothing in the sidebar ever pointed at) and
-      // Health Check (/patient/health-check). Both were being missed, which
-      // is the same failure the Learn tab had before it was promoted.
+      // Six groups (patient dashboard 2.0, slice C; docs/design/PATIENT-DASHBOARD-2.md section 4 and PD-01). The menu had grown to 43
+      // links in five bands with four overlapping doors to one record (Health summary, My Health, My Health Records, Health Passport).
+      // Each group now answers one question:
+      //   (Home)       where am I / what needs me today. Unlabelled, so it is never collapsed.
+      //   My health    my record and the things I log and take, plus the condition and life-stage pages
+      //   Healthcare   tests, results, visits and the services I can book
+      //   My support   the people: care team messages, family, community
+      //   Resources    reading, rewards and help
+      //   Account      my details, membership, money, privacy; the Emergency card stays pinned (see AppShell)
+      // Nothing is deleted. The three record pages that left the menu (Health summary, My Health Records, Health Passport) are one tap
+      // from the "My health record" hub (/patient/my-health) and stay in search (PATIENT_EXTRA_PAGES in lib/patient-search.ts); a
+      // test (patient-menu-coverage.test.ts) proves every page in the old menu is still in the menu or in search.
+      // `more: true` links sit behind a "More in this group" toggle so a long group stays scannable.
+      // Phone tabs (PD-01): Home, My Health, Messages, Care plan, then More. `primaryOrder` fixes that order across groups.
       return [
-        // The everyday jobs, and the only band that is never collapsed on any
-        // surface. Previously this top group held just Overview and My
-        // actions, and the four things a patient actually opens the app to do
-        // — log a reading, tick off today's medicines, read a result, message
-        // the care team — were spread across "Your health" and "Support",
-        // where "Your health" alone ran to twelve entries. Even a patient who
-        // opened the right group still had to find Vitals among Women's
-        // Health, Healthy ageing, Find a specialist and Get a device.
-        //
-        // Nothing is removed or demoted by this; every link below still
-        // exists, one heading away. This band answers "what do I do today",
-        // and everything under it answers "where is that thing I need
-        // occasionally".
         {
           items: [
             {
@@ -168,130 +167,106 @@ export function getNavSections(
               icon: "dashboard",
               exact: true,
               primary: true,
+              primaryOrder: 1,
               shortLabel: "Home",
             },
-            // Spec §76.5 ("action centre") — every outstanding task in one
-            // urgency-bucketed place, not scattered across Overview's
-            // individual cards. First-class nav entry, not just a link off
-            // Overview, since it's meant to be reachable directly.
+            // Spec §76.5 ("action centre"): every outstanding task in one urgency-bucketed place.
             { label: "My actions", href: "/patient/actions", icon: "approvals" },
+          ],
+        },
+        {
+          label: "My health",
+          items: [
+            // The one door to the record: timeline, documents, passport, emergency card, shares, who has looked, and links to the
+            // health summary and every report. Replaces four menu entries.
             {
-              label: "Vitals & symptoms",
-              href: "/patient/vitals",
-              icon: "bp",
+              label: "My health record",
+              href: "/patient/my-health",
+              icon: "passport",
               primary: true,
-              shortLabel: "Vitals",
+              primaryOrder: 2,
+              shortLabel: "My Health",
             },
+            { label: "Vitals & symptoms", href: "/patient/vitals", icon: "bp" },
+            { label: "Medications", href: "/patient/medications", icon: "medication" },
+            // The care plan lives on Care & support (my-care-plan-tasks.tsx), together with the "Need help" card and paid services. The
+            // menu keeps the page's own name (onboarding copy points to it); the phone tab says "Care plan" (PD-01).
             {
-              label: "Medications",
-              href: "/patient/medications",
-              icon: "medication",
+              label: "Care & support",
+              href: "/patient/care",
+              icon: "clinicianFollowUp",
               primary: true,
-              shortLabel: "Meds",
+              primaryOrder: 4,
+              shortLabel: "Care plan",
             },
+            { label: "Your care pathway", href: "/patient/pathway", icon: "carePlan" },
+            { label: "Programmes", href: "/patient/programmes", icon: "members" },
+            { label: "Health Check", href: "/patient/health-check", icon: "review" },
+            { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
+            // Condition and life-stage pages. Women's Health is already hidden for a recorded male (the page-gate rule in the
+            // dashboard layout), so the group only shows what applies.
+            { label: "Women's Health", href: "/patient/womens-health", icon: "family", more: true },
+            { label: "Sexual & reproductive health", href: "/patient/sexual-health", icon: "family", more: true },
+            { label: "Wellbeing", href: "/patient/wellbeing", icon: "mood", more: true },
+            { label: "Self-help programmes", href: "/patient/self-help", icon: "mood", more: true },
+            { label: "Healthy ageing", href: "/patient/healthy-ageing", icon: "healthyAgeing", more: true },
+            { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle", more: true },
+            { label: "Weight management", href: "/patient/weight-management", icon: "weight", more: true },
+          ],
+        },
+        {
+          label: "Healthcare",
+          items: [
             { label: "Labs & results", href: "/patient/labs", icon: "labs" },
+            { label: "Appointments", href: "/patient/appointments", icon: "booking" },
+            // The year at a glance: consultations, testing-day places already held and screenings due.
+            { label: "My calendar", href: "/patient/calendar", icon: "booking" },
+            { label: "Find a specialist", href: "/patient/find-a-specialist", icon: "referral" },
+            // The one-off service catalogue (video visits, Ask a doctor, second opinions, verified documents). The route name
+            // "subscription" predates the pay-per-service pivot.
+            { label: "My services", href: "/patient/subscription", icon: "billing" },
+            { label: "Group screening days", href: "/patient/screening-days", icon: "booking" },
+            // T2-02: testing days take no new bookings; this page now shows places already held and their results.
+            { label: "Testing days", href: "/patient/testing-days", icon: "booking" },
+          ],
+        },
+        {
+          label: "My support",
+          items: [
             {
               label: "Messages",
               href: "/patient/messages",
               icon: "messages",
               primary: true,
+              primaryOrder: 3,
               shortLabel: "Messages",
             },
-            { label: "Programmes", href: "/patient/programmes", icon: "members" },
-            { label: "Your care pathway", href: "/patient/pathway", icon: "carePlan" },
-            { label: "Appointments", href: "/patient/appointments", icon: "booking" },
-          ],
-        },
-        {
-          label: "Your health",
-          items: [
-            // Spec §76.3 ("personal health summary") — conditions,
-            // allergies, medications, measurements, investigations, care
-            // programmes, appointments, referrals and preventive tasks in
-            // one place, composed from the record the sections below already
-            // hold rather than a second copy of it.
-            { label: "Health summary", href: "/patient/health-summary", icon: "carePlan" },
-            // The front door for the record the patient carries and shares (S09x): timeline, emergency card, passport, share links, who has looked.
-            { label: "My Health", href: "/patient/my-health", icon: "passport" },
-            // CDE-07: every report and document on the record, of any kind, in one place (clinical document engine step 6).
-            { label: "My Health Records", href: "/patient/health-records", icon: "labs" },
-            { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
-            { label: "Women's Health", href: "/patient/womens-health", icon: "family" },
-            {
-              label: "Sexual & reproductive health",
-              href: "/patient/sexual-health",
-              icon: "family",
-            },
-            { label: "Wellbeing", href: "/patient/wellbeing", icon: "mood" },
-            { label: "Self-help programmes", href: "/patient/self-help", icon: "mood" },
-            { label: "Health Check", href: "/patient/health-check", icon: "review" },
-            { label: "Find a specialist", href: "/patient/find-a-specialist", icon: "referral" },
-            { label: "Healthy ageing", href: "/patient/healthy-ageing", icon: "healthyAgeing" },
-            { label: "Get a device", href: "/patient/devices", icon: "devices" },
-          ],
-        },
-        {
-          label: "Stay well",
-          items: [
-            { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
-            { label: "Weight management", href: "/patient/weight-management", icon: "weight" },
-            { label: "Learn", href: "/patient/learn", icon: "learn" },
-            { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
-          ],
-        },
-        {
-          label: "Support",
-          items: [
-            // Promoted to just below Appointments (2026-09-11) — this is
-            // where the paid-per-service doctor-time revenue lives (video
-            // visits, Ask a doctor, second opinions, verified documents,
-            // senior case review), so it deserves more prominence than the
-            // bottom of Support once someone has already found Appointments.
-            { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
-            // Promoted out of "Your account" (2026-09-11) to sit right beside
-            // Care & support — this is the buy page for the same paid-per-
-            // service doctor-time revenue (video visits, Ask a doctor,
-            // second opinions, verified documents), so burying the one page
-            // that actually takes payment four rows down in an admin-flavoured
-            // band was working against the point of promoting Care & support
-            // at all. The href/route folder name ("subscription") predates
-            // the pay-per-service pivot and is a known naming leftover, not a
-            // sign this points at the old recurring-plan page — it renders
-            // the current one-off service catalogue.
-            { label: "My services", href: "/patient/subscription", icon: "billing" },
-            // Buy the Membership or a care pack, see what is included and the price, and see your payments (S25).
-            { label: "Membership", href: "/patient/membership", icon: "billing" },
             { label: "Family", href: "/patient/family", icon: "family" },
             ...(options?.communityOpen ? [{ label: t("community.nav.title"), href: "/patient/community", icon: "family" as const }] : []),
-            // Real feature a single-persona mock doesn't happen to show (that
-            // patient supports nobody) — kept reachable rather than regressed.
+            // Real feature a single-persona mock doesn't happen to show (that patient supports nobody), kept reachable.
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
             { label: "Yearly reports for people you support", href: "/patient/family/health-reports", icon: "passport" },
-            { label: "Group screening days", href: "/patient/screening-days", icon: "booking" },
-            // T2-02: testing days take no new bookings; this page now shows places already held and their results.
-            { label: "Testing days", href: "/patient/testing-days", icon: "booking" },
-            // The year at a glance: consultations, testing-day places already held and screenings due.
-            { label: "My calendar", href: "/patient/calendar", icon: "booking" },
+            { label: "Notification settings", href: "/patient/notification-settings", icon: "bell" },
           ],
         },
         {
-          label: "Your account",
+          label: "Resources",
           items: [
-            { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
-            { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
-            {
-              label: "Notification settings",
-              href: "/patient/notification-settings",
-              icon: "bell",
-            },
-            // Patient Support & Service Centre (spec §24), narrowed to
-            // technical/app issues and formal complaints — appointment,
-            // pharmacy, laboratory, insurance, referral, and payment help
-            // is the "Need help" card on Care & support (navigation_requests,
-            // module 75) instead. See the support_tickets_category_technical_only
-            // migration for the full reconciliation.
+            { label: "Learn", href: "/patient/learn", icon: "learn" },
+            { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
+            // Technical/app issues and formal complaints (spec §24); help with a booking, a lab or a payment is the "Need help"
+            // card on Care & support instead.
             { label: "Technical support", href: "/patient/support", icon: "helpCenter" },
+          ],
+        },
+        {
+          label: "Account",
+          items: [
             { label: "Profile", href: "/patient/profile", icon: "settings" },
+            // Buy the Membership or a care pack, see what is included and the price, and see your payments (S25).
+            { label: "Membership", href: "/patient/membership", icon: "billing" },
+            { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
+            { label: "Get a device", href: "/patient/devices", icon: "devices" },
             { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
             {
               label: "Emergency card",
