@@ -7,6 +7,10 @@ import { t } from "@tarragon/i18n";
 import { lagosLocalDate, addDays, LAGOS_OFFSET_MS } from "@tarragon/medicines";
 import { buildTodaysDoseChecklist } from "@/lib/medication-schedule/checklist";
 import { NEXT_ACTION_COPY, pickNextAction, type NextAction } from "@/lib/patient/next-action-priority";
+import { joinWindowState } from "@/lib/consultation/join-window";
+
+const JOINABLE_STATUSES = ["booked", "confirmed", "checked_in", "in_progress"] as const;
+const UNDER_WAY_STATUSES = ["checked_in", "in_progress"];
 
 /**
  * "Next best action" -- the ONE card at the top of the patient dashboard (design principle 1: Home shows one next action). Pure synthesis
@@ -15,7 +19,7 @@ import { NEXT_ACTION_COPY, pickNextAction, type NextAction } from "@/lib/patient
  * above this card, so it never competes with an emergency and never carries clinical wording of its own.
  */
 /** Data + date work lives outside the component body (react-hooks/purity). */
-export async function resolveNextAction(patientId: string): Promise<NextAction> {
+export async function resolveNextAction(patientId: string, opts: { acting?: boolean } = {}): Promise<NextAction> {
   const supabase = await createClient();
   const nowMs = Date.now();
   // Due dates are Lagos calendar dates (Africa/Lagos), never the UTC date.
@@ -25,7 +29,7 @@ export async function resolveNextAction(patientId: string): Promise<NextAction> 
   const sevenDaysAgo = new Date(nowMs - 7 * 86400_000).toISOString();
   const lagosNowHm = new Date(nowMs + LAGOS_OFFSET_MS).toISOString().slice(11, 16);
 
-  const [redAlert, activeMeds, doseLogs, screening, consult, checkin, review, refill, recentVital, lesson] = await Promise.all([
+  const [redAlert, activeMeds, doseLogs, screening, consult, checkin, review, refill, recentVital, lesson, videoAppts, threads] = await Promise.all([
     supabase
       .from("emergency_events")
       .select("id")
@@ -97,6 +101,26 @@ export async function resolveNextAction(patientId: string): Promise<NextAction> 
       .limit(1)
       .maybeSingle(),
     supabase.rpc("weekly_micro_lesson"),
+    // Video appointments around now: a call inside its join window outranks everything but a safety message.
+    supabase
+      .from("appointments")
+      .select("scheduled_for, status")
+      .eq("patient_id", patientId)
+      .eq("consultation_method", "telemedicine")
+      .in("status", [...JOINABLE_STATUSES])
+      .gte("scheduled_for", new Date(nowMs - 6 * 3600_000).toISOString())
+      .lte("scheduled_for", new Date(nowMs + 3600_000).toISOString())
+      .limit(5),
+    // A care-team reply the patient has not opened. The read marker is the patient's own, so not while a supporter is acting.
+    opts.acting
+      ? Promise.resolve({ data: [] as { last_care_team_reply_at: string | null; patient_last_read_at: string | null }[], error: null })
+      : supabase
+          .from("care_message_threads")
+          .select("last_care_team_reply_at, patient_last_read_at")
+          .eq("patient_id", patientId)
+          .not("last_care_team_reply_at", "is", null)
+          .order("last_care_team_reply_at", { ascending: false })
+          .limit(20),
   ]);
 
   // A failed read must never look like "nothing waiting". The red-alert read is special: a failure is UNKNOWN, not "no alert", and
@@ -113,6 +137,8 @@ export async function resolveNextAction(patientId: string): Promise<NextAction> 
       ["review", review],
       ["refill", refill],
       ["vitals", recentVital],
+      ["appointments", videoAppts],
+      ["threads", threads],
     ] as const
   ).filter(([, r]) => r.error);
   if (failed.length > 0) {
@@ -128,9 +154,22 @@ export async function resolveNextAction(patientId: string): Promise<NextAction> 
   const hasDoseDue = checklist.some((item) => item.status === "pending" && item.time <= lagosNowHm);
   const weeklyLesson = ((lesson.data ?? []) as { code?: string | null; completed_this_week?: boolean | null; members_only?: boolean | null }[])[0];
 
+  const now = new Date(nowMs);
+  const consultJoinableNow = (videoAppts.data ?? []).some((a) => {
+    const state = joinWindowState(a.scheduled_for, now);
+    return state === "open" || (state === "closed" && UNDER_WAY_STATUSES.includes(a.status));
+  });
+  const hasUnreadCareTeamReply = (threads.data ?? []).some(
+    (t) =>
+      t.last_care_team_reply_at !== null &&
+      (t.patient_last_read_at === null || Date.parse(t.last_care_team_reply_at) > Date.parse(t.patient_last_read_at)),
+  );
+
   return pickNextAction({
     hasUnansweredRedAlert: !!redAlert.data,
     redAlertUnknown,
+    consultJoinableNow,
+    hasUnreadCareTeamReply,
     hasDoseDue,
     readingDue: !recentVital.data,
     refillDrugName: refill.data?.drug_name ?? null,
@@ -149,9 +188,9 @@ export async function resolveNextAction(patientId: string): Promise<NextAction> 
  * best step" computed above. No rounded corners of its own: the band clips
  * both zones to one rounded-2xl shape.
  */
-export async function NextBestAction({ patientId }: { patientId: string }) {
+export async function NextBestAction({ patientId, acting = false }: { patientId: string; acting?: boolean }) {
   const supabase = await createClient();
-  const [action, coachAccess] = await Promise.all([resolveNextAction(patientId), isAssistantOffered(supabase)]);
+  const [action, coachAccess] = await Promise.all([resolveNextAction(patientId, { acting }), isAssistantOffered(supabase)]);
   const Icon = APP_ICON[action.icon] ?? SEMANTIC_ICON.preventive;
   const keys = NEXT_ACTION_COPY[action.kind];
   const copy = (part: "title" | "body" | "cta") => t(keys[part], "en", action.params);

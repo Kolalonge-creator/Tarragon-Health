@@ -9,9 +9,12 @@ import type { MessageKey } from "@tarragon/i18n";
  *
  * Order (first match wins):
  *   1. an unanswered red alert (an active emergency event the patient has not acknowledged)
+ *   then a video consultation that can be joined right now (patient dashboard 2.0, spec 4.3, 2026-11-06: a call that is starting
+ *   is more time-bound than anything below it; inserted after the safety items, the founder's order is otherwise unchanged)
  *   2. a dose that is due now
  *   3. a reading that is due (none logged in the last 7 days)
  *   4. a refill running low (due within 7 days)
+ *   then a care-team reply the patient has not read (spec 4.3 "respond to a request from your care team")
  *   then the existing to-do items that were already on this card before the founder's order was set (kept, slotted after refills so
  *   nothing that used to show is lost): screening due, doctor-offered video times, a medicines check-in, a medication review;
  *   5. this week's lesson
@@ -20,9 +23,11 @@ import type { MessageKey } from "@tarragon/i18n";
 export type NextActionKind =
   | "red_alert"
   | "safety_check"
+  | "consult_now"
   | "dose_due"
   | "reading_due"
   | "refill_low"
+  | "care_reply"
   | "screening_due"
   | "consult_slots"
   | "checkin_open"
@@ -35,10 +40,14 @@ export interface NextActionFacts {
   /** True when the emergency-event read FAILED. Unknown is not "no alert": it gets its own card just below a confirmed alert. */
   redAlertUnknown?: boolean;
   /** Any dose slot today whose time has passed and which is still pending. */
+  /** A video consultation inside its join window (or already under way). Optional: older callers leave it out. */
+  consultJoinableNow?: boolean;
   hasDoseDue: boolean;
   /** True when NO reading has been logged in the last 7 days. */
   readingDue: boolean;
   refillDrugName: string | null;
+  /** A care-team reply the patient has not opened. Optional: not known while a supporter is acting. */
+  hasUnreadCareTeamReply?: boolean;
   screeningName: string | null;
   hasConsultSlotsOffered: boolean;
   hasCheckinOpen: boolean;
@@ -59,9 +68,11 @@ export interface NextAction {
 export const NEXT_ACTION_ORDER: readonly NextActionKind[] = [
   "red_alert",
   "safety_check",
+  "consult_now",
   "dose_due",
   "reading_due",
   "refill_low",
+  "care_reply",
   "screening_due",
   "consult_slots",
   "checkin_open",
@@ -78,6 +89,8 @@ type CopyKeys = Record<"title" | "body" | "cta", MessageKey>;
 export const NEXT_ACTION_COPY: Record<NextActionKind, CopyKeys> = {
   red_alert: { title: "dp.next.red_alert.title", body: "dp.next.red_alert.body", cta: "dp.next.red_alert.cta" },
   safety_check: { title: "dp.next.safety_check.title", body: "dp.next.safety_check.body", cta: "dp.next.safety_check.cta" },
+  consult_now: { title: "dp.next.consult_now.title", body: "dp.next.consult_now.body", cta: "dp.next.consult_now.cta" },
+  care_reply: { title: "dp.next.care_reply.title", body: "dp.next.care_reply.body", cta: "dp.next.care_reply.cta" },
   dose_due: { title: "dp.next.dose.title", body: "dp.next.dose.body", cta: "dp.next.dose.cta" },
   reading_due: { title: "dp.next.reading.title", body: "dp.next.reading.body", cta: "dp.next.reading.cta" },
   refill_low: { title: "dp.next.refill.title", body: "dp.next.refill.body", cta: "dp.next.refill.cta" },
@@ -92,9 +105,11 @@ export const NEXT_ACTION_COPY: Record<NextActionKind, CopyKeys> = {
 export function pickNextAction(f: NextActionFacts): NextAction {
   if (f.hasUnansweredRedAlert) return { kind: "red_alert", icon: "warning", href: "/patient#overview" };
   if (f.redAlertUnknown) return { kind: "safety_check", icon: "warning", href: "/patient#overview" };
+  if (f.consultJoinableNow) return { kind: "consult_now", icon: "booking", href: "/patient/appointments" };
   if (f.hasDoseDue) return { kind: "dose_due", icon: "medication", href: "/patient/medications" };
   if (f.readingDue) return { kind: "reading_due", icon: "bp", href: "/patient/vitals" };
   if (f.refillDrugName) return { kind: "refill_low", icon: "medication", href: "/patient/medications", params: { name: f.refillDrugName } };
+  if (f.hasUnreadCareTeamReply) return { kind: "care_reply", icon: "messages", href: "/patient/messages" };
   if (f.screeningName) return { kind: "screening_due", icon: "preventive", href: "/patient/prevention", params: { name: f.screeningName } };
   if (f.hasConsultSlotsOffered) return { kind: "consult_slots", icon: "booking", href: "/patient/health-check" };
   if (f.hasCheckinOpen) return { kind: "checkin_open", icon: "medication", href: "/patient/medications" };
