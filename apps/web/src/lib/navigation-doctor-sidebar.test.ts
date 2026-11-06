@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CLINICIAN_GOVERNANCE_SECTIONS, clinicianSearchSections, getNavSections } from "./navigation";
+import { CLINICIAN_GOVERNANCE_SECTIONS, clinicianSearchSections, getNavSections, itemIsActive } from "./navigation";
 
 const sidebar = getNavSections("clinician", null);
 const sidebarItems = sidebar.flatMap((s) => s.items);
@@ -62,5 +62,21 @@ describe("doctor sidebar regroup (DW-02)", () => {
     for (const href of [...sidebarItems, ...governanceItems].map((i) => i.href)) {
       expect([href, readFileSync(join(root, href, "page.tsx"), "utf8").length > 0]).toEqual([href, true]);
     }
+  });
+});
+
+describe("Governance home stays lit on the pages it leads to", () => {
+  const governanceHome = sidebarItems.find((i) => i.href === "/clinician/governance");
+  it("is active on the index and on every governance page", () => {
+    expect(governanceHome).toBeDefined();
+    if (!governanceHome) return;
+    expect(itemIsActive("/clinician/governance", governanceHome)).toBe(true);
+    expect(itemIsActive("/clinician/triage-rules", governanceHome)).toBe(true);
+    expect(itemIsActive("/clinician/triage-protocols/compare", governanceHome)).toBe(true);
+  });
+  it("is not active on daily clinical pages", () => {
+    if (!governanceHome) return;
+    expect(itemIsActive("/clinician/escalations", governanceHome)).toBe(false);
+    expect(itemIsActive("/clinician", governanceHome)).toBe(false);
   });
 });

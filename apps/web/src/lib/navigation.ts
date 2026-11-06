@@ -33,6 +33,9 @@ export interface NavItem {
    * zero-state tiles ever were. A failed underlying query never renders as a
    * hidden (zero-looking) badge — see NavBadge in app-shell.tsx. */
   countKey?: WorklistCountKey;
+  /** Other pages this link stands in for: the link is shown as active on them too. The Governance index uses it
+   * so a page reached from that index still lights its sidebar entry and keeps its group open (DW-02). */
+  alsoActiveFor?: readonly string[];
 }
 
 /** How many `primary` links the phone bottom bar shows before the More
@@ -640,7 +643,12 @@ export function getNavSections(
               label: "Governance",
               items: [
                 // DW-02: one door to the governance, quality, rules and operations pages (index page).
-                { label: "Governance home", href: "/clinician/governance", icon: "governance" },
+                {
+                  label: "Governance home",
+                  href: "/clinician/governance",
+                  icon: "governance",
+                  alsoActiveFor: GOVERNANCE_HREFS,
+                },
                 // Leads the section on purpose: the one page that answers
                 // "what still needs my signature, and what do I press"
                 // across every governed table below, rather than making a
@@ -1039,8 +1047,15 @@ export function getNavSections(
  * Every page here is still reachable: from that index, and from the Chief Medical Officer's search, which
  * indexes these sections alongside the sidebar (see (dashboard)/layout.tsx). No item here carries a countKey,
  * so the pending-jobs banner, which reads the sidebar's countKeys, is unaffected.
+ *
+ * Carried over from the old sidebar groups:
+ *  - Governance pages are /clinician mirrors because a CMO account is always `clinician` and cannot open /admin.
+ *    They are listed for every doctor; each page redirects or explains for anyone below the CMO.
+ *  - "Operations administration" is reachable only with a delegated ops.console.view / incidents.* grant (the
+ *    "Clinical administrator" preset); the pages self-gate, so the links are safe to show. Support view-as is
+ *    deliberately NOT listed: that preset carries no `support.view_as` grant, so the link would always bounce.
  */
-export const CLINICIAN_GOVERNANCE_SECTIONS: NavSection[] = [
+const GOVERNANCE_SECTIONS: NavSection[] = [
   {
     label: "Quality and outcomes",
     items: [
@@ -1185,6 +1200,21 @@ export const CLINICIAN_GOVERNANCE_SECTIONS: NavSection[] = [
  * Everything a doctor's search should reach: the sidebar plus the governance index (DW-02). The Chief Medical
  * Officer's search box is built from this, so moving a page off the sidebar never makes it unfindable.
  */
+export const CLINICIAN_GOVERNANCE_SECTIONS: readonly NavSection[] = GOVERNANCE_SECTIONS;
+
+/** Every href on the Governance index; the sidebar's Governance home link is lit on all of them. */
+export const GOVERNANCE_HREFS: readonly string[] = GOVERNANCE_SECTIONS.flatMap((s) => s.items.map((i) => i.href));
+
 export function clinicianSearchSections(): NavSection[] {
   return [...getNavSections("clinician", null), ...CLINICIAN_GOVERNANCE_SECTIONS];
+}
+
+function isActive(pathname: string, href: string, exact?: boolean) {
+  if (exact) return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Whether a sidebar link is the current page (or one it stands in for, see `alsoActiveFor`). */
+export function itemIsActive(pathname: string, item: Pick<NavItem, "href" | "exact" | "alsoActiveFor">): boolean {
+  return isActive(pathname, item.href, item.exact) || (item.alsoActiveFor ?? []).some((h) => isActive(pathname, h));
 }

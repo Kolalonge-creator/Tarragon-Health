@@ -9,10 +9,10 @@ import type { NavSection } from "@/lib/navigation";
 export function GovernanceIndex({ sections }: { sections: readonly NavSection[] }) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      {sections.map((section) => {
-        const headingId = `gov-${(section.label ?? "").toLowerCase().replace(/[^a-z]+/g, "-")}`;
+      {sections.map((section, index) => {
+        const headingId = `gov-${index}`;
         return (
-          <section key={section.label} aria-labelledby={headingId} className="rounded-2xl bg-white p-5">
+          <section key={section.label ?? index} aria-labelledby={headingId} className="rounded-2xl bg-white p-5">
             <h2 id={headingId} className="font-heading text-lg font-semibold text-charcoal-ink">
               {section.label}
             </h2>
