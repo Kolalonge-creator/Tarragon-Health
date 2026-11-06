@@ -11,8 +11,9 @@ import { BiomarkerResultCard } from "@/components/biomarker/biomarker-result-car
 import { LifestyleGuide, type LifestyleItem } from "@/components/biomarker/lifestyle-guide";
 import { ResultExplainer } from "@/components/result-explainer";
 import { activeBiomarkerBands, gradeResult, latestConfirmedConfig } from "@/lib/biomarkers/grade";
-import { filterTrendPoints, parseTrendRange, sourcesIn, TREND_RANGES } from "@/lib/biomarkers/filter";
+import { filterTrendPoints, parseTrendRange, sourcesIn, TREND_RANGE_LABEL, TREND_RANGES } from "@/lib/biomarkers/filter";
 import { displayCode, groupByUnit, labRangeLabel, parseTrend, targetLabel, type TrendPoint } from "@/lib/biomarkers/trend";
+import { STATUS_CLASSES } from "@tarragon/ui/status";
 import { TrendChart } from "./trend-chart";
 import { ReportedValuesConfirm, type ReportDraft } from "./reported-values-confirm";
 
@@ -170,7 +171,7 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                     }`}
                   >
                     {displayCode(item.code)}
-                    <span className="ml-2 text-xs text-amber-900">{t("biomarkers.list_disputed", uiLanguage)}</span>
+                    <span className={`ml-2 text-xs ${STATUS_CLASSES.attention.text}`}>{t("biomarkers.list_disputed", uiLanguage)}</span>
                   </Link>
                 ))}
             </nav>
@@ -183,7 +184,7 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                   <span className="text-sm text-charcoal-ink/70">{t("biomarkers.filter.range", uiLanguage)}</span>
                   {TREND_RANGES.map((r) => (
                     <Link key={r} href={filterHref({ range: r })} aria-current={r === range ? "true" : undefined} className={chip(r === range)}>
-                      {t(`biomarkers.filter.range.${r}` as MessageKey, uiLanguage)}
+                      {TREND_RANGE_LABEL[r]}
                     </Link>
                   ))}
                 </nav>
@@ -205,12 +206,12 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                 <p role="status" className="text-sm text-charcoal-ink/70">{t("biomarkers.filter.empty", uiLanguage)}</p>
               )}
               {groups.length > 1 && (
-                <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                <p role="note" className={`rounded-lg border p-3 text-sm ${STATUS_CLASSES.attention.border} ${STATUS_CLASSES.attention.tint} ${STATUS_CLASSES.attention.text}`}>
                   {t("biomarkers.unit_mixed", uiLanguage)}
                 </p>
               )}
               {filtered.some((p) => p.disagrees) && (
-                <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                <p role="note" className={`rounded-lg border p-3 text-sm ${STATUS_CLASSES.attention.border} ${STATUS_CLASSES.attention.tint} ${STATUS_CLASSES.attention.text}`}>
                   {t("biomarkers.disputed", uiLanguage)}
                 </p>
               )}
@@ -261,7 +262,7 @@ export default async function BiomarkersPage({ searchParams }: { searchParams: P
                                 {p.source === "patient_reported" && (
                                   <span className="block text-xs text-charcoal-ink/60">{t("biomarkers.reported.row_note", uiLanguage)}</span>
                                 )}
-                                {p.disagrees && <span className="block text-xs text-amber-900">{t("biomarkers.disagrees", uiLanguage)}</span>}
+                                {p.disagrees && <span className={`block text-xs ${STATUS_CLASSES.attention.text}`}>{t("biomarkers.disagrees", uiLanguage)}</span>}
                               </td>
                             </tr>
                           ))}

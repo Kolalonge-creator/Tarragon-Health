@@ -45,20 +45,22 @@ import { YourCareTeam } from "@/components/your-care-team";
 import { CareTeamContact } from "@/app/(dashboard)/patient/care-team-contact";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { formatPatientDate } from "@/lib/format-date";
+import { STATUS_CLASSES } from "@tarragon/ui/status";
 
-// Clinical dashboard status colours (a separate system from brand colour, per
-// the brand guide) — same convention as vitals-history.tsx's LEVEL_STYLE,
-// just split into StatTile's separate icon-circle/icon-colour props.
+// Clinical status tokens (packages/ui tokens.ts; a separate system from brand
+// colour, per the brand guide), split into StatTile's separate icon-circle /
+// icon-colour props. The band label beside it carries the words, so colour is
+// never the only signal.
 const BP_TINT_CLASS: Record<Exclude<BpLevel, "unknown">, string> = {
-  green: "bg-emerald-100 dark:bg-emerald-500/25",
-  amber: "bg-amber-100 dark:bg-amber-500/25",
-  red: "bg-red-100 dark:bg-red-500/25",
-  emergency: "bg-red-600",
+  green: STATUS_CLASSES.normal.tint,
+  amber: STATUS_CLASSES.attention.tint,
+  red: STATUS_CLASSES.critical.tint,
+  emergency: STATUS_CLASSES.critical.dot,
 };
 const BP_ICON_CLASS: Record<Exclude<BpLevel, "unknown">, string> = {
-  green: "text-emerald-800 dark:text-emerald-300",
-  amber: "text-amber-800 dark:text-amber-300",
-  red: "text-red-800 dark:text-red-300",
+  green: STATUS_CLASSES.normal.icon,
+  amber: STATUS_CLASSES.attention.icon,
+  red: STATUS_CLASSES.critical.icon,
   emergency: "text-white",
 };
 // StatTile's `status` line renders in the clinical status palette — the band

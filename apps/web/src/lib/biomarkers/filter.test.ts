@@ -10,14 +10,18 @@ describe("biomarker trend filters", () => {
     expect(parseTrendRange("bogus")).toBe("all");
     expect(parseTrendRange("6m")).toBe("6m");
   });
+  it("opens an old 3m or 1y link on the nearest shared range", () => {
+    expect(parseTrendRange("3m")).toBe("90d");
+    expect(parseTrendRange("1y")).toBe("12m");
+  });
   it("keeps only points inside the window", () => {
-    expect(filterTrendPoints(points, "3m", undefined, now)).toHaveLength(2);
-    expect(filterTrendPoints(points, "1y", undefined, now)).toHaveLength(2);
+    expect(filterTrendPoints(points, "90d", undefined, now)).toHaveLength(2);
+    expect(filterTrendPoints(points, "12m", undefined, now)).toHaveLength(2);
     expect(filterTrendPoints(points, "all", undefined, now)).toHaveLength(3);
   });
   it("filters by source and combines with range", () => {
     expect(filterTrendPoints(points, "all", "lab_result", now)).toHaveLength(2);
-    expect(filterTrendPoints(points, "3m", "legacy_report", now)).toHaveLength(1);
+    expect(filterTrendPoints(points, "90d", "legacy_report", now)).toHaveLength(1);
   });
   it("ignores a source that is not in the series", () => {
     expect(filterTrendPoints(points, "all", "device", now)).toHaveLength(3);
@@ -32,8 +36,8 @@ describe("biomarker trend filters", () => {
     expect(filterTrendPoints([pt("2026-02-27T00:00:00Z", "lab_result")], "6m", undefined, aug31)).toHaveLength(0);
   });
   it("excludes a point just outside the window", () => {
-    expect(filterTrendPoints([pt("2026-07-28T00:00:00Z", "lab_result")], "3m", undefined, now)).toHaveLength(0);
-    expect(filterTrendPoints([pt("2026-07-30T00:00:00Z", "lab_result")], "3m", undefined, now)).toHaveLength(1);
+    expect(filterTrendPoints([pt("2026-07-31T11:00:00Z", "lab_result")], "90d", undefined, now)).toHaveLength(0);
+    expect(filterTrendPoints([pt("2026-07-31T13:00:00Z", "lab_result")], "90d", undefined, now)).toHaveLength(1);
   });
   it("lists only sources present", () => {
     expect(sourcesIn(points)).toEqual(["lab_result", "legacy_report"]);
