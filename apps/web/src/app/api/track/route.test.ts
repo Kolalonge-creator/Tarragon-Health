@@ -34,3 +34,13 @@ it("refuses with 429 and writes nothing over the limit", async () => {
   expect(res.headers.get("Retry-After")).toBe("42");
   expect(insertMock).not.toHaveBeenCalled();
 });
+
+it("stores a normalised path: no record id and no sensitive topic against a person", async () => {
+  limitMock.mockResolvedValue({ ok: true });
+  const send = (path: string) =>
+    POST(new Request("https://app.example/api/track", { method: "POST", body: JSON.stringify({ path }) }));
+  await send("/patient/sexual-health/results");
+  await send("/patient/consultation/0f8fad5b-d9cb-469f-a165-70867728950e?x=1");
+  const paths = insertMock.mock.calls.map((c) => (c[0] as { path: string }).path);
+  expect(paths).toEqual(["/patient/(private)", "/patient/consultation/:id"]);
+});
