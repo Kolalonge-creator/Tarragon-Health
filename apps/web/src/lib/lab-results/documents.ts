@@ -168,9 +168,13 @@ export interface EarlierResultDocument {
   interpreted: boolean;
 }
 
+/** Pages of one result sent together arrive minutes apart; anything inside this window is the same result, not an earlier one. */
+export const SAME_RESULT_WINDOW_MS = 60 * 60 * 1000;
+
 /**
- * Up to `limit` documents of the same test type uploaded before `before`, newest first. `null` when the read failed, so the
- * page can say it could not check rather than "no earlier results".
+ * Up to `limit` earlier results of the same test type, newest first: uploaded more than an hour before `before` (so the other
+ * pages of a multi-page send are not listed as earlier tests) and not superseded by a correction (the corrected copy stands
+ * for it). `null` when the read failed, so the page can say it could not check rather than "no earlier results".
  */
 export async function loadEarlierResultDocuments(
   supabase: SupabaseClient<Database>,
@@ -179,12 +183,15 @@ export async function loadEarlierResultDocuments(
   before: string,
   limit = 10,
 ): Promise<EarlierResultDocument[] | null> {
+  const beforeMs = new Date(before).getTime();
+  const cutoff = Number.isNaN(beforeMs) ? before : new Date(beforeMs - SAME_RESULT_WINDOW_MS).toISOString();
   const { data, error } = await supabase
     .from("lab_result_documents")
     .select("id, created_at, interpretation_sent_at, patient_interpretation")
     .eq("patient_id", patientId)
     .eq("test_code", testCode)
-    .lt("created_at", before)
+    .is("superseded_by_document_id", null)
+    .lt("created_at", cutoff)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) return null;

@@ -167,6 +167,9 @@ export function PatientResultUpload({
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   // Per-file refusals from the last send, by file; the files that failed stay chosen so the patient can send just those again.
   const [fileErrors, setFileErrors] = useState<Map<File, string>>(new Map());
+  // The page number a file was first sent as. A failed page sent again keeps it ("Page 1 of 2"), so the doctor can still put
+  // it with the pages that did arrive.
+  const [pageOf, setPageOf] = useState<Map<File, { index: number; total: number }>>(new Map());
   const [note, setNote] = useState("");
   // Only asked when the caller hasn't already scoped this upload to a known
   // test (the per-test checklist, lab-order-test-checklist.tsx, passes
@@ -191,14 +194,15 @@ export function PatientResultUpload({
         testCode ??
         (testType && testType !== OTHER_TEST_TYPE_VALUE ? testType : undefined);
       setProgress({ done: 0, total: files.length });
+      const numbering = files.map((file, index) => pageOf.get(file) ?? { index, total: files.length });
       const results = await sendResultFiles(
         files,
-        (file, index, total) => {
+        (file, index) => {
           const formData = new FormData();
           formData.set("file", file);
           if (effectiveOrderId) formData.set("lab_order_id", effectiveOrderId);
           if (screeningCompletionId) formData.set("screening_completion_id", screeningCompletionId);
-          const pageNote = noteForFile(note, index, total);
+          const pageNote = noteForFile(note, numbering[index]!.index, numbering[index]!.total);
           if (pageNote) formData.set("note", pageNote);
           if (effectiveTestCode) formData.set("test_code", effectiveTestCode);
           return uploadResultDocumentAsPatient(formData);
@@ -206,14 +210,19 @@ export function PatientResultUpload({
         (done, total) => setProgress({ done, total }),
       );
       const failed = new Map<File, string>();
+      const failedPages = new Map<File, { index: number; total: number }>();
       results.forEach((result, i) => {
-        if (!result.ok) failed.set(files[i]!, result.error);
+        if (!result.ok) {
+          failed.set(files[i]!, result.error);
+          failedPages.set(files[i]!, numbering[i]!);
+        }
       });
-      return { sent: results.length - failed.size, failed };
+      return { sent: results.length - failed.size, failed, failedPages };
     },
     onSettled: () => setProgress(null),
-    onSuccess: ({ sent, failed }) => {
+    onSuccess: ({ sent, failed, failedPages }) => {
       setFileErrors(failed);
+      setPageOf(failedPages);
       setFiles((current) => current.filter((file) => failed.has(file)));
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (cameraInputRef.current) cameraInputRef.current.value = "";

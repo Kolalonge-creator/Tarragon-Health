@@ -45,4 +45,10 @@ it("sends each file with its page number and keeps only the refused one for anot
   expect(screen.getByText("That photo is too blurry to read.")).toBeTruthy();
   expect(screen.getByRole("list", { name: "Files to send" }).textContent).toContain("page1.jpg");
   expect(screen.getByRole("list", { name: "Files to send" }).textContent).not.toContain("page2.jpg");
+
+  // Sent again on its own, the failed page keeps its original page number.
+  sent.length = 0;
+  fireEvent.click(screen.getByRole("button", { name: "Send to my care team" }));
+  await waitFor(() => expect(sent).toHaveLength(1));
+  expect(sent[0]!.get("note")).toBe("Page 1 of 2.");
 });

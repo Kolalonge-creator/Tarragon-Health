@@ -1,4 +1,4 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables, Enums } from "@tarragon/shared";
 
@@ -120,6 +120,9 @@ export function usePatientTimeline(
     // back to a loading state and blank the already-rendered list for a
     // moment. Keeping the previous page's data on screen while the larger
     // page loads makes that feel like an append, not a reset.
-    placeholderData: keepPreviousData,
+    // Only across a "Load more" (same filter): after a filter change the old rows belong to another filter and must not show
+    // under the new one, so the list goes to its loading state instead.
+    placeholderData: (previous, previousQuery) =>
+      JSON.stringify(previousQuery?.queryKey[4] ?? null) === JSON.stringify(types ? [...types] : null) ? previous : undefined,
   });
 }
