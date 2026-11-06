@@ -1,7 +1,13 @@
 /** @jest-environment jsdom */
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DoctorWorklistRow } from "@tarragon/shared";
+
+// The CMO's assign control is a client component that pulls in the query layer; a marker stands in for it here.
+jest.mock("@/components/clinical/assign-escalation-select", () => ({
+  AssignEscalationSelect: ({ escalationId }: { escalationId: string }) => `[assign ${escalationId}]`,
+}));
+
 import { dueText, WorklistTable } from "./worklist-table";
 
 const NOW = new Date("2026-11-06T10:00:00Z");
@@ -66,5 +72,16 @@ describe("dueText", () => {
     expect(dueText({ dueAt: "nope" }, NOW)).toBe("No due time");
     expect(dueText({ dueAt: "2026-11-06T12:00:00Z" }, NOW)).toMatch(/^Due /);
     expect(dueText({ dueAt: "2026-11-06T09:00:00Z" }, NOW)).toMatch(/^Overdue since /);
+  });
+
+  it("offers Assign to only on escalation rows, and only when the CMO's organisation is passed (DW-15)", () => {
+    const rows = [
+      row({ key: "escalation:e1", escalationId: "e1", assignedProfileId: "d1" }),
+      row({ key: "alert:a1", source: "alert" }),
+    ];
+    expect(text(renderToStaticMarkup(<WorklistTable rows={rows} now={NOW} />))).not.toContain("[assign");
+    const cmo = text(renderToStaticMarkup(<WorklistTable rows={rows} now={NOW} assignOrganisationId="org-1" />));
+    expect(cmo).toContain("[assign e1]");
+    expect(cmo.match(/\[assign /g)?.length).toBe(2); // the e1 row, once in the table and once in the phone card
   });
 });
