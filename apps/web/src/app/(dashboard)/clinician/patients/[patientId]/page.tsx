@@ -1,4 +1,4 @@
-import { ageFromDateOfBirth } from "@tarragon/shared";
+import { ageFromDateOfBirth, ACTIVE_ESCALATION_STATUSES } from "@tarragon/shared";
 import { formatPatientDate } from "@/lib/format-date";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
@@ -191,7 +191,7 @@ export default async function ClinicianPatientPage({
       .from("escalations")
       .select("id", { count: "exact" })
       .eq("patient_id", patient.id)
-      .in("status", ["open", "under_review"])
+      .in("status", [...ACTIVE_ESCALATION_STATUSES])
       .order("created_at", { ascending: true })
       .limit(1),
     // Counted exactly as the alert list it links to shows them (open and acknowledged); snoozed ones are counted apart.

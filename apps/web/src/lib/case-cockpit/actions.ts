@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { Json, Tables } from "@tarragon/shared";
 import { loadCaseFacts } from "./facts";
 import { proposeActions, PROPOSAL_ENGINE_VERSION, type ProposedPayload } from "./propose";
+import { ACTIVE_ESCALATION_STATUSES } from "@tarragon/shared";
 
 export interface ActionResult {
   success: boolean;
@@ -397,7 +398,7 @@ async function writeResolution(
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", payload.escalationId)
-    .in("status", ["open", "under_review"])
+    .in("status", [...ACTIVE_ESCALATION_STATUSES])
     .select("id")
     .maybeSingle();
 

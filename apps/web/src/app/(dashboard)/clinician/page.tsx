@@ -38,12 +38,14 @@ import {
   sortWorklist,
   type EscalationLevel,
   type HomeEscalation,
+  ACTIVE_ESCALATION_STATUSES,
+  type EscalationStatus,
 } from "@tarragon/shared";
 
 type OverviewEscalationRow = {
   id: string;
   reason: string;
-  status: "open" | "under_review" | "resolved" | "referred";
+  status: EscalationStatus;
   assigned_doctor_id: string | null;
   patient: { full_name: string | null } | null;
   clinician_alert: { level: EscalationLevel; sla_due_at: string | null } | null;
@@ -157,7 +159,7 @@ export default async function ClinicianPage() {
         .select(
           "id, reason, status, assigned_doctor_id, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(level, sla_due_at)"
         )
-        .in("status", ["open", "under_review"])
+        .in("status", [...ACTIVE_ESCALATION_STATUSES])
         .order("created_at", { ascending: true }),
       testPatientIds
     ).returns<OverviewEscalationRow[]>(),

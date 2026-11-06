@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
+import { isActiveEscalationStatus } from "@tarragon/shared";
 import { canHandleEmergencyEscalation, isClinicalTier } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,8 @@ import { StartVirtualReviewButton } from "./start-virtual-review-button";
 import { AlertOverrideControl } from "./alert-override-control";
 import { NotesPanel } from "./notes-panel";
 import { ResolveForm } from "./resolve-form";
+import { WorkingStateCard } from "./working-state-card";
+import { ContactAttemptsPanel } from "./contact-attempts-panel";
 import { TestAccountBadge } from "@/components/clinical/test-account-badge";
 
 export default async function EscalationDetailPage({
@@ -32,7 +35,7 @@ export default async function EscalationDetailPage({
   const { data: escalation } = await supabase
     .from("escalations")
     .select(
-      "*, patient:profiles!escalations_patient_id_fkey(id, full_name, phone, date_of_birth, is_test), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, detail, level, sla_due_at, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status))"
+      "*, status_changed_by_profile:profiles!escalations_status_changed_by_fkey(full_name), patient:profiles!escalations_patient_id_fkey(id, full_name, phone, date_of_birth, is_test), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, detail, level, sla_due_at, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status))"
     )
     .eq("id", escalationId)
     .maybeSingle();
@@ -115,6 +118,14 @@ export default async function EscalationDetailPage({
   // the escalation worklist's Claim button, checked ahead of the
   // emergency-tier gate below.
   const isClinicalStaff = isClinicalTier(staff);
+  // DW-03/DW-13: who may move the case between working states (assigned doctor or CMO, a doctor in either case) and who may log
+  // a contact attempt (those two, or a care coordinator). The database enforces both; this only decides what to draw.
+  const viewer = await getCurrentProfile();
+  const isAssignedDoctor = viewer !== null && escalation.assigned_doctor_id === viewer.id;
+  const isCmo = staff?.doctor_tier === "chief_medical_officer";
+  const caseIsActive = isActiveEscalationStatus(escalation.status);
+  const canMoveState = caseIsActive && isClinicalStaff && (isAssignedDoctor || isCmo);
+  const canLogContact = caseIsActive && (isAssignedDoctor || isCmo || staff?.doctor_tier === "care_coordinator");
   const resolveLocked =
     !isClinicalStaff ||
     (requiresEmergencyAuthority(escalation.clinician_alert) && !canResolveEmergency);
@@ -219,6 +230,23 @@ export default async function EscalationDetailPage({
           <PatientTimeline patientId={escalation.patient.id} limit={10} />
         </div>
       )}
+
+      {escalation.status !== "open" && caseIsActive && (
+        <WorkingStateCard
+          // Remount on every state change so the "Move to" choice never points at the state the case is already in.
+          key={`${escalation.status}:${escalation.status_changed_at ?? ""}`}
+          escalationId={escalation.id}
+          organisationId={escalation.organisation_id}
+          status={escalation.status}
+          statusNote={escalation.status_note}
+          statusChangedAt={escalation.status_changed_at}
+          statusChangedByName={escalation.status_changed_by_profile?.full_name ?? null}
+          monitorUntil={escalation.monitor_until}
+          canMove={canMoveState}
+        />
+      )}
+
+      <ContactAttemptsPanel escalationId={escalation.id} canLog={canLogContact} />
 
       <NotesPanel escalationId={escalation.id} organisationId={escalation.organisation_id} />
 

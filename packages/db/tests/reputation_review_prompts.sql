@@ -141,7 +141,7 @@ select set_config('request.jwt.claims',
 set local role authenticated;
 
 update public.escalations
-  set status = 'resolved', identity_confirmed = true, identity_confirmed_by = (select v from ids where k='doctor')
+  set status = 'resolved', resolution_note = 'Proof resolution note (G11)', identity_confirmed = true, identity_confirmed_by = (select v from ids where k='doctor')
   where id = (select v from ids where k='escalation_a');
 
 reset role;
@@ -181,7 +181,7 @@ select set_config('request.jwt.claims',
 set local role authenticated;
 
 update public.escalations
-  set status = 'resolved', identity_confirmed = true, identity_confirmed_by = (select v from ids where k='doctor')
+  set status = 'resolved', resolution_note = 'Proof resolution note (G11)', identity_confirmed = true, identity_confirmed_by = (select v from ids where k='doctor')
   where id = (select v from ids where k='escalation_b');
 
 reset role;
@@ -370,7 +370,7 @@ select set_config('request.jwt.claims',
 set local role authenticated;
 
 update public.escalations
-  set status = 'resolved', identity_confirmed = true, identity_confirmed_by = (select v from ids where k='doctor')
+  set status = 'resolved', resolution_note = 'Proof resolution note (G11)', identity_confirmed = true, identity_confirmed_by = (select v from ids where k='doctor')
   where id = (select v from ids where k='escalation_c');
 
 reset role;
@@ -395,7 +395,7 @@ select set_config('request.jwt.claims',
 set local role authenticated;
 
 update public.escalations
-  set status = 'resolved', identity_confirmed = true, identity_confirmed_by = (select v from ids where k='doctor')
+  set status = 'resolved', resolution_note = 'Proof resolution note (G11)', identity_confirmed = true, identity_confirmed_by = (select v from ids where k='doctor')
   where id = (select v from ids where k='escalation_e');
 
 reset role;
@@ -450,7 +450,7 @@ select set_config('request.jwt.claims',
 set local role authenticated;
 
 update public.escalations
-  set status = 'resolved', identity_confirmed = true, identity_confirmed_by = (select v from ids where k='doctor')
+  set status = 'resolved', resolution_note = 'Proof resolution note (G11)', identity_confirmed = true, identity_confirmed_by = (select v from ids where k='doctor')
   where id = (select v from ids where k='escalation_d');
 
 reset role;

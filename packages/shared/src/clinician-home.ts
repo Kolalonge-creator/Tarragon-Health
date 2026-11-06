@@ -6,6 +6,8 @@
  * decides what to show.
  */
 
+import type { Enums } from "./database.types";
+
 export type HomeEscalationLevel =
   | "emergency"
   | "specialist_review"
@@ -16,7 +18,7 @@ export type HomeEscalationLevel =
 export type HomeEscalation = {
   id: string;
   reason: string;
-  status: "open" | "under_review" | "resolved" | "referred";
+  status: Enums<"escalation_status">;
   patientName: string | null;
   level: HomeEscalationLevel | null;
   dueAt: string | null;

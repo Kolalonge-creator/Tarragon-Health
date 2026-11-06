@@ -46,14 +46,14 @@ begin
 
   -- 1. test patient: resolves on a note
   begin
-    update public.escalations set status = 'resolved', resolution_note = 'test data', identity_confirmed = true where id = v_esc_t; v_ok := true;
+    update public.escalations set status = 'resolved', resolution_note = 'test data resolution note', identity_confirmed = true where id = v_esc_t; v_ok := true;
   exception when others then v_ok := false; raise notice 'test patient refused: %', sqlerrm;
   end;
   perform pg_temp.chk('1 test patient emergency resolves on a note', 'true', v_ok::text);
 
   -- 2. CONTROL: real patient still refused
   begin
-    update public.escalations set status = 'resolved', resolution_note = 'note only', identity_confirmed = true where id = v_esc_r; v_ok := true;
+    update public.escalations set status = 'resolved', resolution_note = 'note only, no call made', identity_confirmed = true where id = v_esc_r; v_ok := true;
   exception when sqlstate '23514' then v_ok := false;
   end;
   perform pg_temp.chk('2 CONTROL real patient emergency still refused without contact', 'false', v_ok::text);
@@ -82,7 +82,7 @@ begin
   insert into public.escalations (organisation_id, patient_id, status, assigned_doctor_id, reason, clinician_alert_id) values (v_org, v_test, 'open', v_doc, 'Esc proof test sabotage', v_alert_t) returning id into v_esc_t;
   insert into esc_results values ('info: sabotage fixture alert level', (select level::text from public.clinician_alerts where id = v_alert_t), 'emergency', 'INFO');
   begin
-    update public.escalations set status = 'resolved', resolution_note = 'test data', identity_confirmed = true where id = v_esc_t; v_ok := true;
+    update public.escalations set status = 'resolved', resolution_note = 'test data resolution note', identity_confirmed = true where id = v_esc_t; v_ok := true;
   exception when sqlstate '23514' then v_ok := false;
   end;
   perform pg_temp.chk('3 SABOTAGE pre-fix body refuses the test patient (check 1 discriminates)', 'false', v_ok::text);

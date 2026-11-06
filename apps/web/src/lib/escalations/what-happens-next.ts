@@ -1,4 +1,4 @@
-import type { EscalationStatus } from "@tarragon/shared";
+import { isActiveEscalationStatus, type EscalationStatus } from "@tarragon/shared";
 
 /**
  * Honest, non-alarming "what happens next" line for a still-open follow-up —
@@ -9,7 +9,7 @@ import type { EscalationStatus } from "@tarragon/shared";
  * non-specific reassurance rather than showing a stale-looking deadline.
  */
 export function whatHappensNext(status: EscalationStatus, slaDueAt: string | null): string | null {
-  if (status !== "open" && status !== "under_review") return null;
+  if (!isActiveEscalationStatus(status)) return null;
   if (slaDueAt && new Date(slaDueAt).getTime() > Date.now()) {
     return `Your care team aims to get back to you by ${formatDueBy(slaDueAt)}.`;
   }
