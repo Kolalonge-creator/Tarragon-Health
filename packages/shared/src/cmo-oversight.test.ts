@@ -33,9 +33,9 @@ describe("cmoOversightView (DW-14)", () => {
     row({ key: "q1", source: "queue", unassigned: true, assignedName: null }),
   ];
 
-  it("puts overdue team work first, then priority, and leaves shared queues out", () => {
+  it("puts critical work first, then overdue, then priority, and leaves shared queues out", () => {
     const view = cmoOversightView(rows, [], NOW);
-    expect(view.teamRows.map((r) => r.key)).toEqual(["a1", "e2", "e1", "e3"]);
+    expect(view.teamRows.map((r) => r.key)).toEqual(["e1", "a1", "e2", "e3"]);
     expect(view.teamTotal).toBe(4);
   });
 

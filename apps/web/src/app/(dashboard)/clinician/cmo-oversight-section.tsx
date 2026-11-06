@@ -47,12 +47,12 @@ export function CmoOversightSection({
       </div>
 
       <TodayStrip
-        label="Clinical oversight"
+        label="Oversight figures"
         tiles={[
           { label: "Overdue across the team", figure: figure(view.overdue, view.overdue === null), href: "/clinician/worklist", note: "past their due time" },
-          { label: "Not assigned", figure: figure(view.unassigned, view.unassigned === null), href: "/clinician/escalations", note: "no doctor yet" },
+          { label: "Not assigned", figure: figure(view.unassigned, view.unassigned === null), href: "/clinician/worklist", note: "no doctor yet" },
           { label: "Waiting for your signature", figure: figure(signoffsWaiting, signoffsFailed), href: "/clinician/clinical-signoff", note: "sign-off items" },
-          { label: "Doctors on leave today", figure: figure(onLeave?.length ?? null, onLeave === null), href: "/clinician/team-caseload", note: "away now" },
+          { label: "On leave today", figure: figure(onLeave?.length ?? null, onLeave === null), href: "/clinician/team-caseload", note: "clinicians away now" },
         ]}
       />
 

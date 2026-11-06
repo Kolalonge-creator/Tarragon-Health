@@ -16,7 +16,7 @@ export type DoctorLoad = {
 };
 
 export type CmoOversightView = {
-  /** Team work (escalations and alerts; shared review queues are not owned by one doctor), overdue first, then by priority. */
+  /** Team work (escalations and alerts; shared review queues are not owned by one doctor): critical first, then overdue, then by priority. */
   teamRows: DoctorWorklistRow[];
   /** All team rows, before the display limit. */
   teamTotal: number;
@@ -38,8 +38,9 @@ export function cmoOversightView(
   const teamSourceFailed = failedSources.some((s) => TEAM_SOURCES.includes(s));
 
   const sorted = sortWorklist(team, now)
-    .map((row, index) => ({ row, index, overdue: isOverdue(row, now) }))
-    .sort((a, b) => Number(b.overdue) - Number(a.overdue) || a.index - b.index)
+    // A critical case always leads, even before it is due; then anything overdue; then the usual worklist order.
+    .map((row, index) => ({ row, index, rank: row.priority === "critical" ? 0 : isOverdue(row, now) ? 1 : 2 }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
     .map(({ row }) => row);
 
   const loads = new Map<string, DoctorLoad>();
