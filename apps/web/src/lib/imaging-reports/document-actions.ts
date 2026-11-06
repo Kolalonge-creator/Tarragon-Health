@@ -1,5 +1,6 @@
 "use server";
 
+import { uploadRefusedWhileActing } from "@/lib/acting/upload-while-acting";
 import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import { discardUnfiledUpload } from "@/lib/uploads/discard-unfiled-upload";
 import { randomUUID } from "crypto";
@@ -180,6 +181,8 @@ export async function uploadImagingReportAsPatient(
 ): Promise<ImagingReportUploadResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
+  const actingRefusal = await uploadRefusedWhileActing();
+  if (actingRefusal) return { error: actingRefusal };
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
