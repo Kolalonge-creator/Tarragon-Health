@@ -37,7 +37,9 @@ function lightBlock(css: string): string {
 }
 
 function cssHex(block: string, name: string): string | undefined {
-  const m = block.match(new RegExp(`${name.replace(/-/g, "\\-")}:\\s*(#[0-9a-fA-F]{6})`));
+  // Escape every regex metacharacter (CodeQL: escaping only "-" left backslashes and the rest unescaped).
+  const escaped = name.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
+  const m = block.match(new RegExp(`${escaped}:\\s*(#[0-9a-fA-F]{6})`));
   return m?.[1]?.toUpperCase();
 }
 
