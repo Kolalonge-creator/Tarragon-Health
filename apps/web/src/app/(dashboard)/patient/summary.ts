@@ -30,6 +30,8 @@ export async function getPatientSummaryStats(patientId: string): Promise<Patient
         .eq("vital_type", "blood_pressure")
         // A wearable (cuffless) estimate is never the "latest blood pressure" on the overview.
         .neq("source", "wearable")
+        // Nor is a reading that was corrected or entered in error (the rule every other tile already follows, home-pins.ts).
+        .is("correction_status", null)
         .order("taken_at", { ascending: false })
         .limit(1),
       supabase
@@ -37,6 +39,7 @@ export async function getPatientSummaryStats(patientId: string): Promise<Patient
         .select("glucose_mmol_l")
         .eq("patient_id", patientId)
         .eq("vital_type", "glucose")
+        .is("correction_status", null)
         .order("taken_at", { ascending: false })
         .limit(1),
       supabase

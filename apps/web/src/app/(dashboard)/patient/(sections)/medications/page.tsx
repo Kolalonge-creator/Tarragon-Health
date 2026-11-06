@@ -15,6 +15,8 @@ import { LowCarbLink } from "@/app/(dashboard)/patient/lowcarb/lowcarb-link";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { loadMyCareChanges } from "@/lib/care-changes/load";
 import { t } from "@tarragon/i18n";
+import { Suspense } from "react";
+import { DosesTakenCard } from "@/app/(dashboard)/patient/doses-taken-card";
 
 export default async function PatientMedicationsPage() {
   const { subjectId, acting, uiLanguage } = await getPatientDashboardContext();
@@ -44,6 +46,10 @@ export default async function PatientMedicationsPage() {
         </div>
 
         <div className="space-y-4">
+          {/* Founder, 2026-11-06 (chosen in a prompt): the doses record as big numbers and a chart. Streams in on its own. */}
+          <Suspense fallback={<div aria-hidden className="h-72 animate-pulse rounded-xl bg-charcoal-ink/[0.07] dark:bg-night-ink/10" />}>
+            <DosesTakenCard patientId={subjectId} />
+          </Suspense>
           <MyDayCard patientId={subjectId} />
           <MedicationReconciliationConfirm patientId={subjectId} />
           <AdherenceCheckins patientId={subjectId} />
