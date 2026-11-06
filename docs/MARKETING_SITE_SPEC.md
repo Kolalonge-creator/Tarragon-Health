@@ -74,7 +74,7 @@ The brand system already exists in `docs/BRAND_GUIDE.md` (Guard Leaf) — this s
 | **Tarragon Green** | `#0E7C52` — primary/brand |
 | **Clinical Navy** | `#12324B` — B2B pages, headers |
 | **Sprout Gold** | Sparingly — one accent per page, screening/upgrade moments only |
-| **Soft Sage / Warm Ivory** | Accent bands and card surfaces — **not** the page canvas (corrected 2026-08-19, see `docs/BRAND_GUIDE.md` §5) |
+| **Soft Sage** | Accent bands and card surfaces, **not** the page canvas (corrected 2026-08-19; Warm Ivory retired 2026-11-06 for pure white, see `docs/BRAND_GUIDE.md` §5) |
 | **Charcoal Ink** | Text — never pure black |
 | **Ratio** | 65% white (the page canvas) · 15% ivory/sage (accent bands/cards) · 15% green/navy · 5% gold |
 | **Clinical red/amber** | Reserved for clinical states — **never use decoratively on the marketing site** |

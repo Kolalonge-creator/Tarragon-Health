@@ -19,7 +19,6 @@ import { ManageHomePins } from "@/app/(dashboard)/patient/manage-home-pins";
 import { getMonitoredVitals, getStoredHomePins } from "@/lib/patient/home-pins";
 import { statTileValue } from "@/components/ui/stat-tile-value";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
-import { getLagosGreetingWord } from "@/lib/greeting";
 import { OverviewHero } from "@/app/(dashboard)/patient/overview-hero";
 import { ServiceStatusCard } from "@/app/(dashboard)/patient/service-status-card";
 import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-last-here-card";
@@ -105,13 +104,7 @@ export default async function PatientOverviewPage() {
     isAssistantOffered(supabase),
   ]);
 
-  // Spec 4.1 (PD-05): "Good morning, {first name}." on Lagos time, then one supporting line. While acting for someone, the line
-  // says whose health this is instead of greeting them by the supporter's name.
-  const greetingWord = getLagosGreetingWord();
-  const firstName = profile.full_name?.trim().split(/\s+/)[0] ?? null;
-  const weekSummaryLine = acting
-    ? `Good ${greetingWord}. You are looking after ${acting.fullName ?? "someone"}'s health.`
-    : `Good ${greetingWord}${firstName ? `, ${firstName}` : ""}. Your health journey, all in one place.`;
+  // The greeting (spec 4.1, PD-05) is the page heading, drawn by section-greeting.tsx; the hero no longer repeats it.
 
   // Day-one state. Every analytic card below is right for a patient with a
   // history and useless for one without: on an empty account they collectively
@@ -166,10 +159,8 @@ export default async function PatientOverviewPage() {
           (Health Score, white panel — clinical status colours stay on a
           neutral surface, never on brand green) and "what's the one thing to
           do next" (the priority-ordered NextBestAction on the deep-green
-          gradient). The old greeting line rides along as the band's eyebrow,
-          still warm, still Lagos-time-aware, without repeating the name
-          DashboardPlaceholder's "Hi, {name}" already gave a moment ago. */}
-      <OverviewHero patientId={subjectId} eyebrow={weekSummaryLine} acting={!!acting} />
+          gradient). The greeting is the page heading above it (section-greeting.tsx), not repeated here. */}
+      <OverviewHero patientId={subjectId} acting={!!acting} />
 
       {/* For a new patient the set-up steps are the real next step, so they sit straight under it. */}
       {showGetStarted && (

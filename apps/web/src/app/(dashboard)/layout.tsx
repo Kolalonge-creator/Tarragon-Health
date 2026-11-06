@@ -179,9 +179,9 @@ export default async function DashboardLayout({
 
   const embedded = await embeddedPromise;
   if (embedded) {
-    // The native shell paints #FAF7F2 around this WebView; the patient's
-    // embedded content carries the same warm ground so web pages don't sit
-    // as a white patch inside it. Staff roles have no native app, but the
+    // The native shell paints its canvas around this WebView (white since
+    // 2026-11-06); the patient's embedded content uses the same ground so web
+    // pages don't sit as a different-coloured patch inside it. Staff roles have no native app, but the
     // guard keeps this honest if that ever changes.
     return (
       <Providers>

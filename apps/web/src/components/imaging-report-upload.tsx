@@ -1,5 +1,7 @@
 "use client";
 
+import { UploadOffWhileActing, useActingFor } from "@/components/acting-for-context";
+
 import { useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
@@ -20,7 +22,7 @@ import { Label } from "@/components/ui/label";
  * records a clinical finding on its own — a clinician reviews it and
  * separately files the structured imaging_reports row.
  */
-export function ImagingReportUpload({
+function ImagingReportUploadForm({
   imagingOrderId,
   label = "Upload your imaging report",
 }: {
@@ -107,4 +109,11 @@ export function ImagingReportUpload({
       </div>
     </form>
   );
+}
+
+/** Not offered while managing someone else's account: the file would land on the signed-in person's own record. */
+export function ImagingReportUpload(props: React.ComponentProps<typeof ImagingReportUploadForm>) {
+  const acting = useActingFor();
+  if (acting) return <UploadOffWhileActing acting={acting} />;
+  return <ImagingReportUploadForm {...props} />;
 }

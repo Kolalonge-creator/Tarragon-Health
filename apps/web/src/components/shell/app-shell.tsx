@@ -16,7 +16,7 @@ import { AdminSearch } from "./admin-search";
 import type { AdminSearchEntry } from "@/lib/admin-search";
 import { ThemeToggle, type ThemePreference } from "./theme-toggle";
 import { Avatar } from "@/components/avatar";
-import { itemIsActive, primaryNavItems, type NavItem, type NavSection } from "@/lib/navigation";
+import { itemIsActive, primaryNavItems, tabIsActive, type NavItem, type NavSection } from "@/lib/navigation";
 import { NavMoreItems } from "./nav-more-items";
 import { UiLanguageProvider, useT } from "@/components/ui-language-provider";
 import { useSupportingAttention } from "@/lib/queries/care-circle";
@@ -59,6 +59,8 @@ function BottomTabBar({
   const tr = useT();
   const tabClass =
     "flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[11px] font-medium leading-tight";
+  // A page no tab covers lives behind More, so More lights up there; otherwise the bar showed nothing active at all.
+  const moreActive = showMore && !items.some((item) => tabIsActive(pathname, item));
 
   return (
     <nav
@@ -67,7 +69,7 @@ function BottomTabBar({
     >
       <ul className="flex items-stretch">
         {items.map((item) => {
-          const active = itemIsActive(pathname, item);
+          const active = tabIsActive(pathname, item);
           const Icon = APP_ICON[item.icon];
           return (
             <li key={item.href} className="flex flex-1">
@@ -102,10 +104,16 @@ function BottomTabBar({
               type="button"
               onClick={onMore}
               aria-label="Open menu"
-              className={cn(tabClass, "text-charcoal-ink/55 dark:text-night-ink/60")}
+              className={cn(
+                tabClass,
+                moreActive ? "text-deep-forest dark:text-brand-green-bright" : "text-charcoal-ink/55 dark:text-night-ink/60"
+              )}
             >
               <NAV_ICON.menu
-                className="h-5 w-5 text-charcoal-ink/45 dark:text-night-ink/55"
+                className={cn(
+                  "h-5 w-5",
+                  moreActive ? "text-brand-green dark:text-brand-green-bright" : "text-charcoal-ink/45 dark:text-night-ink/55"
+                )}
                 strokeWidth={2}
               />
               <span>{tr("More")}</span>
@@ -289,7 +297,14 @@ function CollapsibleNavGroup({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => onToggle(label, open)}
-        className="flex w-full items-center justify-between rounded-lg px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/40 transition-colors hover:text-charcoal-ink/70 dark:text-night-ink/50 dark:hover:text-night-ink/70"
+        // A group reads as a row you can open, not a faint heading (2026-11-06 visual pass: the small grey capitals were
+        // taken for section labels, so patients did not know the groups opened).
+        className={cn(
+          "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green",
+          open
+            ? "text-charcoal-ink dark:text-night-ink"
+            : "text-charcoal-ink/75 hover:bg-charcoal-ink/5 hover:text-charcoal-ink dark:text-night-ink/75 dark:hover:bg-night-ink/10 dark:hover:text-night-ink"
+        )}
       >
         {tr(label)}
         <NAV_ICON.chevronRight
@@ -308,7 +323,7 @@ function CollapsibleNavGroup({
         {/* `inert` keeps collapsed links out of the tab order and the
             accessibility tree while grid-template-rows animates the height. */}
         <div className="overflow-hidden" inert={!open}>
-          <ul className="space-y-0.5">
+          <ul className="space-y-0.5 pb-2 pl-2">
             {items
               .filter((item) => !item.more)
               .map((item) => (
@@ -457,7 +472,7 @@ function CollapsibleSidebarNav({
 
   return (
     <nav aria-label="Main" className="flex flex-1 flex-col overflow-y-auto px-3 py-4">
-      <div className="space-y-6">
+      <div className="space-y-1">
         {groups.map((group, i) =>
           group.label ? (
             <CollapsibleNavGroup
@@ -559,7 +574,7 @@ export function AppShell({
    * user block both point — role-dependent, computed by the caller. */
   profileHref: string;
   navSections: NavSection[];
-  /** "warm" paints the content area on the Warm Ivory ground and switches
+  /** "warm" (the patient surface; the name predates the 2026-11-06 move to a white ground) themes the content area and switches
    * the desktop sidebar to progressive disclosure — the patient-facing
    * surface, matching the mobile app's warm screen background. Staff and
    * clinical consoles keep the default white canvas and the always-expanded
@@ -767,10 +782,9 @@ export function AppShell({
       <div
         className={cn(
           "flex min-w-0 flex-1 flex-col print:block",
-          // The warm patient ground: cards stay white and float on the ivory,
-          // while the sidebar and top chrome keep their own white surface.
-          // Print always stays white.
-          surface === "warm" && "bg-warm-ivory print:bg-white dark:bg-night-ground"
+          // The patient ground is plain white in light mode (founder, 2026-11-06: the Warm Ivory ground made the app look
+          // dull). Cards keep their border and shadow, so they still read as cards; night theme keeps its own ground.
+          surface === "warm" && "bg-white print:bg-white dark:bg-night-ground"
         )}
       >
         <header className="sticky top-0 z-40 border-b border-charcoal-ink/10 bg-white/90 backdrop-blur print:hidden dark:border-night-ink/15 dark:bg-night-ground/90">

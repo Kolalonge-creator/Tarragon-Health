@@ -9,7 +9,19 @@ import { testCodeLabel } from "@/lib/labs/test-code-labels";
 import { PatientResultUpload } from "@/components/patient-result-upload";
 import { ReplaceResultDocumentForm } from "./replace-result-document-form";
 import { ResultDocumentsDownloadPicker } from "./result-documents-download-picker";
+import Link from "next/link";
 import { AiResultSummary } from "./ai-result-summary";
+
+function OpenResultLink({ id }: { id: string }) {
+  return (
+    <Link
+      href={`/patient/labs/result/${id}`}
+      className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
+    >
+      Open this result →
+    </Link>
+  );
+}
 
 /** Groups documents by their known test type, most-recently-updated group
  * first, with anything of unknown type (uploaded before this field existed,
@@ -93,6 +105,7 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
           )}
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <ReviewedResultLine reviewedBy={doc.reviewedBy} reviewedAt={doc.reviewedAt} />
+            <OpenResultLink id={doc.id} />
             <a
               href={`/api/patient/lab-result/${doc.id}/pdf`}
               className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
@@ -109,6 +122,7 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
             they have.
           </p>
           <AiResultSummary status={doc.aiSummaryStatus} flaggedAnalytes={doc.aiFlaggedAnalytes} />
+          <OpenResultLink id={doc.id} />
           {doc.source === "patient" && !doc.reviewedAt && (
             <ReplaceResultDocumentForm documentId={doc.id} />
           )}

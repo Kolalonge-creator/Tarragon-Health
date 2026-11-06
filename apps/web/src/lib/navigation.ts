@@ -42,6 +42,9 @@ export interface NavItem {
   /** Other pages this link stands in for: the link is shown as active on them too. The Governance index uses it
    * so a page reached from that index still lights its sidebar entry and keeps its group open (DW-02). */
   alsoActiveFor?: readonly string[];
+  /** Phone bottom bar only: other pages on which this tab shows as active (PD-01: vitals, medicines and results sit inside
+   * My Health). Unlike `alsoActiveFor` it does not light the sidebar entry, where those pages have links of their own. */
+  tabAlsoActiveFor?: readonly string[];
 }
 
 /** How many `primary` links the phone bottom bar shows before the More
@@ -186,6 +189,15 @@ export function getNavSections(
               primary: true,
               primaryOrder: 2,
               shortLabel: "My Health",
+              // PD-01: vitals, medicines and results sit inside My Health on the phone, so the tab stays lit on those pages.
+              tabAlsoActiveFor: [
+                "/patient/vitals",
+                "/patient/medications",
+                "/patient/labs",
+                "/patient/timeline",
+                "/patient/health-summary",
+                "/patient/health-records",
+              ],
             },
             { label: "Vitals & symptoms", href: "/patient/vitals", icon: "bp" },
             { label: "Medications", href: "/patient/medications", icon: "medication" },
@@ -389,6 +401,8 @@ export function getNavSections(
               // is waiting on this doctor; every item that can block someone keeps its live countKey badge.
               label: "Work",
               items: [
+                // DW-01: every open escalation, alert and review item, named, most urgent first.
+                { label: "My worklist", href: "/clinician/worklist", icon: "escalation" },
                 // Declared hours, the on-call rota, cover requests (S18).
                 // Red event pages sent to you: acknowledge, open the chart, close with a note (S19).
                 // The Next task queue, the task I hold, and the patients I lead (S35).
@@ -1192,4 +1206,12 @@ function isActive(pathname: string, href: string, exact?: boolean) {
 /** Whether a sidebar link is the current page (or one it stands in for, see `alsoActiveFor`). */
 export function itemIsActive(pathname: string, item: Pick<NavItem, "href" | "exact" | "alsoActiveFor">): boolean {
   return isActive(pathname, item.href, item.exact) || (item.alsoActiveFor ?? []).some((h) => isActive(pathname, h));
+}
+
+/** Whether a phone bottom-bar tab shows as active: its own pages, plus the pages it stands for on the phone only. */
+export function tabIsActive(
+  pathname: string,
+  item: Pick<NavItem, "href" | "exact" | "alsoActiveFor" | "tabAlsoActiveFor">,
+): boolean {
+  return itemIsActive(pathname, item) || (item.tabAlsoActiveFor ?? []).some((h) => isActive(pathname, h));
 }

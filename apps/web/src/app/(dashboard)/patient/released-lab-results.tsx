@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { t, type Locale } from "@tarragon/i18n";
 import { createClient } from "@/lib/supabase/client";
+import { UploadOffWhileActing, useActingFor } from "@/components/acting-for-context";
 import { addOwnLabResult, getOwnResultFileUrl } from "@/lib/lab-results/structured-actions";
 import { RangeCell } from "@/components/lab/range-cell";
 import { LAB_RESULT_FILE_ACCEPT, myLabResultsSchema, SCREENING_ANALYTES, type MyLabResult } from "@/lib/lab-results/structured";
@@ -113,7 +114,14 @@ function ResultCard({ r, locale }: { r: MyLabResult; locale: Locale }) {
   );
 }
 
-function AddOwnResult({ locale, onDone }: { locale: Locale; onDone: () => void }) {
+/** Not offered while managing someone else's account: the file would land on the signed-in person's own record. */
+function AddOwnResult(props: { locale: Locale; onDone: () => void }) {
+  const acting = useActingFor();
+  if (acting) return <UploadOffWhileActing acting={acting} />;
+  return <AddOwnResultForm {...props} />;
+}
+
+function AddOwnResultForm({ locale, onDone }: { locale: Locale; onDone: () => void }) {
   const [state, action, pending] = useActionState(async (prev: Awaited<ReturnType<typeof addOwnLabResult>>, fd: FormData) => {
     const r = await addOwnLabResult(prev, fd);
     if (r?.success) onDone();

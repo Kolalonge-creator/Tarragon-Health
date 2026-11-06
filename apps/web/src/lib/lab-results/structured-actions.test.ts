@@ -3,6 +3,7 @@ const upload = jest.fn();
 const remove = jest.fn();
 const createSignedUrl = jest.fn();
 
+jest.mock("@/lib/acting/acting-for", () => ({ getActingFor: async () => null }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn().mockResolvedValue({ rpc: (...a: unknown[]) => rpc(...a) }),

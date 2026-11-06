@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { uploadRefusedWhileActing } from "@/lib/acting/upload-while-acting";
 import type { Json } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -88,6 +89,8 @@ export async function submitPartnerResult(_prev: LabActionState, formData: FormD
 export async function addOwnLabResult(_prev: LabActionState, formData: FormData): Promise<LabActionState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Please sign in again." };
+  const actingRefusal = await uploadRefusedWhileActing();
+  if (actingRefusal) return { error: actingRefusal };
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Please choose a PDF, JPG or PNG." };
   const s = await storeFile(user.id, file, user.id);
