@@ -29,6 +29,9 @@ const userClient = {
 };
 
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
+// Not acting for anyone unless a test says so (upload-while-acting.test.ts covers the refusal itself).
+let actingFor: { profileId: string; fullName: string | null } | null = null;
+jest.mock("@/lib/acting/acting-for", () => ({ getActingFor: async () => actingFor }));
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn(async () => userClient),
   getCurrentUser: jest.fn(async () => ({ id: PATIENT })),
@@ -64,6 +67,7 @@ beforeEach(() => {
   insertSingle.mockReset().mockResolvedValue({ data: { id: "doc-1" }, error: null });
   getUser.mockReset().mockResolvedValue({ data: { user: { id: PATIENT } }, error: null });
   runLabReportExtraction.mockClear();
+  actingFor = null;
 });
 
 describe("S27 storeFile (patient adds own result; team, partner and coordinator use the same storeFile)", () => {

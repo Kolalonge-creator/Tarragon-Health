@@ -1,5 +1,7 @@
 "use client";
 
+import { UploadOffWhileActing, useActingFor } from "@/components/acting-for-context";
+
 import { useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
@@ -23,7 +25,7 @@ import { Label } from "@/components/ui/label";
  * labOrderId) for an ECG the patient already had done before they joined.
  * Never gated by plan — same reasoning as PatientResultUpload.
  */
-export function EcgReportUpload({
+function EcgReportUploadForm({
   labOrderId,
   label = "Upload your 12-lead ECG",
 }: {
@@ -114,4 +116,11 @@ export function EcgReportUpload({
       </div>
     </form>
   );
+}
+
+/** Not offered while managing someone else's account: the file would land on the signed-in person's own record. */
+export function EcgReportUpload(props: React.ComponentProps<typeof EcgReportUploadForm>) {
+  const acting = useActingFor();
+  if (acting) return <UploadOffWhileActing acting={acting} />;
+  return <EcgReportUploadForm {...props} />;
 }

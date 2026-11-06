@@ -1,5 +1,7 @@
 "use client";
 
+import { UploadOffWhileActing, useActingFor } from "@/components/acting-for-context";
+
 import { useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -31,6 +33,7 @@ import {
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 import { usePatientLabOrders } from "@/lib/queries/lab-orders";
 import { REPORT_EXPECTED_STATUSES } from "@/lib/lab-orders/report-link";
+import { MAX_RESULT_FILES, noteForFile, sendResultFiles } from "@/lib/lab-results/batch-upload";
 
 function formatPrice(amountMinor: number, currency: string): string {
   const symbol = CURRENCY_SYMBOL[currency as Currency] ?? currency;
@@ -130,7 +133,7 @@ function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
  * (AiResultSummary's "Discuss this with a Tarragon doctor" button), never as
  * a precondition to uploading.
  */
-export function PatientResultUpload({
+function PatientResultUploadForm({
   labOrderId,
   screeningCompletionId,
   label = "Upload your result",
@@ -159,8 +162,16 @@ export function PatientResultUpload({
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const fieldId = useId();
-  const [file, setFile] = useState<File | null>(null);
+  // Several files at once (spec 9.2, P11): a result often comes as two or three photographed pages.
+  const [files, setFiles] = useState<File[]>([]);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  // Per-file refusals from the last send, by file; the files that failed stay chosen so the patient can send just those again.
+  const [fileErrors, setFileErrors] = useState<Map<File, string>>(new Map());
+  // The page number a file was first sent as. A failed page sent again keeps it ("Page 1 of 2"), so the doctor can still put
+  // it with the pages that did arrive.
+  const [pageOf, setPageOf] = useState<Map<File, { index: number; total: number }>>(new Map());
   const [note, setNote] = useState("");
   // Only asked when the caller hasn't already scoped this upload to a known
   // test (the per-test checklist, lab-order-test-checklist.tsx, passes
@@ -179,40 +190,93 @@ export function PatientResultUpload({
 
   const upload = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error("Attach the result first.");
-      const formData = new FormData();
-      formData.set("file", file);
+      if (files.length === 0) throw new Error("Attach the result first.");
       const effectiveOrderId = labOrderId ?? (chosenOrderId || undefined);
-      if (effectiveOrderId) formData.set("lab_order_id", effectiveOrderId);
-      if (screeningCompletionId) formData.set("screening_completion_id", screeningCompletionId);
-      if (note.trim()) formData.set("note", note.trim());
       const effectiveTestCode =
         testCode ??
         (testType && testType !== OTHER_TEST_TYPE_VALUE ? testType : undefined);
-      if (effectiveTestCode) formData.set("test_code", effectiveTestCode);
-      const result = await uploadResultDocumentAsPatient(formData);
-      if (result.error) throw new Error(result.error);
+      setProgress({ done: 0, total: files.length });
+      const numbering = files.map((file, index) => pageOf.get(file) ?? { index, total: files.length });
+      const results = await sendResultFiles(
+        files,
+        (file, index) => {
+          const formData = new FormData();
+          formData.set("file", file);
+          if (effectiveOrderId) formData.set("lab_order_id", effectiveOrderId);
+          if (screeningCompletionId) formData.set("screening_completion_id", screeningCompletionId);
+          const pageNote = noteForFile(note, numbering[index]!.index, numbering[index]!.total);
+          if (pageNote) formData.set("note", pageNote);
+          if (effectiveTestCode) formData.set("test_code", effectiveTestCode);
+          return uploadResultDocumentAsPatient(formData);
+        },
+        (done, total) => setProgress({ done, total }),
+      );
+      const failed = new Map<File, string>();
+      const failedPages = new Map<File, { index: number; total: number }>();
+      results.forEach((result, i) => {
+        if (!result.ok) {
+          failed.set(files[i]!, result.error);
+          failedPages.set(files[i]!, numbering[i]!);
+        }
+      });
+      return { sent: results.length - failed.size, failed, failedPages };
     },
-    onSuccess: () => {
-      setSuccess("Thank you. Your care team has been asked to read it.");
-      setFile(null);
-      setNote("");
-      setTestType("");
-      setChosenOrderId("");
+    onSettled: () => setProgress(null),
+    onSuccess: ({ sent, failed, failedPages }) => {
+      setFileErrors(failed);
+      setPageOf(failedPages);
+      setFiles((current) => current.filter((file) => failed.has(file)));
       if (fileInputRef.current) fileInputRef.current.value = "";
-      router.refresh();
-      onUploaded?.();
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+      if (sent > 0) {
+        setSuccess(
+          failed.size > 0
+            ? `${sent} sent to your care team. ${failed.size} did not send: see below.`
+            : sent > 1
+              ? `Thank you. Your care team has been asked to read all ${sent} files.`
+              : "Thank you. Your care team has been asked to read it.",
+        );
+        router.refresh();
+        onUploaded?.();
+      }
+      if (failed.size === 0) {
+        setNote("");
+        setTestType("");
+        setChosenOrderId("");
+      }
     },
   });
+
+  /** Adds picked files (from the file chooser or the camera), keeping what was already chosen, up to the cap. */
+  function addFiles(picked: FileList | null) {
+    setValidationError(null);
+    setSuccess(null);
+    if (!picked || picked.length === 0) return;
+    const next = [...files, ...Array.from(picked)];
+    if (next.length > MAX_RESULT_FILES) {
+      setValidationError(`You can send up to ${MAX_RESULT_FILES} files at a time. Send these, then add the rest.`);
+    }
+    setFiles(next.slice(0, MAX_RESULT_FILES));
+  }
+
+  function removeFile(file: File) {
+    setFiles((current) => current.filter((f) => f !== file));
+    setFileErrors((current) => {
+      const copy = new Map(current);
+      copy.delete(file);
+      return copy;
+    });
+    setValidationError(null);
+  }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setSuccess(null);
     setValidationError(null);
-    if (file) {
+    for (const file of files) {
       const fileError = validateResultDocFile(file);
       if (fileError) {
-        setValidationError(fileError);
+        setValidationError(files.length > 1 ? `${file.name}: ${fileError}` : fileError);
         return;
       }
     }
@@ -239,20 +303,68 @@ export function PatientResultUpload({
             id={`${fieldId}-file`}
             ref={fileInputRef}
             type="file"
+            multiple
             accept={RESULT_DOC_ACCEPT}
-            onChange={(event) => {
-              setFile(event.target.files?.[0] ?? null);
-              setValidationError(null);
-              setSuccess(null);
-            }}
+            onChange={(event) => addFiles(event.target.files)}
             {...fieldErrorProps(errorId, Boolean(displayError), hintId)}
           />
+          {/* Camera capture (spec 9.2): opens the back camera on a phone; on a computer it is an ordinary image chooser. */}
+          <input
+            ref={cameraInputRef}
+            id={`${fieldId}-camera`}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            tabIndex={-1}
+            onChange={(event) => addFiles(event.target.files)}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-8 px-2 text-xs"
+            onClick={() => cameraInputRef.current?.click()}
+          >
+            Take a photo of the result
+          </Button>
           <p
             id={hintId}
             className="text-xs text-charcoal-ink/50 dark:text-night-ink/55"
           >
-            A photo of the printout is fine. PDF or image, up to 10 MB.
+            A photo of the printout is fine. PDF or image, up to 10 MB each. If the result has several pages, add them all
+            (up to {MAX_RESULT_FILES}).
           </p>
+          {files.length > 0 && (
+            <ul aria-label="Files to send" className="space-y-1">
+              {files.map((file, index) => {
+                const fileError = fileErrors.get(file);
+                return (
+                  <li
+                    key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
+                    className="flex flex-wrap items-center gap-2 text-xs text-charcoal-ink/80 dark:text-night-ink/80"
+                  >
+                    <span className="min-w-0 truncate">
+                      {files.length > 1 ? `Page ${index + 1}: ` : ""}
+                      {file.name}
+                    </span>
+                    {fileError && <span className="text-red-600 dark:text-red-300">{fileError}</span>}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs"
+                      disabled={upload.isPending}
+                      onClick={() => removeFile(file)}
+                      aria-label={`Remove ${file.name}`}
+                    >
+                      Remove
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
         {needsTestType && (
           <div className="space-y-1.5">
@@ -313,10 +425,24 @@ export function PatientResultUpload({
             type="submit"
             size="sm"
             variant="outline"
-            disabled={!file || (needsTestType && !testType) || upload.isPending}
+            disabled={files.length === 0 || (needsTestType && !testType) || upload.isPending}
           >
-            {upload.isPending ? "Sending…" : "Send to my care team"}
+            {upload.isPending
+              ? progress && progress.total > 1
+                ? `Sending ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…`
+                : "Sending…"
+              : files.length > 1
+                ? `Send ${files.length} files to my care team`
+                : "Send to my care team"}
           </Button>
+          {progress && progress.total > 1 && (
+            <progress
+              className="h-1.5 w-24"
+              value={progress.done}
+              max={progress.total}
+              aria-label={`${progress.done} of ${progress.total} files sent`}
+            />
+          )}
           <FormSuccess message={success} className="text-xs font-medium" />
           <FormError id={errorId} message={displayError} className="text-xs" />
         </div>
@@ -325,4 +451,11 @@ export function PatientResultUpload({
       {patientId && <MyConsultRequestsStatus patientId={patientId} />}
     </div>
   );
+}
+
+/** Not offered while managing someone else's account: the file would land on the signed-in person's own record. */
+export function PatientResultUpload(props: React.ComponentProps<typeof PatientResultUploadForm>) {
+  const acting = useActingFor();
+  if (acting) return <UploadOffWhileActing acting={acting} />;
+  return <PatientResultUploadForm {...props} />;
 }

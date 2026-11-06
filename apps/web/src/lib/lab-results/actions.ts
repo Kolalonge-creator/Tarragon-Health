@@ -1,5 +1,6 @@
 "use server";
 
+import { uploadRefusedWhileActing } from "@/lib/acting/upload-while-acting";
 import { prepareUpload } from "@/lib/uploads/prepare-upload";
 import { discardUnfiledUpload } from "@/lib/uploads/discard-unfiled-upload";
 import { randomUUID } from "crypto";
@@ -200,6 +201,8 @@ export async function uploadResultDocumentAsPatient(
 ): Promise<ResultUploadResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
+  const actingRefusal = await uploadRefusedWhileActing();
+  if (actingRefusal) return { error: actingRefusal };
   if (!(await checkAbuseLimit("upload", user.id)).ok) return { error: ABUSE_LIMIT_MESSAGE };
 
   const file = formData.get("file");
@@ -402,6 +405,8 @@ export async function replaceResultDocumentAsPatient(
 ): Promise<ResultUploadResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
+  const actingRefusal = await uploadRefusedWhileActing();
+  if (actingRefusal) return { error: actingRefusal };
   if (!(await checkAbuseLimit("upload", user.id)).ok) return { error: ABUSE_LIMIT_MESSAGE };
 
   const file = formData.get("file");

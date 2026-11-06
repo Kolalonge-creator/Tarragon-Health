@@ -70,11 +70,8 @@ export default async function PatientSectionsLayout({
     <div className="space-y-6">
       {/* The greeting draws on the Overview only; every other section opens on its own header (see section-greeting.tsx). */}
       <SectionGreeting
-        greeting={
-          acting
-            ? `${acting.fullName ?? "Their"}'s account`
-            : `Hi${profile.full_name ? `, ${profile.full_name}` : ""}`
-        }
+        firstName={profile.full_name?.trim().split(/\s+/)[0] ?? null}
+        actingFor={acting ? (acting.fullName ?? "") : null}
         roleLabel={acting ? "Acting for them" : "Patient"}
         badge={!acting && foundingBadge === true ? <FoundingMemberBadge locale={locale} /> : null}
       />

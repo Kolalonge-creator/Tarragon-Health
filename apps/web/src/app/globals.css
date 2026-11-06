@@ -25,9 +25,10 @@
     --clinical-navy: #12324b;
     --charcoal-ink: #12324b;
     --soft-sage: #e3ede4;
-    --warm-ivory: #fbf8f3;
+    /* Pure white since 2026-11-06 (founder: off-white looked dull). */
+    --warm-ivory: #ffffff;
     --sprout-gold: #c9962b;
-    --mk-canvas: #fbf8f3;
+    --mk-canvas: #ffffff;
     --mk-border: #e5e0d6;
     /* Darker than the first pass (#5f6a66): about 6.9:1 on the canvas and
        6.1:1 on sage, so secondary text stays easy to read for older eyes. */

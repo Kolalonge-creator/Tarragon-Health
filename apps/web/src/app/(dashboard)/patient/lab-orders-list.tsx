@@ -14,6 +14,7 @@ import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { listQueryState } from "@/lib/queries/list-query-state";
 import { SuggestedPlaceButton } from "@/components/diagnostic-directory/suggested-place-button";
+import { groupLabOrders } from "@/lib/lab-orders/order-groups";
 
 /** Self-arranged: the states that matter to a patient are "we've written it,
  * go when you can" and "the result is in". Payment states are retained in the
@@ -50,122 +51,137 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
         <CardTitle>Your test requests</CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
-          {orders.map((order) => {
-            const badge = LAB_ORDER_STATUS_BADGE[order.status];
-            const awaiting = AWAITING_RESULT.includes(order.status);
-            // An ECG is its own physical printout — even in a bundle that
-            // also includes blood tests, it doesn't arrive on the same PDF,
-            // so it gets its own uploader alongside the generic one rather
-            // than instead of it.
-            const testCodes = order.panel_bundle?.test_codes ?? [];
-            const includesEcg = testCodes.includes("ecg_resting");
-            const isMultiTest = testCodes.length > 1;
-            const orderReports = reportsByOrder.get(order.id) ?? [];
-            const reportState = orderReportState(order.status, orderReports);
-            return (
-              <li key={order.id} className="space-y-2 py-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant={badge.variant}>{badge.label}</Badge>
-                  {order.urgency === "urgent" && <Badge variant="red">Urgent</Badge>}
-                  <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{order.order_number}</span>
-                </div>
-                {/* Request to report: only when a report is actually linked to this request. */}
-                {orderReports.length > 0 && (reportState === "result_back" || reportState === "report_added") && (
-                  <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
-                    {ORDER_REPORT_LABEL[reportState]}.{" "}
-                    <a
-                      href="/patient/labs#result-documents"
-                      className="font-medium text-brand-green dark:text-brand-green-bright hover:underline"
-                    >
-                      {orderReports.length > 1 ? `See the ${orderReports.length} reports` : "See the report"}
-                    </a>
-                  </p>
-                )}
-                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-                  {order.panel_bundle?.name ?? (order.panel_code ? "Annual health check bundle" : "Lab test")}
-                </p>
-                {/* Null-gated: only a clinician-generated order ever sets
-                    ordered_by, so this line is absent for a self-service
-                    due-screening order rather than showing "Ordered by"
-                    with nothing after it. */}
-                {order.ordered_by_staff && (
-                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                    Ordered by Dr. {order.ordered_by_staff.full_name}
-                  </p>
-                )}
-                {order.clinical_indication && (
-                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Reason: {order.clinical_indication}</p>
-                )}
-                {order.panel_bundle?.preparation_instructions && (
-                  <p className="rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/15 p-2 text-xs text-blue-900 dark:text-blue-300">
-                    {order.panel_bundle.preparation_instructions}
-                  </p>
-                )}
-                {order.status === "pending_payment" && (
-                  <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
-                )}
-                {awaiting && (
-                  <>
-                    <a
-                      href={`/api/patient/lab-order/${order.id}/request`}
-                      className="inline-block text-xs font-medium text-brand-green dark:text-brand-green-bright hover:underline"
-                    >
-                      Download the request to take with you
-                    </a>
-                    {isMultiTest ? (
-                      <LabOrderTestChecklist labOrderId={order.id} testCodes={testCodes} />
-                    ) : (
-                      <>
-                        <PatientResultUpload
-                          labOrderId={order.id}
-                          label={includesEcg ? "Upload your blood/lab results" : "Upload your result"}
-                        />
-                        {includesEcg && (
-                          <EcgReportUpload labOrderId={order.id} label="Upload your 12-lead ECG" />
+        {/* Grouped by where each request stands (spec 8.1, P12); a single group gets no heading. */}
+        <div className="space-y-5">
+          {groupLabOrders(orders).map((group, _index, groups) => (
+            <section key={group.id} aria-labelledby={groups.length > 1 ? `lab-orders-${group.id}` : undefined}>
+              {groups.length > 1 && (
+                <h3
+                  id={`lab-orders-${group.id}`}
+                  className="mb-1 text-xs font-semibold uppercase tracking-wider text-charcoal-ink/55 dark:text-night-ink/60"
+                >
+                  {group.title} ({group.orders.length})
+                </h3>
+              )}
+              <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
+                {group.orders.map((order) => {
+                  const badge = LAB_ORDER_STATUS_BADGE[order.status];
+                  const awaiting = AWAITING_RESULT.includes(order.status);
+                  // An ECG is its own physical printout — even in a bundle that
+                  // also includes blood tests, it doesn't arrive on the same PDF,
+                  // so it gets its own uploader alongside the generic one rather
+                  // than instead of it.
+                  const testCodes = order.panel_bundle?.test_codes ?? [];
+                  const includesEcg = testCodes.includes("ecg_resting");
+                  const isMultiTest = testCodes.length > 1;
+                  const orderReports = reportsByOrder.get(order.id) ?? [];
+                  const reportState = orderReportState(order.status, orderReports);
+                  return (
+                    <li key={order.id} className="space-y-2 py-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                        {order.urgency === "urgent" && <Badge variant="red">Urgent</Badge>}
+                        <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{order.order_number}</span>
+                      </div>
+                      {/* Request to report: only when a report is actually linked to this request. */}
+                      {orderReports.length > 0 && (reportState === "result_back" || reportState === "report_added") && (
+                        <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+                          {ORDER_REPORT_LABEL[reportState]}.{" "}
+                          <a
+                            href="/patient/labs#result-documents"
+                            className="font-medium text-brand-green dark:text-brand-green-bright hover:underline"
+                          >
+                            {orderReports.length > 1 ? `See the ${orderReports.length} reports` : "See the report"}
+                          </a>
+                        </p>
+                      )}
+                      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+                        {order.panel_bundle?.name ?? (order.panel_code ? "Annual health check bundle" : "Lab test")}
+                      </p>
+                      {/* Null-gated: only a clinician-generated order ever sets
+                          ordered_by, so this line is absent for a self-service
+                          due-screening order rather than showing "Ordered by"
+                          with nothing after it. */}
+                      {order.ordered_by_staff && (
+                        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                          Ordered by Dr. {order.ordered_by_staff.full_name}
+                        </p>
+                      )}
+                      {order.clinical_indication && (
+                        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Reason: {order.clinical_indication}</p>
+                      )}
+                      {order.panel_bundle?.preparation_instructions && (
+                        <p className="rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/15 p-2 text-xs text-blue-900 dark:text-blue-300">
+                          {order.panel_bundle.preparation_instructions}
+                        </p>
+                      )}
+                      {order.status === "pending_payment" && (
+                        <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
+                      )}
+                      {awaiting && (
+                        <>
+                          <a
+                            href={`/api/patient/lab-order/${order.id}/request`}
+                            className="inline-block text-xs font-medium text-brand-green dark:text-brand-green-bright hover:underline"
+                          >
+                            Download the request to take with you
+                          </a>
+                          {isMultiTest ? (
+                            <LabOrderTestChecklist labOrderId={order.id} testCodes={testCodes} />
+                          ) : (
+                            <>
+                              <PatientResultUpload
+                                labOrderId={order.id}
+                                label={includesEcg ? "Upload your blood/lab results" : "Upload your result"}
+                              />
+                              {includesEcg && (
+                                <EcgReportUpload labOrderId={order.id} label="Upload your 12-lead ECG" />
+                              )}
+                            </>
+                          )}
+                          {/* Optional upgrade, not a required step — the download
+                              link above already works with zero partners on
+                              file. See request-partner-lab-visit.tsx. */}
+                          {order.fulfilment === "self_arranged" && order.status === "ordered" && (
+                            <RequestPartnerLabVisit patientId={patientId} orderId={order.id} />
+                          )}
+                        </>
+                      )}
+                      {/* Mirrors set_lab_order_location's own write-once rule
+                          (20260924210135_lab_location_reviews.sql): editable any
+                          time up to and including 'resulted' as long as no branch
+                          has been recorded yet (so a patient who never touched
+                          this while "awaiting" can still unlock rating once the
+                          result lands), then locked once both a branch is set AND
+                          the order is resulted — never shown alongside
+                          RateLabLocation below, which takes over at that point. */}
+                      {/* Diagnostic directory Phase 5: where the doctor suggests (opening it records that the patient saw it). */}
+                      {AWAITING_RESULT.includes(order.status) && <SuggestedPlaceButton kind="lab" orderId={order.id} />}
+                      {order.fulfilment === "self_arranged" &&
+                        order.status !== "cancelled" &&
+                        !(order.status === "resulted" && order.location_id) && (
+                          <LabOrderLocationPicker
+                            patientId={patientId}
+                            orderId={order.id}
+                            currentLocationId={order.location_id}
+                          />
                         )}
-                      </>
-                    )}
-                    {/* Optional upgrade, not a required step — the download
-                        link above already works with zero partners on
-                        file. See request-partner-lab-visit.tsx. */}
-                    {order.fulfilment === "self_arranged" && order.status === "ordered" && (
-                      <RequestPartnerLabVisit patientId={patientId} orderId={order.id} />
-                    )}
-                  </>
-                )}
-                {/* Mirrors set_lab_order_location's own write-once rule
-                    (20260924210135_lab_location_reviews.sql): editable any
-                    time up to and including 'resulted' as long as no branch
-                    has been recorded yet (so a patient who never touched
-                    this while "awaiting" can still unlock rating once the
-                    result lands), then locked once both a branch is set AND
-                    the order is resulted — never shown alongside
-                    RateLabLocation below, which takes over at that point. */}
-                {/* Diagnostic directory Phase 5: where the doctor suggests (opening it records that the patient saw it). */}
-                {AWAITING_RESULT.includes(order.status) && <SuggestedPlaceButton kind="lab" orderId={order.id} />}
-                {order.fulfilment === "self_arranged" &&
-                  order.status !== "cancelled" &&
-                  !(order.status === "resulted" && order.location_id) && (
-                    <LabOrderLocationPicker
-                      patientId={patientId}
-                      orderId={order.id}
-                      currentLocationId={order.location_id}
-                    />
-                  )}
-                {order.status === "resulted" && order.location_id && (
-                  <RateLabLocation
-                    organisationId={order.organisation_id}
-                    patientId={patientId}
-                    labOrderId={order.id}
-                    locationId={order.location_id}
-                    locationName={order.location?.name ?? "this lab"}
-                  />
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                      {order.status === "resulted" && order.location_id && (
+                        <RateLabLocation
+                          organisationId={order.organisation_id}
+                          patientId={patientId}
+                          labOrderId={order.id}
+                          locationId={order.location_id}
+                          locationName={order.location?.name ?? "this lab"}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );

@@ -1,5 +1,7 @@
 "use client";
 
+import { UploadOffWhileActing, useActingFor } from "@/components/acting-for-context";
+
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
@@ -20,7 +22,7 @@ import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/compone
  * patient's own still-unreviewed upload (see ResultDocuments, which is the
  * only caller and already gates on doc.source === "patient" && !doc.reviewedAt).
  */
-export function ReplaceResultDocumentForm({ documentId }: { documentId: string }) {
+function ReplaceResultDocumentFormForm({ documentId }: { documentId: string }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -114,4 +116,11 @@ export function ReplaceResultDocumentForm({ documentId }: { documentId: string }
       </div>
     </form>
   );
+}
+
+/** Not offered while managing someone else's account: the file would land on the signed-in person's own record. */
+export function ReplaceResultDocumentForm(props: React.ComponentProps<typeof ReplaceResultDocumentFormForm>) {
+  const acting = useActingFor();
+  if (acting) return <UploadOffWhileActing acting={acting} />;
+  return <ReplaceResultDocumentFormForm {...props} />;
 }

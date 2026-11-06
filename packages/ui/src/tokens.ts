@@ -14,7 +14,8 @@ export const brandColors = {
   charcoalInk: "#171717",
   sproutGold: "#C9962B",
   softSage: "#E7EEE7",
-  warmIvory: "#FAF7F0",
+  // Pure white since 2026-11-06 (founder decision); the name is kept so existing uses keep working.
+  warmIvory: "#FFFFFF",
   deepForest: "#0B5C3E",
 } as const;
 
