@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { LatestBpHero } from "./latest-bp-hero";
+import { LatestReadingsRow } from "./latest-readings-row";
 import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
 import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
@@ -43,7 +45,7 @@ import { membershipPriceLabel, refundWindowDays } from "@/lib/marketing/membersh
 import { VisitReportCard } from "@/app/(dashboard)/patient/visit-report-card";
 
 export default async function PatientVitalsPage() {
-  const { profile, subjectId, subjectDateOfBirth, glucoseUnit } = await getPatientDashboardContext();
+  const { profile, subjectId, subjectDateOfBirth, glucoseUnit, measurementUnits } = await getPatientDashboardContext();
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
   // S07y: the pharmacy label and the paper diary are born off; the form and the link only appear once the guard is open for this person.
   const guards = await readProvenanceGuards(await createClient());
@@ -65,7 +67,19 @@ export default async function PatientVitalsPage() {
       anchorIds: ["log-reading"],
       content: (
         <>
+          {/* Founder, 2026-11-06 (chosen in a prompt): the page opens with logging and the latest readings as big numbers. */}
+          <div className="flex justify-end">
+            <a
+              href="#log-reading"
+              className="inline-flex items-center gap-2 rounded-full bg-brand-green px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-deep-forest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 dark:bg-brand-green-bright dark:text-night-ground"
+            >
+              <span aria-hidden>+</span> Log a reading
+            </a>
+          </div>
           <LatestBpHero patientId={subjectId} />
+          <Suspense fallback={<div aria-hidden className="h-40 animate-pulse rounded-xl bg-charcoal-ink/[0.07] dark:bg-night-ink/10" />}>
+            <LatestReadingsRow patientId={subjectId} glucoseUnit={glucoseUnit} units={measurementUnits} />
+          </Suspense>
           {subjectId === profile.id ? <ThresholdOverrideNotice /> : null}
           <VitalsTrendChart patientId={subjectId} />
           {subjectId === profile.id ? <WeeklyCardsSection patientId={subjectId} /> : null}

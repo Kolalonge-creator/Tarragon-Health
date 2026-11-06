@@ -8,6 +8,7 @@ import {
   lagosLocalDate,
   parseScheduleSpec,
   specFromLegacyTimes,
+  type AdherenceConfig,
   type AdherenceMedicine,
   type AnchorProfile,
   type AdherenceReportWeek,
@@ -123,17 +124,23 @@ async function fetchAllLogs(
   return { data: [], error: { message: "too many dose rows to read" } };
 }
 
-export async function loadAdherenceReport(
+/** The medicines (with their dose logs) and the active rules, as the adherence formula reads them. */
+export type AdherenceInputs =
+  | { ok: true; medicines: AdherenceMedicine[]; cfg: AdherenceConfig }
+  | { ok: false; error: string };
+
+/**
+ * Reads everything the adherence formula needs for the last `days` Lagos days (plus one), with the caller's own session.
+ * Shared by the printed report and the Medications page's doses chart, so both always show the same numbers. Loud on
+ * failure: a read that fails returns an error, never an empty list that would read as "nothing was due".
+ */
+export async function loadAdherenceInputs(
   supabase: SupabaseClient<Database>,
   patientId: string,
-  nowMs: number = Date.now(),
-  /** The doctor summary PDF covers the period the patient picked; the printed adherence report keeps its configured length. */
-  weeksOverride?: number,
-): Promise<AdherenceReportResult> {
-  const weeksCount = weeksOverride ?? reportWeeksConfig();
-  if (!Number.isInteger(weeksCount) || weeksCount < 1 || weeksCount > 26) return { ok: false, error: "The report period is not valid." };
-  const since = addDays(lagosLocalDate(nowMs), -(weeksCount * 7 + 1));
-
+  nowMs: number,
+  days: number,
+): Promise<AdherenceInputs> {
+  const since = addDays(lagosLocalDate(nowMs), -(days + 1));
   const [cfgRes, medsRes, logsRes, anchors] = await Promise.all([
     supabase
       .from("medicine_config")
@@ -163,20 +170,32 @@ export async function loadAdherenceReport(
     return Array.isArray(spec?.anchored) && spec.anchored.length > 0;
   });
   if (hasAnchored && !anchors.loaded) return { ok: false, error: "Your daily times could not be read just now." };
-  const medicines = toAdherenceMedicines(meds, (logsRes.data ?? []) as LogRow[], anchors.profile);
-  const weeks = buildAdherenceReport(
-    medicines,
-    nowMs,
-    {
+  return {
+    ok: true,
+    medicines: toAdherenceMedicines(meds, (logsRes.data ?? []) as LogRow[], anchors.profile),
+    cfg: {
       windowDays: 7,
       minDoses: cfg.adherence_min_doses,
       missedAfterMinutes: cfg.missed_after_minutes,
       thresholdPercent: cfg.adherence_threshold_percent,
     },
-    weeksCount,
-  );
+  };
+}
+
+export async function loadAdherenceReport(
+  supabase: SupabaseClient<Database>,
+  patientId: string,
+  nowMs: number = Date.now(),
+  /** The doctor summary PDF covers the period the patient picked; the printed adherence report keeps its configured length. */
+  weeksOverride?: number,
+): Promise<AdherenceReportResult> {
+  const weeksCount = weeksOverride ?? reportWeeksConfig();
+  if (!Number.isInteger(weeksCount) || weeksCount < 1 || weeksCount > 26) return { ok: false, error: "The report period is not valid." };
+  const inputs = await loadAdherenceInputs(supabase, patientId, nowMs, weeksCount * 7);
+  if (!inputs.ok) return inputs;
+  const weeks = buildAdherenceReport(inputs.medicines, nowMs, inputs.cfg, weeksCount);
   return {
     ok: true,
-    data: { weeks, minDoses: cfg.adherence_min_doses, generatedAtMs: nowMs, hasScheduledMedicines: weeks.some((w) => w.due > 0) },
+    data: { weeks, minDoses: inputs.cfg.minDoses, generatedAtMs: nowMs, hasScheduledMedicines: weeks.some((w) => w.due > 0) },
   };
 }
