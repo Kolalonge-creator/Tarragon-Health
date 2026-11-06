@@ -196,7 +196,21 @@ Each line is one PR, one worktree, none merged without required CI and `/code-re
 
 See the PR description for the exact diff, tests and what was not checked in a browser.
 
-## 10. Open questions for the founder
+## 10. Founder answers (2026-11-06)
+
+Recorded as DW-01 to DW-06 in `docs/DECISIONS.md`.
+
+- **Q1 (DW-01):** named rows for all open work on the home worklist. Supersedes S35's claim-before-visible rule for the home page; pull-next claiming stays.
+- **Q2 (DW-02):** the section 7 sidebar layout is approved.
+- **Q3 (DW-03):** real new escalation states, so a schema change plus CMO review of the workflow.
+- **Q4 (DW-04):** converge on S21 `encounters`.
+- **Q5 (DW-05):** a doctor signs the whole care plan.
+- **Q6 (DW-06):** add a nurse role, designed first (permission matrix, NMCN scope, `/code-review ultra`) because it touches `is_org_staff()` and RLS.
+
+Revised order: sidebar regroup (G7), then the unified named worklist (G8) with patient search (G6), then the record header and tabs, then escalation states (G9) and handover (G10), then the nurse-role design, then care-plan signing (G16) and the single consultation system (G15).
+
+## 11. The questions as asked
+
 
 - **Q1. Names on the home worklist and a patient search.** S35 (2026-10-06) decided the queue shows counts by priority class only and the patient appears after a claim, and listed "browsable all-patients view" under not doing. The new spec asks for a named "Patients requiring your attention" table and a header patient search. `/clinician/patients` already lists patients by name, so the rule applies today to the pull-next queue only. Options: (a) keep pull-next for routine work and show named rows only for work already routed to this doctor (recommended: matches how escalations already work); (b) named rows for everything; (c) keep S35 as is.
 - **Q2. Sidebar regroup.** Approve the IA in section 7 (governance behind one entry)?
