@@ -12,14 +12,13 @@ import { useHealthStatusDomains } from "@/lib/queries/health-status";
  *
  * Status colours are the clinical system, which is why this zone sits on a white panel and never on the band's brand-green action zone.
  */
-export function HeroScoreZone({ patientId, eyebrow }: { patientId: string; eyebrow: string }) {
+export function HeroScoreZone({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = useHealthStatusDomains(patientId);
   const domains = data ?? [];
   const summary = healthStatusSummary(domains);
 
   return (
     <div className="flex flex-col justify-center gap-2.5 bg-white dark:bg-night-card p-6 sm:p-8">
-      <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{eyebrow}</p>
       <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
         How you&apos;re doing
       </p>
