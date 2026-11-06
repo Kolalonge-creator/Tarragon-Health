@@ -81,14 +81,13 @@ export async function loadPatientTimeline(
   supabase: ReturnType<typeof createClient>,
   patientId: string,
   limit: number,
-  offset: number
+  offset: number,
+  /** Only these event types (the full-history page's filters, lib/timeline/timeline-filters.ts). Omit for every type. */
+  types?: readonly TimelineEventType[] | null
 ): Promise<TimelineEvent[]> {
-  const { data, error } = await supabase
-    .from("patient_timeline")
-    .select("*")
-    .eq("patient_id", patientId)
-    .order("occurred_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+  let query = supabase.from("patient_timeline").select("*").eq("patient_id", patientId);
+  if (types) query = query.in("event_type", [...types]);
+  const { data, error } = await query.order("occurred_at", { ascending: false }).range(offset, offset + limit - 1);
   if (error) throw error;
 
   const actorIds = Array.from(
@@ -102,12 +101,18 @@ export async function loadPatientTimeline(
   })) as TimelineEvent[];
 }
 
-export function usePatientTimeline(patientId: string, limit = 50, offset = 0) {
+export function usePatientTimeline(
+  patientId: string,
+  limit = 50,
+  offset = 0,
+  types: readonly TimelineEventType[] | null = null
+) {
   return useQuery({
-    queryKey: ["patient-timeline", patientId, limit, offset],
+    // `types` is only added to the key when set, so every unfiltered caller keeps its existing key (and shares its cache).
+    queryKey: types ? ["patient-timeline", patientId, limit, offset, [...types]] : ["patient-timeline", patientId, limit, offset],
     queryFn: async () => {
       const supabase = createClient();
-      return loadPatientTimeline(supabase, patientId, limit, offset);
+      return loadPatientTimeline(supabase, patientId, limit, offset, types);
     },
     enabled: !!patientId,
     // A growing `limit` (the full-history page's pagination strategy) changes

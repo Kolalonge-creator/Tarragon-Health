@@ -231,18 +231,16 @@ type TimelineMonthGroup = { key: string; label: string; events: TimelineDisplayE
 // `data` always arrives newest-first (occurred_at desc), so grouping in
 // first-seen order naturally yields newest-month-first groups without a
 // separate sort pass.
-function groupEventsByMonth(events: TimelineDisplayEvent[]): TimelineMonthGroup[] {
+export function groupEventsByMonth(events: TimelineDisplayEvent[]): TimelineMonthGroup[] {
   const groups: TimelineMonthGroup[] = [];
   const indexByKey = new Map<string, number>();
   for (const event of events) {
     const occurred = new Date(event.occurred_at);
-    const key = `${occurred.getFullYear()}-${occurred.getMonth()}`;
+    // Lagos month, not the device's: an event at 00:30 Lagos on the 1st must not land in the previous month for a viewer abroad.
+    const key = occurred.toLocaleDateString("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit" });
     let idx = indexByKey.get(key);
     if (idx === undefined) {
-      const label = new Date(occurred.getFullYear(), occurred.getMonth(), 1).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
-        month: "long",
-        year: "numeric",
-      });
+      const label = occurred.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", month: "long", year: "numeric" });
       idx = groups.length;
       indexByKey.set(key, idx);
       groups.push({ key, label, events: [] });
@@ -262,9 +260,15 @@ export function PatientTimeline({
   hasMore = false,
   isLoadingMore = false,
   allowNotes = false,
+  types = null,
+  emptyText,
 }: {
   patientId: string;
   limit?: number;
+  /** Only these event types (the full-history page's filters). Omit for every type. */
+  types?: readonly TimelineEventType[] | null;
+  /** Replaces the default empty line, e.g. when a filter is on. */
+  emptyText?: string;
   /** Group events under a month/year heading (newest month first) instead of
    * one flat list — the full-history page's presentation. Default `false`
    * keeps every existing usage (the Overview preview, both clinician views)
@@ -290,7 +294,7 @@ export function PatientTimeline({
   /** S44 (spec 2.14): shows "add a note" and "this looks wrong" on each item. Only the person's own timeline sets it; a clinician view never does. */
   allowNotes?: boolean;
 }) {
-  const { data: raw, isLoading, isError } = usePatientTimeline(patientId, limit);
+  const { data: raw, isLoading, isError } = usePatientTimeline(patientId, limit, 0, types);
   const data = raw ? collapseScreeningBursts(raw) : raw;
   const monthGroups = groupByMonth && data ? groupEventsByMonth(data) : null;
 
@@ -315,8 +319,8 @@ export function PatientTimeline({
         )}
         {!isLoading && !isError && (!data || data.length === 0) && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-            No activity yet. Lab results, medications, screenings and more will appear here as they
-            happen.
+            {emptyText ??
+              "No activity yet. Lab results, medications, screenings and more will appear here as they happen."}
           </p>
         )}
         {data && data.length > 0 && (

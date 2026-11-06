@@ -1,132 +1,47 @@
 /**
- * loadResultDocuments used to mint each document's signed URL with its own
- * Storage API round trip (Promise.all(rows.map(async (row) => ... createSignedUrl))),
- * so a patient (or an org's clinician view) with N result documents fired N
- * separate signed-URL requests on every page load — a real N+1, not just a
- * scale concern, on both the patient dashboard and the clinician patient
- * detail page that both call this function. This proves the fix: one batched
- * createSignedUrls call regardless of row count, with each document still
- * getting the right URL back even when the storage API returns them in a
- * different order than requested.
+ * P10: the result page's loaders tell a failed read apart from "not there", so the page never says "not found" or "this is
+ * the first one" when it simply could not check.
  */
-
-const createSignedUrls = jest.fn();
-
-jest.mock("@/lib/supabase/service-role", () => ({
-  createServiceRoleClient: () => ({
-    // T2-08 hold check: nothing is held in these fixtures.
-    rpc: async () => ({ data: [], error: null }),
-    storage: {
-      from: () => ({
-        createSignedUrls,
-      }),
-    },
-  }),
+jest.mock("server-only", () => ({}));
+jest.mock("@/lib/supabase/sign-storage-paths", () => ({
+  signStoragePaths: async (_bucket: string, paths: string[]) => new Map(paths.map((p) => [p, `https://signed/${p}`])),
 }));
 
-import { loadResultDocuments } from "./documents";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadEarlierResultDocuments, loadResultDocument } from "./documents";
 
-function fakeSupabase(rows: Array<Record<string, unknown>>) {
-  return {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          order: () => Promise.resolve({ data: rows, error: null }),
-        }),
-      }),
-    }),
-  } as unknown as SupabaseClient;
+function supabaseReturning(result: { data: unknown; error: unknown }) {
+  const b: Record<string, unknown> = {};
+  for (const m of ["select", "eq", "lt", "order"]) b[m] = () => b;
+  b.maybeSingle = async () => result;
+  b.limit = async () => result;
+  return { from: () => b } as never;
 }
 
-function row(id: string, filePath: string) {
-  return {
-    id,
-    source: "patient",
-    original_filename: `${id}.pdf`,
-    mime_type: "application/pdf",
-    note: null,
-    test_code: null,
-    created_at: "2026-09-01T00:00:00Z",
-    file_path: filePath,
-    reviewed_by: null,
-    reviewed_at: null,
-    review_note: null,
-    patient_interpretation: null,
-    next_steps: null,
-    interpretation_sent_at: null,
-    acknowledgement_status: "new",
-    action_completed_at: null,
-    ai_summary_status: "not_applicable",
-    ai_summary_generated_at: null,
-    supersedes_document_id: null,
-    superseded_by_document_id: null,
-    superseded_at: null,
-  };
-}
-
-describe("loadResultDocuments — signed URL batching", () => {
-  beforeEach(() => {
-    createSignedUrls.mockReset();
+describe("loadResultDocument", () => {
+  it("reports a failed read as a failure, not as missing", async () => {
+    expect(await loadResultDocument(supabaseReturning({ data: null, error: { message: "boom" } }), "p1", "d1")).toEqual({ ok: false });
   });
 
-  it("mints every document's signed URL in a single Storage call, not one per document", async () => {
-    const rows = [row("doc-1", "patients/p1/a.pdf"), row("doc-2", "patients/p1/b.pdf"), row("doc-3", "patients/p1/c.pdf")];
-    // Deliberately returned out of request order — a naive index-based
-    // zip would silently mis-attribute URLs to the wrong document.
-    createSignedUrls.mockResolvedValue({
-      data: [
-        { path: "patients/p1/c.pdf", signedUrl: "https://signed/c" },
-        { path: "patients/p1/a.pdf", signedUrl: "https://signed/a" },
-        { path: "patients/p1/b.pdf", signedUrl: "https://signed/b" },
-      ],
-      error: null,
-    });
-
-    const documents = await loadResultDocuments(fakeSupabase(rows), "patient-1");
-
-    expect(createSignedUrls).toHaveBeenCalledTimes(1);
-    expect(createSignedUrls).toHaveBeenCalledWith(
-      ["patients/p1/a.pdf", "patients/p1/b.pdf", "patients/p1/c.pdf"],
-      300,
-    );
-    expect(documents.find((d) => d.id === "doc-1")?.signedUrl).toBe("https://signed/a");
-    expect(documents.find((d) => d.id === "doc-2")?.signedUrl).toBe("https://signed/b");
-    expect(documents.find((d) => d.id === "doc-3")?.signedUrl).toBe("https://signed/c");
+  it("returns null when the document is not visible", async () => {
+    expect(await loadResultDocument(supabaseReturning({ data: null, error: null }), "p1", "d1")).toEqual({ ok: true, doc: null });
   });
 
-  it("never calls the Storage API at all when there are no documents", async () => {
-    const documents = await loadResultDocuments(fakeSupabase([]), "patient-1");
-    expect(documents).toEqual([]);
-    expect(createSignedUrls).not.toHaveBeenCalled();
+  it("returns the document with a signed link to the original", async () => {
+    const row = { id: "d1", file_path: "p1/a.pdf", mime_type: "application/pdf", ai_flagged_analytes: null, created_at: "2026-11-01T10:00:00Z" };
+    const loaded = await loadResultDocument(supabaseReturning({ data: row, error: null }), "p1", "d1");
+    expect(loaded.ok && loaded.doc?.signedUrl).toBe("https://signed/p1/a.pdf");
+    expect(loaded.ok && loaded.doc?.isPdf).toBe(true);
   });
+});
 
-  it("falls a document back to a null signedUrl if the batch response omits its path, instead of throwing", async () => {
-    const rows = [row("doc-1", "patients/p1/a.pdf")];
-    createSignedUrls.mockResolvedValue({ data: [], error: null });
-
-    const documents = await loadResultDocuments(fakeSupabase(rows), "patient-1");
-
-    expect(documents[0].signedUrl).toBeNull();
-  });
-
-  it("logs a request-level batch failure instead of silently returning every document with a null URL", async () => {
-    // Batching trades per-document failure isolation for one round trip: a
-    // request-level failure (not a per-object one) now zeroes out every
-    // document in the batch at once, and would look identical to "no
-    // documents to show" unless the error itself is surfaced somewhere.
-    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
-    const rows = [row("doc-1", "patients/p1/a.pdf"), row("doc-2", "patients/p1/b.pdf")];
-    createSignedUrls.mockResolvedValue({
-      data: null,
-      error: { message: "storage: service unavailable" },
-    });
-
-    const documents = await loadResultDocuments(fakeSupabase(rows), "patient-1");
-
-    expect(documents.every((d) => d.signedUrl === null)).toBe(true);
-    expect(consoleError).toHaveBeenCalledTimes(1);
-    expect(consoleError.mock.calls[0][0]).toEqual(expect.stringContaining("2"));
-    consoleError.mockRestore();
+describe("loadEarlierResultDocuments", () => {
+  it("returns null on a failed read and marks only explained results as interpreted", async () => {
+    expect(await loadEarlierResultDocuments(supabaseReturning({ data: null, error: { message: "boom" } }), "p1", "hba1c", "x")).toBeNull();
+    const rows = [
+      { id: "a", created_at: "1", interpretation_sent_at: "t", patient_interpretation: "Fine" },
+      { id: "b", created_at: "2", interpretation_sent_at: "t", patient_interpretation: null },
+    ];
+    const earlier = await loadEarlierResultDocuments(supabaseReturning({ data: rows, error: null }), "p1", "hba1c", "x");
+    expect(earlier?.map((r) => r.interpreted)).toEqual([true, false]);
   });
 });
