@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "./notification-bell";
 import { PushSubscribePrompt } from "./push-subscribe-prompt";
 import { DeviceHeartbeat } from "./device-heartbeat";
+import { PatientSearchBox } from "./patient-search-box";
 import { ProfileMenu } from "./profile-menu";
 import { AdminSearch } from "./admin-search";
 import type { AdminSearchEntry } from "@/lib/admin-search";
@@ -519,9 +520,12 @@ export function AppShell({
   signOutAction,
   adminSearch,
   searchKind,
+  patientSearch,
   hrefBadges,
   children,
 }: {
+  /** Shows the header "Find a patient" box (clinicians and care coordinators, who can open the patient directory). */
+  patientSearch?: boolean;
   /** Counts shown beside specific links, computed on the server (href to count). A failed read shows the amber dot, never a hidden zero. */
   hrefBadges?: Record<string, { count: number; failed: boolean }>;
   /** Pages the admin can reach, for the header search box. Passed for the admin role only; other roles get no box. */
@@ -780,6 +784,7 @@ export function AppShell({
             </div>
             <div className="flex items-center gap-3 text-sm">
               {surface === "warm" && <ThemeToggle theme={theme} onChange={setTheme} />}
+              {patientSearch && <PatientSearchBox />}
               {adminSearch && adminSearch.length > 0 && <AdminSearch entries={adminSearch} kind={searchKind} />}
               <DeviceHeartbeat />
               <PushSubscribePrompt />

@@ -13,12 +13,25 @@ import { setReminderFrequencySchema } from "@/lib/validation/patient-reminder-gr
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatPatientDate } from "@/lib/format-date";
+import { calendarAgeInYears } from "@tarragon/shared";
+
+/** "DOB 3 Sept 1970 (55), female": the date of birth and sex, each only when known. */
+function identityLine(dateOfBirth: string | null, sex: "male" | "female" | null): string | null {
+  const age = calendarAgeInYears(dateOfBirth, new Date());
+  const dob = dateOfBirth && age !== null ? `DOB ${formatPatientDate(dateOfBirth)} (${age})` : null;
+  const parts = [dob, sex].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
 
 type Patient = {
   id: string;
   full_name: string | null;
   patient_number: string | null;
   phone: string | null;
+  /** Shown so two patients with the same name can be told apart (spec 6, 25, 28). Optional for other callers. */
+  date_of_birth?: string | null;
+  sex?: "male" | "female" | null;
 };
 
 type FrequencyPreset = "weekly" | "every_3_days" | "custom";
@@ -131,8 +144,9 @@ export function ReminderFrequencySelector({ patients }: { patients: Patient[] })
                   {p.full_name ?? "Unnamed patient"}
                 </span>
                 <span className="block text-xs text-charcoal-ink/50">
-                  {p.patient_number ?? "No patient number"}
-                  {p.phone ? ` · ${p.phone}` : ""}
+                  {[p.patient_number ?? "No patient number", identityLine(p.date_of_birth ?? null, p.sex ?? null), p.phone]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               </span>
               <span aria-hidden className="text-charcoal-ink/30">

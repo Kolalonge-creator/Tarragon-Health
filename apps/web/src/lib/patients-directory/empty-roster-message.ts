@@ -51,7 +51,7 @@ export function emptyRosterMessage({
   const trimmedCondition = condition?.trim();
   const trimmedQ = q?.trim();
   const clauses: string[] = [];
-  if (trimmedQ) clauses.push(`a name matching “${trimmedQ}”`);
+  if (trimmedQ) clauses.push(`a name, Tarragon number or phone matching “${trimmedQ}”`);
   if (trimmedCondition) clauses.push(`a condition on file matching “${trimmedCondition}”`);
 
   if (clauses.length > 0) {

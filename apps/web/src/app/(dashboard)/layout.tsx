@@ -218,6 +218,8 @@ export default async function DashboardLayout({
           hiddenPatientHrefs,
         )}
         // The search box for the admin and the Chief Medical Officer: every page they can reach, built from the lists that draw the menus.
+        // G6: every clinician and care coordinator can find a patient from any page (the directory is in both allow-lists).
+        patientSearch={profile?.role === "clinician" || profile?.role === "care_coordinator"}
         adminSearch={adminSearchEntries}
         searchKind={isPatient ? "patient" : "admin"}
         // The Chief Medical Officer's pending-signature count beside "Sign-off hub", from the same list the banner and the hub show.

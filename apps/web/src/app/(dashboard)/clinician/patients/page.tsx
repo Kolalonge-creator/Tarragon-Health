@@ -1,3 +1,4 @@
+import { describePatientSearch, escapeLike, parsePatientSearchQuery } from "@tarragon/shared";
 import Link from "next/link";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +36,7 @@ export default async function ClinicianPatientsPage({
   // ?condition=a&condition=b) — guarded for both search inputs on this page,
   // not just the one this diff adds.
   const q = Array.isArray(qParam) ? qParam[0] : qParam;
+  const search = parsePatientSearchQuery(q);
   const condition = Array.isArray(conditionParam) ? conditionParam[0] : conditionParam;
   // `mine=1` is the pre-existing link shape (still used by the Monitoring
   // view toggle) — treated as a synonym for filter=mine rather than removed.
@@ -99,20 +101,34 @@ export default async function ClinicianPatientsPage({
   const scopeApplied = !!filter || !!condition?.trim();
 
   let rosterFailed = false;
-  let patients: { id: string; full_name: string | null; patient_number: string | null; phone: string | null }[] = [];
+  let patients: { id: string; full_name: string | null; patient_number: string | null; phone: string | null; date_of_birth: string | null; sex: "male" | "female" | null }[] = [];
   if (!scopeFailed && (!scopeApplied || (restrictedIds && restrictedIds.length > 0))) {
     // INV-13: a test account (profiles.is_test) is never a real doctor's
     // patient. Without this filter "First Patient" and the other QA accounts
     // sat in the roster next to real people with nothing to tell them apart.
     let query = supabase
       .from("profiles")
-      .select("id, full_name, patient_number, phone")
+      .select("id, full_name, patient_number, phone, date_of_birth, sex")
       .eq("role", "patient")
       .eq("is_test", false)
       .order("full_name", { ascending: true })
       .limit(200);
-    if (q?.trim()) {
-      query = query.ilike("full_name", `%${q.trim()}%`);
+    // DW-01/G6: one box finds a patient by name, Tarragon number (TH-…) or phone (matched in E.164).
+    switch (search.kind) {
+      case "name":
+        query = query.ilike("full_name", `%${escapeLike(search.text)}%`);
+        break;
+      case "number":
+        query = query.ilike("patient_number", `%${search.digits}`);
+        break;
+      case "phone":
+        query = query.eq("phone", search.e164);
+        break;
+      case "phone_fragment":
+        query = query.ilike("phone", `%${search.digits}%`);
+        break;
+      case "empty":
+        break;
     }
     if (restrictedIds) {
       query = query.in("id", restrictedIds);
@@ -120,6 +136,11 @@ export default async function ClinicianPatientsPage({
     const { data, error } = await query;
     rosterFailed = error !== null;
     patients = data ?? [];
+    // A number search matches by suffix (TH-000123 and TH-001123 both end in 123); the exact one goes first.
+    if (search.kind === "number") {
+      const exact = (n: string | null) => (n ? Number(n.replace(/\D/g, "")) === Number(search.digits) : false);
+      patients = [...patients].sort((a, b) => Number(exact(b.patient_number)) - Number(exact(a.patient_number)));
+    }
     // "Recent" has a real order (most-recently-viewed first) that the
     // full_name sort above would otherwise discard.
     if (filter === "recent" && restrictedIds) {
@@ -164,8 +185,8 @@ export default async function ClinicianPatientsPage({
             type="search"
             name="q"
             defaultValue={q ?? ""}
-            placeholder="Search by name"
-            aria-label="Search patients by name"
+            placeholder="Name, Tarragon number or phone"
+            aria-label="Search patients by name, Tarragon number or phone"
             className="w-full max-w-sm rounded-lg border border-charcoal-ink/15 bg-white px-3 py-2 text-sm text-charcoal-ink placeholder:text-charcoal-ink/40 focus:border-brand-green focus:outline-none"
           />
           <input
@@ -211,7 +232,7 @@ export default async function ClinicianPatientsPage({
             {[
               filter ? FILTER_TABS.find((t) => t.value === filter)?.label : null,
               condition?.trim() ? `Condition: “${condition.trim()}”` : null,
-              q?.trim() ? `Name: “${q.trim()}”` : null,
+              describePatientSearch(search),
             ]
               .filter((part): part is string => !!part)
               .join(" · ") || "All patients"}
