@@ -13,7 +13,7 @@ import { Avatar } from "@/components/avatar";
 import { TestAccountBadge } from "@/components/clinical/test-account-badge";
 import { MaskedCallButton } from "@/components/masked-call-button";
 import { readAuditedSection } from "@/lib/clinical/audited-chart";
-import { ageSexLine, allergyHeaderView } from "@/lib/clinical/allergy-header-view";
+import { ageInYears, ageSexLine, allergyHeaderView } from "@/lib/clinical/allergy-header-view";
 import { PatientSafetyStrip } from "./patient-safety-strip";
 import { StaffPatientChat } from "@/components/clinical/staff-patient-chat";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
@@ -171,15 +171,16 @@ export default async function ClinicianPatientPage({
 
   // Doctor workspace spec 11.2: allergies in the header on every tab. Read through the audited, tie-gated chart path
   // (INV-10) after openPatientRecord, which grants the read window. A refused or failed read is shown as such, never as "none".
-  const headerAllergies = allergyHeaderView(await readAuditedSection(supabase, patient.id, "allergies"));
 
   // Read-access audit: a trigger can log who changed a patient row, but not who merely
   // opened it — this is the one explicit read-logging call site on the platform so far
   // (see 20260812034612_clinician_patient_record_view_audit.sql). Best-effort: a logging
   // failure must never block the clinician from seeing the patient's notes.
-  const { error: viewLogError } = await supabase.rpc("log_patient_record_view", {
-    p_patient_id: patient.id,
-  });
+  const [{ error: viewLogError }, headerAllergyRead] = await Promise.all([
+    supabase.rpc("log_patient_record_view", { p_patient_id: patient.id }),
+    readAuditedSection(supabase, patient.id, "allergies"),
+  ]);
+  const headerAllergies = allergyHeaderView(headerAllergyRead);
   if (viewLogError) {
     console.error("Failed to log patient record view", viewLogError);
   }
@@ -557,7 +558,7 @@ export default async function ClinicianPatientPage({
           {patient.phone && <p className="text-charcoal-ink/60">{patient.phone}</p>}
           <div className="mt-2">
             <PatientSafetyStrip
-              ageSex={ageSexLine(ageFromDateOfBirth(patient.date_of_birth), patient.sex)}
+              ageSex={ageSexLine(ageInYears(patient.date_of_birth, new Date()), patient.sex)}
               allergies={headerAllergies}
             />
           </div>

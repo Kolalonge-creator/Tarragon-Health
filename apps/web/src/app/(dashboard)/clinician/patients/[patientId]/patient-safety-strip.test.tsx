@@ -28,11 +28,11 @@ describe("PatientSafetyStrip", () => {
           ageSex={null}
           allergies={{
             kind: "list",
-            items: [{ id: "1", substance: "Penicillin", severity: "severe", provenance: "patient_reported" }],
+            items: [{ id: "1", substance: "Penicillin", severity: "severe", provenance: "patient" }],
           }}
         />,
       ),
     );
-    expect(out).toContain("Penicillin, severe (Patient-reported, not yet confirmed)");
+    expect(out).toContain("Penicillin, severe (Entered by the patient)");
   });
 });

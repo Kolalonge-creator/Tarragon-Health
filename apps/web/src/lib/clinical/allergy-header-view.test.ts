@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { ageSexLine, allergyHeaderView } from "./allergy-header-view";
+import { ageInYears, ageSexLine, allergyHeaderView, provenanceLabel } from "./allergy-header-view";
 
 type Row = Parameters<typeof allergyHeaderView>[0] extends infer R
   ? R extends { status: "ok"; rows: (infer X)[] }
@@ -32,10 +32,21 @@ describe("allergyHeaderView", () => {
   it("an empty successful read is 'none'", () => {
     expect(allergyHeaderView({ status: "ok", rows: [] })).toEqual({ kind: "none" });
   });
-  it("refuted entries are left out; if only refuted remain it is 'none'", () => {
-    expect(allergyHeaderView({ status: "ok", rows: [row({ verification_status: "refuted" })] })).toEqual({ kind: "none" });
+  it("a refuted entry is shown last, labelled, never silently dropped", () => {
+    const view = allergyHeaderView({
+      status: "ok",
+      rows: [row({ id: "r", substance: "Aspirin", severity: "severe", verification_status: "refuted" }), row({ id: "p", substance: "Latex" })],
+    });
+    expect(view).toEqual({
+      kind: "list",
+      items: [
+        { id: "p", substance: "Latex", severity: null, provenance: "patient" },
+        { id: "r", substance: "Aspirin", severity: "severe", provenance: "ruled_out" },
+      ],
+    });
+    expect(provenanceLabel("ruled_out")).toBe("Marked as not an allergy by a clinician");
   });
-  it("orders severe first, then by name, and labels provenance", () => {
+  it("orders severe first, then by name, with the same provenance as the doctor summary PDF", () => {
     const view = allergyHeaderView({
       status: "ok",
       rows: [
@@ -48,10 +59,10 @@ describe("allergyHeaderView", () => {
     expect(view).toEqual({
       kind: "list",
       items: [
-        { id: "4", substance: "Codeine", severity: "severe", provenance: "patient_reported" },
-        { id: "2", substance: "Sulfa", severity: "severe", provenance: "confirmed" },
-        { id: "1", substance: "Latex", severity: "mild", provenance: "recorded_by_clinician" },
-        { id: "3", substance: "Aspirin", severity: null, provenance: "imported_unchecked" },
+        { id: "4", substance: "Codeine", severity: "severe", provenance: "patient" },
+        { id: "2", substance: "Sulfa", severity: "severe", provenance: "clinician" },
+        { id: "1", substance: "Latex", severity: "mild", provenance: "clinician" },
+        { id: "3", substance: "Aspirin", severity: null, provenance: "imported" },
       ],
     });
   });
@@ -70,5 +81,17 @@ describe("ageSexLine", () => {
   it("drops an impossible age", () => {
     expect(ageSexLine(-2, "male")).toBe("male");
     expect(ageSexLine(Number.NaN, null)).toBeNull();
+  });
+});
+
+describe("ageInYears", () => {
+  it("does not count a birthday that is tomorrow in Lagos", () => {
+    expect(ageInYears("2008-11-07", new Date("2026-11-06T12:00:00Z"))).toBe(17);
+    expect(ageInYears("2008-11-07", new Date("2026-11-06T23:30:00Z"))).toBe(18);
+  });
+  it("is null for a missing or impossible date", () => {
+    expect(ageInYears(null, new Date())).toBeNull();
+    expect(ageInYears("not-a-date", new Date())).toBeNull();
+    expect(ageInYears("2030-01-01", new Date("2026-01-01T00:00:00Z"))).toBeNull();
   });
 });

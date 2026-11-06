@@ -10,7 +10,7 @@ import type { CriticalBannerView } from "@tarragon/shared";
 export function CriticalAttentionBanner({ view }: { view: CriticalBannerView }) {
   if (view.kind === "none") return null;
   const { count, firstId } = view;
-  const noun = count === 1 ? "emergency case needs" : "emergency cases need";
+  const noun = count === 1 ? "case is open" : "cases are open";
   return (
     <section
       role="alert"
@@ -20,7 +20,7 @@ export function CriticalAttentionBanner({ view }: { view: CriticalBannerView }) 
       <p className="flex items-start gap-2 text-sm font-medium">
         <AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
         <span>
-          <span className="font-semibold">Emergency:</span> {count} {noun} review now.
+          <span className="font-semibold">Emergency:</span> {count} {noun} for you or unassigned.
         </span>
       </p>
       <div className="flex flex-wrap gap-2">

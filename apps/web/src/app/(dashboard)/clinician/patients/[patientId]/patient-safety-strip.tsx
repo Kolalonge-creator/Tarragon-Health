@@ -1,4 +1,4 @@
-import { PROVENANCE_LABEL, type AllergyHeaderView } from "@/lib/clinical/allergy-header-view";
+import { provenanceLabel, type AllergyHeaderView } from "@/lib/clinical/allergy-header-view";
 
 /**
  * Patient-record header safety line (doctor workspace spec 11.1, 11.2, 28): age and sex, then allergies with
@@ -43,14 +43,16 @@ function AllergyContent({ view }: { view: AllergyHeaderView }) {
         <li
           key={a.id}
           className={
-            a.severity === "severe"
+            a.provenance === "ruled_out"
+              ? "rounded-md border border-charcoal-ink/20 bg-white px-2 py-0.5 text-charcoal-ink/70 line-through decoration-charcoal-ink/40"
+              : a.severity === "severe"
               ? "rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-red-900"
               : "rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-amber-900"
           }
         >
           <span className="font-semibold">{a.substance}</span>
           {a.severity && <span>, {a.severity}</span>}
-          <span className="text-xs opacity-80"> ({PROVENANCE_LABEL[a.provenance]})</span>
+          <span className="text-xs opacity-80"> ({provenanceLabel(a.provenance)})</span>
         </li>
       ))}
     </ul>
