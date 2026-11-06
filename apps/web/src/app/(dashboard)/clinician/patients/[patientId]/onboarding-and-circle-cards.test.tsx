@@ -1,9 +1,14 @@
-/** @jest-environment node */
+/** @jest-environment jsdom */
 import { describe, expect, it } from "@jest/globals";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CareCircleCard, OnboardingAnswersCard } from "./onboarding-and-circle-cards";
 
-const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;|&apos;/g, "'").replace(/\s+/g, " ");
+// Read the rendered text through the DOM (not a tag-stripping regex), so entities decode and no markup can slip through.
+const text = (html: string) => {
+  const box = document.createElement("div");
+  box.innerHTML = html;
+  return (box.textContent ?? "").replace(/\s+/g, " ").trim();
+};
 
 describe("OnboardingAnswersCard", () => {
   it("labels the answers as the patient's own, not a diagnosis", () => {
