@@ -158,6 +158,26 @@ body {
   font-family: var(--font-inter), Arial, Helvetica, sans-serif;
 }
 
+/* Default border colour (2026-11-06 visual pass). Tailwind v4 draws a bare `border` / `border-t` in the text colour, so every
+   divider written without a colour came out as a near-black rule (the patient Labs card, table rows). A soft ink tint is
+   the default now; any border-* colour utility still wins, because utilities sit in a later layer than base. Imported after
+   tailwindcss, so this follows preflight's own `border: 0 solid`. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: color-mix(in srgb, var(--charcoal-ink) 12%, transparent);
+  }
+  [data-theme="dark"],
+  [data-theme="dark"] *,
+  [data-theme="dark"] ::after,
+  [data-theme="dark"] ::before {
+    border-color: color-mix(in srgb, var(--night-ink) 15%, transparent);
+  }
+}
+
 /*
  * Night (dark) theme - scoped to the PATIENT surface only, via a
  * data-theme attribute AppShell sets on its own root when the signed-in

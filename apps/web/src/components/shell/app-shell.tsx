@@ -15,7 +15,7 @@ import { AdminSearch } from "./admin-search";
 import type { AdminSearchEntry } from "@/lib/admin-search";
 import { ThemeToggle, type ThemePreference } from "./theme-toggle";
 import { Avatar } from "@/components/avatar";
-import { itemIsActive, primaryNavItems, type NavItem, type NavSection } from "@/lib/navigation";
+import { itemIsActive, primaryNavItems, tabIsActive, type NavItem, type NavSection } from "@/lib/navigation";
 import { NavMoreItems } from "./nav-more-items";
 import { UiLanguageProvider, useT } from "@/components/ui-language-provider";
 import { useSupportingAttention } from "@/lib/queries/care-circle";
@@ -58,6 +58,8 @@ function BottomTabBar({
   const tr = useT();
   const tabClass =
     "flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[11px] font-medium leading-tight";
+  // A page no tab covers lives behind More, so More lights up there; otherwise the bar showed nothing active at all.
+  const moreActive = showMore && !items.some((item) => tabIsActive(pathname, item));
 
   return (
     <nav
@@ -66,7 +68,7 @@ function BottomTabBar({
     >
       <ul className="flex items-stretch">
         {items.map((item) => {
-          const active = itemIsActive(pathname, item);
+          const active = tabIsActive(pathname, item);
           const Icon = APP_ICON[item.icon];
           return (
             <li key={item.href} className="flex flex-1">
@@ -101,10 +103,16 @@ function BottomTabBar({
               type="button"
               onClick={onMore}
               aria-label="Open menu"
-              className={cn(tabClass, "text-charcoal-ink/55 dark:text-night-ink/60")}
+              className={cn(
+                tabClass,
+                moreActive ? "text-deep-forest dark:text-brand-green-bright" : "text-charcoal-ink/55 dark:text-night-ink/60"
+              )}
             >
               <NAV_ICON.menu
-                className="h-5 w-5 text-charcoal-ink/45 dark:text-night-ink/55"
+                className={cn(
+                  "h-5 w-5",
+                  moreActive ? "text-brand-green dark:text-brand-green-bright" : "text-charcoal-ink/45 dark:text-night-ink/55"
+                )}
                 strokeWidth={2}
               />
               <span>{tr("More")}</span>
