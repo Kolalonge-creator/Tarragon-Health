@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import {
   getRoleHomePath,
@@ -50,16 +50,20 @@ async function isMfaRequiredForPhoneCaller(token: string): Promise<boolean> {
 export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
   const { pathname } = request.nextUrl;
-  if (!shouldAddNonceCsp(host, pathname)) return proxyInner(request);
+  // Page loads only (GET/HEAD): that is where Next renders scripts, and a POST (a server action) keeps its body untouched.
+  if (!shouldAddNonceCsp(host, pathname) || (request.method !== "GET" && request.method !== "HEAD")) return proxyInner(request);
   const policy = buildNonceCsp(newCspNonce(), {
     inAppCall: isConsultationCallPath(pathname),
     dev: process.env.NODE_ENV === "development",
   });
-  // The REQUEST header is the plain Content-Security-Policy name, as in Next's own guide: production on Vercel dropped the
-  // report-only name before render (2026-11-05: header live on the response, zero nonced scripts on a dynamic page). A request
-  // header is never enforced by anything; only the response header reaches the browser, and that one stays report-only.
-  request.headers.set("content-security-policy", policy);
-  const response = await proxyInner(request);
+  // A NEW request with CLONED headers, the way Vercel's routing docs forward a header. Setting the header on request.headers in
+  // place worked locally but never reached the renderer in production (2026-11-05: policy on the response, 0 nonced scripts on a
+  // per-request page). The REQUEST header uses the plain name Next reads first; it is never enforced by anything. Only the
+  // response header reaches the browser, and it stays report-only.
+  const forwarded = new Headers(request.headers);
+  forwarded.set("content-security-policy", policy);
+  const withNonce = new NextRequest(request.url, { method: request.method, headers: forwarded });
+  const response = await proxyInner(withNonce);
   response.headers.set("Content-Security-Policy-Report-Only", policy);
   return response;
 }
