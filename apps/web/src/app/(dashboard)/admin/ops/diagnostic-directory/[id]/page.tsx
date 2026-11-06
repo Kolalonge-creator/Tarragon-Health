@@ -173,6 +173,11 @@ function Branch({ d, b, tests, partners, isAdmin }: { d: Detail; b: DetailBranch
           <Hidden values={{ listing_id: d.listing_id, branch_listing_id: branchId }} />
           <input name="source" required minLength={5} maxLength={200} placeholder={t("dxdir.f.source", locale)} className={input} />
           <input name="note" required minLength={10} maxLength={500} placeholder={t("dxdir.f.note", locale)} className={input} />
+          <div className="grid grid-cols-2 gap-2">
+            <input name="latitude" type="number" step="any" min={4} max={14} defaultValue={b.latitude ?? undefined} placeholder={t("dxdir.f.latitude", locale)} className={input} />
+            <input name="longitude" type="number" step="any" min={2.6} max={14.7} defaultValue={b.longitude ?? undefined} placeholder={t("dxdir.f.longitude", locale)} className={input} />
+          </div>
+          <p className="text-xs text-charcoal-ink/60">{t("dxdir.f.position_hint", locale)}</p>
           <label className="flex items-center gap-2 text-xs text-charcoal-ink"><input type="checkbox" name="hours_checked" /> {t("dxdir.f.hours_checked", locale)}</label>
           <button type="submit" className={`${btn} bg-brand-green text-white`}>{t("dxdir.f.save", locale)}</button>
         </form>
