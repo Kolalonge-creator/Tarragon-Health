@@ -75,7 +75,11 @@ export function PhotoBannerHero({
         alt={imageAlt}
         fill
         priority
-        sizes="100vw"
+        // On a phone the photo sits under a 70-85% dark overlay behind the text, so a 640px-wide file looks the same
+        // as the 1080px one a 100vw hint would pick, at about half the bytes; on a slow connection that is the
+        // difference between the hero arriving inside or outside the 2.5s LCP target (launch check 2026-11-06).
+        // 240px x a typical 2.6 device-pixel ratio selects the 640w candidate.
+        sizes="(max-width: 639px) 240px, 100vw"
         style={{ objectPosition: imagePosition }}
         className="object-cover"
       />
@@ -93,7 +97,7 @@ export function PhotoBannerHero({
         />
       ) : null}
       <div
-        className="absolute inset-0 bg-gradient-to-t from-charcoal-ink/85 via-charcoal-ink/30 to-transparent sm:bg-gradient-to-r sm:from-charcoal-ink/80 sm:via-charcoal-ink/35 sm:to-transparent"
+        className="absolute inset-0 bg-gradient-to-t from-charcoal-ink/85 via-charcoal-ink/75 to-charcoal-ink/70 sm:bg-gradient-to-r sm:from-charcoal-ink/80 sm:via-charcoal-ink/35 sm:to-transparent"
         aria-hidden
       />
       <div className="relative flex min-h-[420px] flex-col justify-end px-4 py-10 sm:min-h-[460px] sm:justify-center sm:px-0 sm:py-14 lg:min-h-[560px] lg:py-16">
