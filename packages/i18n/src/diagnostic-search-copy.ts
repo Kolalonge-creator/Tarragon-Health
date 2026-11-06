@@ -39,6 +39,7 @@ export const diagnosticSearchCopy = {
   "dxsearch.find.sent_elsewhere": "Sample sent to another laboratory",
   "dxsearch.find.details": "Branch details",
   "dxsearch.find.more": "Show more",
+  "dxsearch.find.change_test": "Choose a different test",
   "dxsearch.branch.back": "Back to labs and bookings",
   "dxsearch.branch.not_found": "This branch is not in the directory right now.",
   "dxsearch.branch.tests": "Tests this branch does that we have checked",

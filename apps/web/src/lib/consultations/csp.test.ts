@@ -13,7 +13,7 @@ const csp = (rule: Rule) => rule.headers.find((h) => h.key === "Content-Security
 
 describe("Content-Security-Policy for the in-app call", () => {
   it("keeps the strict policy everywhere else: no Zoom host, no wasm eval, no blob scripts", async () => {
-    const all = (await rules()).find((r) => r.source === "/(.*)");
+    const all = (await rules()).find((r) => r.source === "/(.*)" && csp(r) !== "");
     const value = csp(all!);
     expect(value).toContain("default-src 'self'");
     expect(value).not.toMatch(/zoom/);
@@ -54,17 +54,17 @@ describe("Content-Security-Policy for the in-app call", () => {
     expect(csp(guest!)).toBe(csp(room!));
     // the supporter's other pages keep the strict policy
     expect(list.filter((r) => /supporting/.test(r.source) && csp(r).includes("zoom")).map((r) => r.source)).toEqual(["/patient/supporting/consultation/:encounterId"]);
-    expect(list.findIndex((r) => r === guest)).toBeGreaterThan(list.findIndex((r) => r.source === "/(.*)"));
+    expect(list.findIndex((r) => r === guest)).toBeGreaterThan(list.findIndex((r) => r.source === "/(.*)" && csp(r) !== ""));
   });
 
   it("is declared after the general rule, because the last matching rule wins for the same header", async () => {
     const list = await rules();
-    expect(list.findIndex((r) => r.source.includes("consultation"))).toBeGreaterThan(list.findIndex((r) => r.source === "/(.*)"));
+    expect(list.findIndex((r) => r.source.includes("consultation"))).toBeGreaterThan(list.findIndex((r) => r.source === "/(.*)" && csp(r) !== ""));
   });
 
   it("lets every page load the Google Maps JavaScript API, because a CSP survives client-side navigation", async () => {
     const list = await rules();
-    const general = csp(list.find((r) => r.source === "/(.*)")!);
+    const general = csp(list.find((r) => r.source === "/(.*)" && csp(r) !== "")!);
     // the 2026-11-04 bug: script-src lacked maps.googleapis.com, so the /coverage map and the admin Geocode button never worked.
     // It must be in the general policy, not on the map pages alone: a page reached by next/link keeps the policy of the first page loaded.
     expect(general).toMatch(/script-src 'self' 'unsafe-inline' https:\/\/maps\.googleapis\.com https:\/\/\*\.gstatic\.com(;|$)/);
@@ -80,7 +80,7 @@ describe("Content-Security-Policy for the in-app call", () => {
   });
 
   it("still allows the camera and microphone the call needs", async () => {
-    const all = (await rules()).find((r) => r.source === "/(.*)");
+    const all = (await rules()).find((r) => r.source === "/(.*)" && r.headers.some((h) => h.key === "Permissions-Policy"));
     expect(all?.headers.find((h) => h.key === "Permissions-Policy")?.value).toContain("camera=(self)");
     expect(all?.headers.find((h) => h.key === "Permissions-Policy")?.value).toContain("microphone=(self)");
   });

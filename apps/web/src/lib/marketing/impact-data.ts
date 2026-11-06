@@ -37,3 +37,11 @@ export async function loadImpactMetrics(): Promise<ImpactMetric[]> {
     computedAt: row.computed_at,
   }));
 }
+
+/**
+ * The impact page is worth indexing only once one real figure clears the privacy floor (otherwise it is a row of
+ * "Under 25"). The page's robots tag and the sitemap both read this, so they cannot disagree.
+ */
+export function impactPageIndexable(metrics: ImpactMetric[]): boolean {
+  return metrics.some((m) => !m.suppressed && m.value !== null && m.value > 0);
+}
