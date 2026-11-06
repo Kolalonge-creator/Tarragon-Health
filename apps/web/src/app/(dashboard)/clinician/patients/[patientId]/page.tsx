@@ -177,22 +177,33 @@ export default async function ClinicianPatientPage({
   // opened it — this is the one explicit read-logging call site on the platform so far
   // (see 20260812034612_clinician_patient_record_view_audit.sql). Best-effort: a logging
   // failure must never block the clinician from seeing the patient's notes.
-  const [{ error: viewLogError }, headerAllergyRead, openEscalationsRes, openAlertsRes] = await Promise.all([
+  const [{ error: viewLogError }, headerAllergyRead, openEscalationsRes, openAlertsRes, snoozedAlertsRes] = await Promise.all([
     supabase.rpc("log_patient_record_view", { p_patient_id: patient.id }),
     readAuditedSection(supabase, patient.id, "allergies"),
     // Header "open work" counts (spec 11.1): head counts only, under the same RLS as the escalations and alert lists.
+    // One id comes back too, so a single open escalation can be linked straight to its case.
     supabase
       .from("escalations")
-      .select("id", { count: "exact", head: true })
+      .select("id", { count: "exact" })
       .eq("patient_id", patient.id)
-      .in("status", ["open", "under_review"]),
+      .in("status", ["open", "under_review"])
+      .order("created_at", { ascending: true })
+      .limit(1),
+    // Counted exactly as the alert list it links to shows them (open and acknowledged); snoozed ones are counted apart.
     supabase
       .from("clinician_alerts")
       .select("id", { count: "exact", head: true })
       .eq("patient_id", patient.id)
-      .in("status", ["open", "acknowledged", "snoozed"])
+      .in("status", ["open", "acknowledged"])
+      .eq("suppressed", false),
+    supabase
+      .from("clinician_alerts")
+      .select("id", { count: "exact", head: true })
+      .eq("patient_id", patient.id)
+      .eq("status", "snoozed")
       .eq("suppressed", false),
   ]);
+  const onlyEscalationId = openEscalationsRes.count === 1 ? (openEscalationsRes.data?.[0]?.id ?? null) : null;
   const openCount = (res: { count: number | null; error: unknown }): OpenCount =>
     res.error || res.count === null ? { state: "unknown" } : { state: "known", value: res.count };
   const headerAllergies = allergyHeaderView(headerAllergyRead);
@@ -552,10 +563,12 @@ export default async function ClinicianPatientPage({
         ];
 
   return (
-    <div className="space-y-6">
+    // Anchors inside the record stop below the pinned header instead of under it.
+    <div className="space-y-6 lg:[&_[id]]:scroll-mt-64">
       {/* Identity and safety stay in view while the doctor scrolls a long tab (spec 11.1, 28). Wide screens only: on a
-          phone a sticky block this tall would take most of the screen. The offset clears the shell's sticky header. */}
-      <div className="z-30 -mx-4 flex items-start gap-3 border-b border-charcoal-ink/10 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 md:sticky md:top-[61px] lg:-mx-8 lg:px-8">
+          phone or tablet a sticky block this tall would take too much of the screen. The offset clears the shell's
+          sticky header (py-3 around h-9 controls, plus its border); keep it in step if that header changes. */}
+      <div className="z-30 -mx-4 flex items-start gap-3 border-b border-charcoal-ink/10 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:sticky lg:top-[61px] lg:-mx-8 lg:px-8">
         <Avatar fullName={patient.full_name ?? "Unnamed patient"} photoUrl={patient.avatar_url} size="xl" />
         <div>
           <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
@@ -580,7 +593,12 @@ export default async function ClinicianPatientPage({
             />
           </div>
           <div className="mt-1">
-            <PatientOpenWork escalations={openCount(openEscalationsRes)} alerts={openCount(openAlertsRes)} />
+            <PatientOpenWork
+              escalations={openCount(openEscalationsRes)}
+              alerts={openCount(openAlertsRes)}
+              snoozedAlerts={openCount(snoozedAlertsRes)}
+              onlyEscalationId={onlyEscalationId}
+            />
           </div>
         </div>
       </div>
