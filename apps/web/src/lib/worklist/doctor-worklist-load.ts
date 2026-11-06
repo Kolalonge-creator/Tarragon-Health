@@ -7,6 +7,7 @@ import {
   type WorklistAlertLevel,
   type WorklistSource,
 } from "@tarragon/shared";
+import { formatPatientDateTime } from "@/lib/format-date";
 import { excludeTestPatients } from "@/lib/queries/real-patients";
 import { loadWorklist, worklistItemHref, type WorklistKind } from "@/lib/security/worklists";
 
@@ -56,7 +57,8 @@ type EscalationRow = {
 type AlertRow = {
   id: string;
   title: string;
-  status: "open" | "acknowledged";
+  status: "open" | "acknowledged" | "snoozed";
+  snoozed_until: string | null;
   level: WorklistAlertLevel | null;
   override_level: WorklistAlertLevel | null;
   sla_due_at: string | null;
@@ -104,10 +106,19 @@ export function alertToRow(a: AlertRow, staffId: string | null): DoctorWorklistR
     assignedName: a.responsible_clinician?.full_name ?? null,
     assignedToMe: staffId !== null && a.responsible_clinician_id === staffId,
     unassigned: a.responsible_clinician_id === null,
-    status: a.status === "acknowledged" ? "Acknowledged" : "New",
-    nextAction: a.status === "acknowledged" ? "Resolve with a documented outcome" : "Acknowledge",
-    // Alert actions (acknowledge, snooze, resolve) live on the alert list on the clinician home.
-    href: "/clinician#clinical-alerts",
+    status:
+      a.status === "snoozed"
+        ? a.snoozed_until
+          ? `Snoozed until ${formatPatientDateTime(a.snoozed_until)}`
+          : "Snoozed"
+        : a.status === "acknowledged"
+          ? "Acknowledged"
+          : "New",
+    nextAction:
+      a.status === "snoozed" ? "Open the patient's record" : a.status === "acknowledged" ? "Resolve with a documented outcome" : "Acknowledge",
+    // Open and acknowledged alerts are acted on in the alert list on the clinician home; a snoozed one is not listed
+    // there, so it opens the patient's record.
+    href: a.status === "snoozed" ? `/clinician/patients/${a.patient_id}` : "/clinician#clinical-alerts",
   };
 }
 
@@ -130,9 +141,10 @@ export async function loadDoctorWorklist(
       supabase
         .from("clinician_alerts")
         .select(
-          "id, title, status, level, override_level, sla_due_at, created_at, patient_id, responsible_clinician_id, patient:profiles!clinician_alerts_patient_id_fkey(full_name, patient_number), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name)",
+          "id, title, status, snoozed_until, level, override_level, sla_due_at, created_at, patient_id, responsible_clinician_id, patient:profiles!clinician_alerts_patient_id_fkey(full_name, patient_number), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name)",
         )
-        .in("status", ["open", "acknowledged"])
+        // Snoozed alerts are listed too (marked, with the time), so a snoozed critical alert never disappears.
+        .in("status", ["open", "acknowledged", "snoozed"])
         .eq("suppressed", false),
       testPatientIds,
     ).returns<AlertRow[]>(),

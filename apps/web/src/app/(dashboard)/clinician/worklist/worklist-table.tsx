@@ -34,6 +34,14 @@ function assignedText(row: DoctorWorklistRow): string {
   return row.assignedName ?? "Another clinician";
 }
 
+/** The owner as a phrase for the phone card ("Assigned to you", "In a shared queue", "Not yet assigned"). */
+function ownerPhrase(row: DoctorWorklistRow): string {
+  if (row.assignedToMe) return "Assigned to you";
+  if (row.source === "queue") return "In a shared queue";
+  if (row.unassigned) return "Not yet assigned";
+  return `Assigned to ${row.assignedName ?? "another clinician"}`;
+}
+
 function PatientCell({ row }: { row: DoctorWorklistRow }) {
   return (
     <>
@@ -125,7 +133,7 @@ export function WorklistTable({ rows, now }: { rows: readonly DoctorWorklistRow[
               </div>
               <p>{row.issue}</p>
               <p className={overdue ? "font-medium text-red-700" : "text-charcoal-ink/70"}>
-                {dueText(row, now)} · Assigned to {assignedText(row).toLowerCase() === "you" ? "you" : assignedText(row)}
+                {dueText(row, now)} · {ownerPhrase(row)}
               </p>
               <ActionLink row={row} />
             </li>

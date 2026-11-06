@@ -227,14 +227,20 @@ export function Worklist() {
                     </div>
                     <div className="flex flex-col items-start gap-2 md:items-end">
                       <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={acknowledge.isPending}
-                          onClick={() => acknowledge.mutate(alert.id)}
-                        >
-                          Acknowledge
-                        </Button>
+                        {alert.status === "acknowledged" ? (
+                          <span className="inline-flex items-center text-xs font-medium text-charcoal-ink/70">
+                            Acknowledged, awaiting a documented outcome
+                          </span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={acknowledge.isPending}
+                            onClick={() => acknowledge.mutate(alert.id)}
+                          >
+                            Acknowledge
+                          </Button>
+                        )}
                         {acknowledge.isError && acknowledge.variables === alert.id && (
                           <p className="max-w-48 text-xs text-red-600">
                             {(acknowledge.error as Error).message}

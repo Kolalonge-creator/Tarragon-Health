@@ -357,7 +357,8 @@ export default async function ClinicianPage() {
             Patients requiring your attention
           </h2>
           <Link href="/clinician/worklist" className="text-sm font-medium text-brand-green underline">
-            Open the full worklist ({attention.rows.length})
+            Open the full worklist ({attention.rows.length}
+            {attention.queueOverflow.length > 0 ? "+" : ""})
           </Link>
         </div>
         {attention.failedSources.length > 0 && (

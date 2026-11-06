@@ -33,6 +33,7 @@ const alert = (id: string) => ({
   id,
   title: "Glucose 2.1 mmol/L",
   status: "open",
+  snoozed_until: null,
   level: "urgent_escalation",
   override_level: null,
   sla_due_at: null,
@@ -79,6 +80,15 @@ describe("loadDoctorWorklist", () => {
     expect(out.failedSources).toEqual(["escalation", "queue"]);
     // With escalations unknown, an alert cannot be assumed covered, so it is shown.
     expect(out.rows.map((r) => r.key)).toEqual(["alert:a1"]);
+  });
+
+  it("keeps a snoozed alert visible, marked, linking to the chart", async () => {
+    const snoozed = { ...alert("a9"), status: "snoozed", snoozed_until: "2026-11-07T08:00:00Z" };
+    const client = fakeClient({ clinician_alerts: { data: [snoozed], error: null } }, { data: [], error: null });
+    const out = await loadDoctorWorklist(client as never, ids, []);
+    expect(out.rows).toHaveLength(1);
+    expect(out.rows[0].status).toMatch(/^Snoozed until /);
+    expect(out.rows[0].href).toBe("/clinician/patients/p2");
   });
 
   it("leaves test patients out of the shared queues", async () => {
