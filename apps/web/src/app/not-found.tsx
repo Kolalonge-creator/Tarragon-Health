@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BrandLockup } from "./(marketing)/_components/brand-logo";
@@ -15,7 +16,10 @@ const LINKS = [
   { href: MARKETING_ROUTES.contact, label: "Contact" },
 ];
 
-export default function NotFound() {
+// Rendered per request (CSP step 2, 2026-11-06): the app host's enforced policy only lets scripts carrying that request's nonce run,
+// and a page prebuilt at deploy time has no request to take a nonce from, so its scripts would be blocked.
+export default async function NotFound() {
+  await connection();
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-16 text-center text-charcoal-ink">
       <Link
