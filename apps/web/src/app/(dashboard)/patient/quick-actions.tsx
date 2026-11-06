@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  * links keep whatever gate they already carry, and a gated page still greets
  * its visitor with the same friendly UpgradePrompt it always did.
  *
- * Patient dashboard 2.0 (spec 4.5, 2026-11-06): "Book a consultation" and
+ * Patient dashboard 2.0 (spec 4.5; founder decision PD-10, 2026-11-06): "Book a consultation" and
  * "Find a diagnostic centre" replace Learn and Lifestyle coaching here. Learn
  * now has its own "Learn more about your health" card on Home, and both stay
  * in the menu and search. Before that, Learn and Lifestyle coaching had a
