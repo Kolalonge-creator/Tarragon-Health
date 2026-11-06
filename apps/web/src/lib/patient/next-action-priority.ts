@@ -10,7 +10,7 @@ import type { MessageKey } from "@tarragon/i18n";
  * Order (first match wins):
  *   1. an unanswered red alert (an active emergency event the patient has not acknowledged)
  *   then a video consultation that can be joined right now (patient dashboard 2.0, spec 4.3, 2026-11-06: a call that is starting
- *   is more time-bound than anything below it; inserted after the safety items, the founder's order is otherwise unchanged)
+ *   is more time-bound than anything below it; approved by the founder as PD-09, the rest of the order is unchanged)
  *   2. a dose that is due now
  *   3. a reading that is due (none logged in the last 7 days)
  *   4. a refill running low (due within 7 days)
