@@ -588,6 +588,9 @@ export function getNavSections(
                 },
                 // MSG-5: what is waiting across messages, alerts and monthly meetings, and who holds it.
                 { label: "Care operations", href: "/clinician/care-operations", icon: "operations" },
+                // CC-1 (2026-11-07): doctors cover care coordination while no Care Coordinator is employed. The workspace itself
+                // admits an employed Senior Medical Officer or the CMO and explains itself to anyone else.
+                { label: "Care coordination", href: "/dashboard/care-coordinator", icon: "team" },
                 {
                   label: "Support tickets",
                   href: "/clinician/support-tickets",
@@ -880,30 +883,53 @@ export function getNavSections(
         },
       ];
     case "finance":
+      // Finance v2 (docs/design/FINANCE-DASHBOARD-V2.md): grouped by what a finance
+      // team does in a day. Only pages that exist are listed; later phases add theirs.
       return [
         {
           items: [
-            { label: "Overview", href: "/finance", icon: "dashboard", exact: true },
-            { label: "General ledger", href: "/finance/ledger", icon: "ledger" },
+            { label: "Financial overview", href: "/finance", icon: "dashboard", exact: true },
+          ],
+        },
+        {
+          label: "Revenue",
+          items: [
+            { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
+            { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
+          ],
+        },
+        {
+          label: "Payments",
+          items: [
             { label: "Transactions", href: "/finance/transactions", icon: "billing" },
+            { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile", countKey: "financeReconciliationOpen" },
+            { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "reconcile" },
+            { label: "Settlement tie-out", href: "/finance/settlement-tieout", icon: "reconcile" },
+            { label: "Laboratory settlements", href: "/finance/partner-settlements", icon: "payables" },
+            { label: "Fraud signals", href: "/finance/fraud", icon: "warning", countKey: "financeFraudOpen" },
+          ],
+        },
+        {
+          label: "Accounting",
+          items: [
+            { label: "General ledger", href: "/finance/ledger", icon: "ledger" },
             { label: "Financial statements", href: "/finance/statements", icon: "statements" },
             { label: "Budgets", href: "/finance/budgets", icon: "budget" },
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
-            { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
-            { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
-            { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
-            { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "reconcile" },
-            { label: "Fraud signals", href: "/finance/fraud", icon: "warning" },
-            { label: "Laboratory settlements", href: "/finance/partner-settlements", icon: "payables" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },
             { label: "Compliance calendar", href: "/finance/compliance", icon: "compliance" },
+          ],
+        },
+        {
+          label: "Reports",
+          items: [
             { label: "Reports & filings", href: "/finance/reports", icon: "statements" },
           ],
         },
         {
-          label: "Controls",
+          label: "Audit and controls",
           items: [
-            { label: "Approvals", href: "/finance/approvals", icon: "approvals" },
+            { label: "Approvals", href: "/finance/approvals", icon: "approvals", countKey: "financeApprovalsPending" },
             { label: "Audit log", href: "/finance/audit", icon: "audit" },
           ],
         },
@@ -938,6 +964,7 @@ export function getNavSections(
           label: "Setup",
           items: [
             { label: "Periods & accounts", href: "/finance/settings", icon: "settings" },
+            { label: "Finance glossary", href: "/finance/glossary", icon: "ledger" },
           ],
         },
       ];
