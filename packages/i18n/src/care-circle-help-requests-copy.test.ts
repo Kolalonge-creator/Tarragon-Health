@@ -22,6 +22,8 @@ describe("Care Circle typed help requests copy (P22 / PD-08)", () => {
     const signed: readonly string[] = CIRCLE_HELP_REQUESTS_COPY_REVIEW.signedKeys;
     const pending: readonly string[] = CIRCLE_HELP_REQUESTS_COPY_REVIEW.pendingKeys;
     expect([...signed, ...pending].sort()).toEqual([...keys].sort());
+    // All five interface prompts were signed later the same day, so nothing is pending.
+    expect(pending).toEqual([]);
     expect(signed).toEqual(expect.arrayContaining(["circlehelp.not_emergency", "circlehelp.view.asked_for", "circlehelp.view.general", "circlehelp.note.hint"]));
   });
 
