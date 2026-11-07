@@ -80,3 +80,22 @@ describe("Governance home stays lit on the pages it leads to", () => {
     expect(itemIsActive("/clinician", governanceHome)).toBe(false);
   });
 });
+
+describe("Chief Medical Officer menu (CMO command centre, 2026-11-07)", () => {
+  it("leads with the Leadership overview for the CMO and keeps their own clinical day one click away", () => {
+    const top = getNavSections("clinician", null, { cmo: true })[0]?.items ?? [];
+    expect(top.map((i) => [i.label, i.href])).toEqual([
+      ["Leadership overview", "/clinician/leadership"],
+      ["My clinical day", "/clinician"],
+    ]);
+  });
+
+  it("changes nothing for any other doctor", () => {
+    expect(sidebarItems.some((i) => i.href === "/clinician/leadership")).toBe(false);
+    expect(sidebar[0]?.items.map((i) => i.label)).toEqual(["Today"]);
+  });
+
+  it("puts the overview in the CMO's search index", () => {
+    expect(clinicianSearchSections().flatMap((s) => s.items).some((i) => i.href === "/clinician/leadership")).toBe(true);
+  });
+});

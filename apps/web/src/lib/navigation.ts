@@ -92,7 +92,11 @@ export function getNavSections(
    * Community groups are dormant behind the `community` go-live guard (docs/COMMUNITY_SPEC.md section 8). The entry is added only when
    * the database says the community is open for this member, so while it is closed nothing about it shows anywhere in the menu.
    */
-  options?: { communityOpen?: boolean },
+  options?: {
+    communityOpen?: boolean;
+    /** An active Chief Medical Officer: the Clinical Leadership Overview leads their menu (CMO command centre, 2026-11-07). */
+    cmo?: boolean;
+  },
 ): NavSection[] {
   switch (role) {
     case "patient":
@@ -394,7 +398,12 @@ export function getNavSections(
           ]
         : [
             {
-              items: [{ label: "Today", href: "/clinician", icon: "dashboard", exact: true }],
+              items: [
+                ...(options?.cmo
+                  ? [{ label: "Leadership overview", href: "/clinician/leadership", icon: "analytics" as const }]
+                  : []),
+                { label: options?.cmo ? "My clinical day" : "Today", href: "/clinician", icon: "dashboard", exact: true },
+              ],
             },
             {
               // DW-02 (2026-11-06): daily clinical work first. Inboxes and queues where a patient or colleague
@@ -1197,8 +1206,9 @@ export const CLINICIAN_GOVERNANCE_SECTIONS: readonly NavSection[] = GOVERNANCE_S
 /** Every href on the Governance index; the sidebar's Governance home link is lit on all of them. */
 export const GOVERNANCE_HREFS: readonly string[] = GOVERNANCE_SECTIONS.flatMap((s) => s.items.map((i) => i.href));
 
+/** The Chief Medical Officer's search index (the only caller), so it includes their Leadership overview. */
 export function clinicianSearchSections(): NavSection[] {
-  return [...getNavSections("clinician", null), ...CLINICIAN_GOVERNANCE_SECTIONS];
+  return [...getNavSections("clinician", null, { cmo: true }), ...CLINICIAN_GOVERNANCE_SECTIONS];
 }
 
 function isActive(pathname: string, href: string, exact?: boolean) {
