@@ -169,12 +169,21 @@ export function useAddCarePlanIntervention() {
       patientId,
       description,
       frequency,
+      category = null,
+      whyText = null,
+      whenText = null,
+      howText = null,
     }: {
       carePlanId: string;
       organisationId: string;
       patientId: string;
       description: string;
       frequency: string | null;
+      /** PD-06: the patient-facing category and why / when / how (all optional; the patient page groups by category). */
+      category?: CarePlanIntervention["category"];
+      whyText?: string | null;
+      whenText?: string | null;
+      howText?: string | null;
     }) => {
       const supabase = createClient();
       const {
@@ -186,6 +195,10 @@ export function useAddCarePlanIntervention() {
         patient_id: patientId,
         description,
         frequency,
+        category,
+        why_text: whyText,
+        when_text: whenText,
+        how_text: howText,
         created_by: user?.id ?? null,
       });
       if (error) throw error;
