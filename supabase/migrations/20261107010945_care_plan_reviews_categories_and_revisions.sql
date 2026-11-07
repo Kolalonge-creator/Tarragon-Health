@@ -104,6 +104,15 @@ revoke all on public.care_plan_revisions from anon;
 revoke all on public.care_plan_revisions from authenticated;
 grant select on public.care_plan_revisions to authenticated;
 
+-- registries (s39d data registry; rls_shape_gate staff-read scope, mirroring care_plans: tied, appointments_care_plan)
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, notes)
+values ('care_plan_revisions', 'patient_id', 'clinical_record', 'review', true, false,
+        'Each published version of a care plan: a frozen snapshot, the doctor''s plain-words what-changed note and the patient''s acknowledgement (PD-06). Class assigned by the migration author, not yet reviewed by the CMO and DPO.')
+on conflict (table_name) do nothing;
+insert into public.staff_read_scope (table_name, mode, patient_expr, category, reason)
+values ('care_plan_revisions', 'tied', 'patient_id', 'appointments_care_plan', 'Published versions of the care plan; same scope as care_plans.')
+on conflict (table_name) do nothing;
+
 comment on table public.care_plan_revisions is
   'PD-06: one row per published version of a care plan: a frozen snapshot, the doctor''s plain-words "what changed" note, '
   'whether the patient must acknowledge it, and the patient''s acknowledgement. Written only by '
@@ -239,3 +248,6 @@ begin
   end if;
 end;
 $$;
+
+-- analytics_clean views copy column lists; rebuild so analytics_clean.care_plans picks up the two new review-date columns.
+select private.rebuild_analytics_clean_views();
