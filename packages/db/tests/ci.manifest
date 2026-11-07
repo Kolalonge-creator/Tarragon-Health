@@ -1962,3 +1962,5 @@ dw07_dw08_audited_onboarding_and_care_circle_reads.sql
 dw_followups_monitoring_notice_and_no_escalation_delete.sql
 # Superadmin homepage (2026-11-07): analytics_platform_overview counts a window and the one before it from fixtures measured as differences (test patient, test member, test/errored/USD payments left out; refunds and failed charges apart; snapshot by source, Free, ending in 30 days); a patient is refused with 42501, a backwards range with 22023. Sabotage: an ungated copy lets the patient in.
 analytics_platform_overview.sql
+# Superadmin integrations centre (2026-11-07): admin_integration_status counts provider activity from fixtures measured as differences (Termii sent/failed, mock and rate-limited left out; ClamAV clean+infected ok, unavailable failed; Zoom processed vs rejected webhooks), returns counts and timestamps only, refuses a patient with 42501. Sabotage: an ungated copy lets the patient in.
+admin_integration_status.sql

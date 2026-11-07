@@ -786,6 +786,8 @@ export function getNavSections(
             // Is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
             { label: "Chain health", href: "/admin/ops/chain-health", icon: "operations" },
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
+            // Every outside provider judged by what it did in the last 7 days (superadmin console 2d).
+            { label: "Integrations", href: "/admin/ops/integrations", icon: "operations" },
             { label: "Providers", href: "/admin/ops/providers", icon: "operations" },
             { label: "Operations wall", href: "/admin/ops/wall", icon: "operations", more: true },
             { label: "Event bus", href: "/admin/ops/event-bus", icon: "operations", more: true },

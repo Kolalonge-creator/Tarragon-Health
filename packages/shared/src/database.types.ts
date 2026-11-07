@@ -53189,6 +53189,7 @@ export type Database = {
         Args: { p_location_id?: string; p_patient?: string }
         Returns: string
       }
+      admin_integration_status: { Args: never; Returns: Json }
       admin_reset_mfa_factors: { Args: { p_profile: string; p_reason: string }; Returns: Json }
       admin_mfa_enrolled_accounts: {
         Args: { p_search?: string | null }

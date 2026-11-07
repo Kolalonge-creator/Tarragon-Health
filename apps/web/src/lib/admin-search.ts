@@ -19,6 +19,7 @@ export interface AdminSearchEntry {
 /** Words an admin may use for a page whose title does not say it. Keyed by the path they match. */
 const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/worklists", "queue worklist inbox pending waiting results lab abnormal screening flags reviews vaccination therapy approvals shared pool"],
+  ["/admin/ops/integrations", "integrations providers paystack resend email push termii sms zoom anthropic ai clamav virus scanning google maps webhooks health status keys api"],
   ["/admin/access-review", "audit access log opened viewed record who looked privacy snooping retention delete export"],
   ["/admin/security", "security dashboard failed sign in login attempts password guessing alerts mfa two-step dormant export privileged role change"],
   ["/admin/staff-access-review", "staff access review quarterly accounts who has access remove deactivate leaver role tier mfa dormant"],
