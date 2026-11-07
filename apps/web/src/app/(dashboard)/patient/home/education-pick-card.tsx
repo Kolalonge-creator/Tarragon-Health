@@ -26,7 +26,8 @@ export async function EducationPickCard({ acting }: { acting: boolean }) {
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{pick.summary}</p>
         <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           {pick.estimated_minutes} min read
-          {pick.clinician_reviewed ? (pick.reviewed_by_name ? ` · Reviewed by ${pick.reviewed_by_name}` : " · Reviewed by our clinical team") : ""}
+          {/* P20: only a named reviewer from the record; never a generic "reviewed" claim with no reviewer behind it */}
+          {pick.reviewed_by_name?.trim() ? ` · Reviewed by ${pick.reviewed_by_name.trim()}` : ""}
         </p>
         <div className="flex flex-wrap gap-4">
           <Link href={`/patient/learn/${pick.code}`} className="text-sm font-medium text-deep-forest underline dark:text-brand-green-bright">

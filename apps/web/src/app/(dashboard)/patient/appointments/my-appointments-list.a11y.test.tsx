@@ -36,7 +36,19 @@ jest.mock("@/lib/queries/appointments", () => ({
   useCancelWaitingListEntry: () => ({ mutate: jest.fn(), isPending: false }),
   useAcceptWaitingListOffer: () => ({ mutate: jest.fn(), isPending: false }),
   useEnsureAppointmentVideoConsultation: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useMyBookingTerms: () => ({ data: { cancel_window_hours: 2, late_cancel_credit_returned: false }, isLoading: false }),
 }));
+jest.mock("./reschedule-appointment", () => ({ RescheduleAppointment: () => <div data-testid="reschedule-panel" /> }));
+
+beforeAll(() => {
+  // jsdom has no <dialog>.showModal/close.
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.removeAttribute("open");
+  };
+});
 
 describe("MyAppointmentsList accessibility", () => {
   beforeEach(() => {
@@ -99,6 +111,9 @@ describe("MyAppointmentsList accessibility", () => {
     ];
     const { container } = await expectNoA11yViolations(<MyAppointmentsList patientId="patient-1" />);
     fireEvent.click(screen.getByText("Cancel"));
+    // P15: cancelling asks first, and says what happens next.
+    expect(screen.getByText("Cancel this appointment?")).toBeTruthy();
+    fireEvent.click(screen.getByText("Yes, cancel it"));
     const failure = await screen.findByText("Could not cancel that appointment right now.");
     // An error surfaced only after a failed async action must be announced
     // to a screen-reader user via a live region, not just shown visually.

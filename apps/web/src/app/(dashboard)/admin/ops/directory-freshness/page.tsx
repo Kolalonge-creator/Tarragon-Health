@@ -6,6 +6,7 @@ import { FlashClean } from "@/components/go-live/flash-clean";
 import { loadDirectoryFreshness } from "@/lib/directory-freshness/load";
 import { asNotice, groupFreshness, KIND_LABEL, type FreshnessRow } from "@/lib/directory-freshness/model";
 import { recordDirectoryVerificationAction, requestDirectoryRecheckAction } from "@/lib/directory-freshness/actions";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Directory freshness" };
 export const dynamic = "force-dynamic";
@@ -31,11 +32,15 @@ export default async function DirectoryFreshnessPage({ searchParams }: { searchP
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">{t("dirfresh.title", locale)}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("dirfresh.intro", locale)}</p>
-        <p className="mt-1 max-w-3xl text-xs text-charcoal-ink/60">{t("dirfresh.cadence_note", locale)}</p>
-      </div>
+      <PageHeader
+        title={t("dirfresh.title", locale)}
+        description={
+          <>
+            {t("dirfresh.intro", locale)}
+            <span className="mt-1 block text-xs text-charcoal-ink/60">{t("dirfresh.cadence_note", locale)}</span>
+          </>
+        }
+      />
 
       {notice && <FlashClean />}
       {notice && (

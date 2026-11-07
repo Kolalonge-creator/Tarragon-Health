@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DataTable } from "@/components/ui/data-table";
 
 /**
  * What each paid product earns, and the clinician rates that answer depends on.
@@ -256,64 +257,59 @@ export function ServiceMarginsClient() {
           {isError && (
             <p className="text-sm text-red-600 dark:text-red-400">Could not load the margins.</p>
           )}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[42rem] text-sm">
-              <thead>
-                <tr className="border-b border-charcoal-ink/15 text-left text-xs uppercase tracking-wide text-charcoal-ink/55 dark:border-night-ink/20 dark:text-night-ink/55">
-                  <th className="py-2 pr-3 font-medium">Product</th>
-                  <th className="py-2 pr-3 text-right font-medium">Price</th>
-                  <th className="py-2 pr-3 text-right font-medium">Delivery</th>
-                  <th className="py-2 pr-3 text-right font-medium">Fee</th>
-                  <th className="py-2 pr-3 text-right font-medium">Contribution</th>
-                  <th className="py-2 text-right font-medium">Margin</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((row) => {
-                  const pct =
-                    row.price_kobo && row.contribution_kobo !== null
-                      ? Math.round((row.contribution_kobo / row.price_kobo) * 100)
-                      : null;
-                  const thin = pct !== null && pct < 35;
-                  return (
-                    <tr
-                      key={row.code ?? row.name ?? ""}
-                      className="border-b border-charcoal-ink/8 last:border-0 dark:border-night-ink/12"
+          {/* Thinnest first, as `sorted` arrives; a heading press re-sorts. A failed load shows its own line above, so the
+              table stays empty rather than claiming no products. */}
+          {/* Drawn only once loaded: "Loading…" above says so meanwhile, and an empty table would count "0 products". */}
+          {!isError && !isLoading && (
+            <DataTable
+              caption="Margin per product"
+              columns={[
+                { header: "Product", sortable: true },
+                { header: "Price", sortable: true, defaultDir: "desc", align: "right" },
+                { header: "Delivery", sortable: true, defaultDir: "desc", align: "right" },
+                { header: "Fee", sortable: true, defaultDir: "desc", align: "right" },
+                { header: "Contribution", sortable: true, align: "right" },
+                { header: "Margin", sortable: true, align: "right" },
+              ]}
+              rows={sorted.map((row) => {
+                const pct = row.price_kobo && row.contribution_kobo !== null ? Math.round((row.contribution_kobo / row.price_kobo) * 100) : null;
+                const thin = pct !== null && pct < 35;
+                return {
+                  key: row.code ?? row.name ?? "",
+                  searchText: `${row.name ?? ""} ${row.code ?? ""} ${row.delivered_by_tier ?? ""}`,
+                  sort: [row.name, row.price_kobo, row.delivery_cost_kobo, row.payment_fee_kobo, row.contribution_kobo, pct],
+                  cells: [
+                    <span key="p">
+                      <span className="text-charcoal-ink dark:text-night-ink">{row.name}</span>
+                      <span className="block text-xs text-charcoal-ink/45 dark:text-night-ink/45">
+                        {row.delivered_by_tier}
+                        {row.expected_minutes ? ` · ${row.expected_minutes} min` : ""}
+                      </span>
+                    </span>,
+                    naira(row.price_kobo),
+                    <span key="d" className="text-charcoal-ink/70 dark:text-night-ink/70">{naira(row.delivery_cost_kobo)}</span>,
+                    <span key="f" className="text-charcoal-ink/50 dark:text-night-ink/50">{naira(row.payment_fee_kobo)}</span>,
+                    naira(row.contribution_kobo),
+                    <span
+                      key="m"
+                      className={
+                        (row.contribution_kobo ?? 0) < 0
+                          ? "font-medium text-red-600 dark:text-red-400"
+                          : thin
+                            ? "text-amber-700 dark:text-amber-400"
+                            : "text-charcoal-ink/70 dark:text-night-ink/70"
+                      }
                     >
-                      <td className="py-2 pr-3">
-                        <span className="text-charcoal-ink dark:text-night-ink">{row.name}</span>
-                        <span className="block text-xs text-charcoal-ink/45 dark:text-night-ink/45">
-                          {row.delivered_by_tier}
-                          {row.expected_minutes ? ` · ${row.expected_minutes} min` : ""}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">{naira(row.price_kobo)}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums text-charcoal-ink/70 dark:text-night-ink/70">
-                        {naira(row.delivery_cost_kobo)}
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums text-charcoal-ink/50 dark:text-night-ink/50">
-                        {naira(row.payment_fee_kobo)}
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">
-                        {naira(row.contribution_kobo)}
-                      </td>
-                      <td
-                        className={`py-2 text-right tabular-nums ${
-                          (row.contribution_kobo ?? 0) < 0
-                            ? "font-medium text-red-600 dark:text-red-400"
-                            : thin
-                              ? "text-amber-700 dark:text-amber-400"
-                              : "text-charcoal-ink/70 dark:text-night-ink/70"
-                        }`}
-                      >
-                        {pct === null ? "—" : `${pct}%`}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      {pct === null ? "—" : `${pct}%`}
+                    </span>,
+                  ],
+                };
+              })}
+              searchLabel="Search products"
+              emptyMessage="No products."
+              noun={{ one: "product", many: "products" }}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

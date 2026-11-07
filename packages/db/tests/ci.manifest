@@ -988,6 +988,10 @@ s39e_worklists_and_work_counts.sql
 s39f_export_download_and_class_review.sql
 # S39g: staff writes on the tied tables need a tie or a logged opening. A tied clinician inserts, updates and deletes; an untied clinician cannot until open_patient_record, then can for that patient only; a coordinator, admin, other organisation and anon cannot; an opening never opens a reproductive table for writing; no tied write policy keeps the plain organisation-wide arm and patient arms are kept; the old text is backed up; the switches off give back the old write. Sabotage: staff_may_write always true; flips.
 s39g_tied_staff_writes.sql
+# P14 (2026-11-07): risk_assessment_drafts (save and resume for the patient health assessment) is owner-only: the patient saves, reads, replaces and deletes their own draft; another patient, a supporter with a 'manage' grant and an org admin read none and cannot save under the patient's id; a foreign organisation, step 6 and non-object answers are refused; anon is refused. Sabotage: SELECT opened to org staff and INSERT opened to any patient_id must flip checks.
+p14_risk_assessment_drafts.sql
+# P16 (2026-11-07, CMO decision from chat): a patient's "Not sure" answer is a routine medication_dispense_flags patient_query row, one per patient per Lagos day (medication_dispense_flags_not_sure_one_per_day): a second the same day is refused, a free-text concern and another patient are not limited, yesterday's row does not block today's, a supporter cannot raise one for the patient. Sabotage: dropping the index lets the second row in.
+p16_not_sure_task_one_per_day.sql
 # S33: the BP care course gate and events. Only a published lesson with an unexpired review date is served and a reviewer credit needs a complete record; the lesson is served in English with the translation columns gone; editing a lesson returns it to review; the hourly sweep hides an overdue course lesson; lesson.completed and course.completed fire once and carry codes only. Sabotage: the progress trigger dropped, and the edit trigger dropped; both checks must flip.
 s33_course_gate_events.sql
 # S38d: the "monthly_report_ready" notice (neutral, in-app and push, only for the month that just closed, none when nothing was written) and the Care Circle monthly block (only through the ticks already given, at most 3 months, no target/week/count fields, not shared is not zero, expired and paused get nothing, the patient's preview shows the same block) and the audited export log. Sabotage: a later redefinition of circle_view_blocks without the monthly block must lose it and flip the checks.
@@ -1958,9 +1962,20 @@ upload_check_kick_one_time_codes.sql
 dw03_escalation_working_states.sql
 # DW-07/DW-08 (2026-11-06): a tied clinician reads the patient's onboarding answers and active Care Circle (names, permissions, current pause) through two audited functions; an untied clinician and a patient are refused; revoked supporters are left out; every call writes an audit row. Sabotage: an ungated onboarding read lets the untied clinician in.
 dw07_dw08_audited_onboarding_and_care_circle_reads.sql
-# P14 (2026-11-07): risk_assessment_drafts (save and resume for the patient health assessment) is owner-only: the patient saves, reads, replaces and deletes their own draft; another patient, a supporter with a 'manage' grant and an org admin read none and cannot save under the patient's id; a foreign organisation, step 6 and non-object answers are refused; anon is refused. Sabotage: SELECT opened to org staff and INSERT opened to any patient_id must flip checks.
-p14_risk_assessment_drafts.sql
-# P16 (2026-11-07, CMO decision from chat): a patient's "Not sure" answer is a routine medication_dispense_flags patient_query row, one per patient per Lagos day (medication_dispense_flags_not_sure_one_per_day): a second the same day is refused, a free-text concern and another patient are not limited, yesterday's row does not block today's, a supporter cannot raise one for the patient. Sabotage: dropping the index lets the second row in.
-p16_not_sure_task_one_per_day.sql
+# P22 / PD-08 (2026-11-07): Care Circle typed help requests. The patient's help alert carries a kind of help (booking, test payment, medicine collection, transport, call me) and an optional short note; a red_alerts supporter reads both through circle_help_alert_view; a supporter without red_alerts, a stranger and anon are refused; bad types and long notes are refused and write nothing; notifications and the audit carry no note; the untyped call still works and there is one function only. Sabotage: the view's membership gate removed, the RPC type check removed.
+care_circle_typed_help_requests.sql
 # DW follow-ups (2026-11-07): a returned monitoring case tells its doctor in-app (only the escalation id), an unheld one tells the CMO, a not-yet-due one tells nobody; no staff account (doctor or coordinator) can delete an escalation. Sabotage: the old org-staff delete policy lets a coordinator delete.
 dw_followups_monitoring_notice_and_no_escalation_delete.sql
+# CMO Clinical Operations slice 1 (2026-11-07): the CMO's org-wide patient journey summary counts patients they are not tied to, moves by exactly the fixture (test patient excluded), carries no patient identity, and refuses an administrator, an ordinary clinician, a patient and anon. Sabotage: an ungated cmo_of lets the ordinary clinician read it.
+cmo_patient_journey_summary.sql
+# CC-1..CC-4 (2026-11-07): one shared coordination workspace. Employed doctors and the CMO pass the coordinator gates, a partner specialist does not; outreach, support and programme work routes coordinator-first with doctor fallback and hands over in a sweep; coordinator-level queue tasks push to a coordinator first; the worklist/activity/roster read models are staff-only. Sabotage: old upload gate, no-op sweep, dropped routing trigger.
+cc1_coordination_shared_workspace.sql
+
+# Finance dashboard v2, Phase A (20261107015736): finance_money_overview keeps
+# gross payment volume, refunds, net collections and recognised revenue apart,
+# excludes failed orders, unconfirmed refunds, wallet rows and test accounts,
+# splits member / family sponsor / employer, refuses non-finance callers, and
+# a sabotage step proves the gross-volume check discriminates.
+finance_money_overview.sql
+# Finance dashboard v2, Phase B (20261107023339): the transaction directory returns the window's payments, failures and refunds with totals, settlement status (settled / exception / awaiting / not applicable) and refunded amount; filters, search, sort and paging work; a finance.view-only member browses but cannot export, finance exports and each export is audited; the detail returns refunds, refundable balance, webhook status (never the raw body), settlement and a timeline and audits the read against the member; a patient is refused both. Sabotage: removing the export check lets the view-only member export.
+finance_transactions_directory.sql

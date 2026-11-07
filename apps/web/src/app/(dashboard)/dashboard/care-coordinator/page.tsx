@@ -1,5 +1,7 @@
-import { CareCoordinatorOverview } from "./overview-content";
+import { CommandCentre } from "./command-centre";
 
-export default function CareCoordinatorOverviewPage() {
-  return <CareCoordinatorOverview />;
+export const metadata = { title: "Care coordination" };
+
+export default function CareCoordinationCommandCentrePage() {
+  return <CommandCentre />;
 }

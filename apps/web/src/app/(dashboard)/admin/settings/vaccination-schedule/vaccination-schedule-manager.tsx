@@ -12,6 +12,7 @@ import {
   type SignVaccinationScheduleState,
 } from "./actions";
 import { isSupersededVersion } from "@/lib/clinical/refuse-superseded-draft";
+import { DataTable } from "@/components/ui/data-table";
 
 export type VaccinationCatalogRow = {
   id: string;
@@ -113,30 +114,29 @@ function CatalogList({ catalog }: { catalog: VaccinationCatalogRow[] }) {
         <CardTitle className="text-base">Current schedule: {catalog.length} active entries</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="max-h-96 overflow-auto rounded-md border border-mist-grey/40">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-mist-grey/40 text-left text-charcoal-ink/70">
-              <tr>
-                <th className="p-2">Code</th>
-                <th className="p-2">Name</th>
-                <th className="p-2">Description</th>
-                <th className="p-2">Recommended age</th>
-              </tr>
-            </thead>
-            <tbody>
-              {catalog.map((item) => (
-                <tr key={item.id} className="border-t border-mist-grey/30 align-top">
-                  <td className="p-2 font-mono text-xs">{item.code}</td>
-                  <td className="p-2">{item.name}</td>
-                  <td className="p-2 text-charcoal-ink/70">{item.description ?? "—"}</td>
-                  <td className="p-2 font-mono text-xs text-charcoal-ink/70">
-                    {JSON.stringify(item.recommended_age)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          caption="Current vaccination schedule"
+          columns={[
+            { header: "Code", sortable: true },
+            { header: "Name", sortable: true },
+            { header: "Description" },
+            { header: "Recommended age" },
+          ]}
+          rows={catalog.map((item) => ({
+            key: item.id,
+            searchText: `${item.code} ${item.name} ${item.description ?? ""}`,
+            sort: [item.code, item.name, null, null],
+            cells: [
+              <span key="c" className="font-mono text-xs">{item.code}</span>,
+              item.name,
+              <span key="d" className="text-charcoal-ink/70">{item.description ?? "—"}</span>,
+              <span key="a" className="font-mono text-xs text-charcoal-ink/70">{JSON.stringify(item.recommended_age)}</span>,
+            ],
+          }))}
+          searchLabel="Search vaccines"
+          emptyMessage="No active entries."
+          noun={{ one: "entry", many: "entries" }}
+        />
       </CardContent>
     </Card>
   );

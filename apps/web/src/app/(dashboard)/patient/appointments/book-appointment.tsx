@@ -72,9 +72,12 @@ export function BookAppointment({
   locale = "en",
   renderPendingPayment,
   renderTerms,
+  viaPhone = false,
 }: {
   organisationId: string;
   patientId: string;
+  /** CC-1: booked for a patient on a call from the coordination workspace (see useHoldAppointmentSlot's viaPhone). */
+  viaPhone?: boolean;
   locale?: Locale;
   /** The "Before you pay" card is written to the patient ("your Membership"). A Care Coordinator booking for someone else shows terms
    * written about that patient instead. */
@@ -220,6 +223,7 @@ export function BookAppointment({
         location: slot.location ?? undefined,
         patientId,
         reason: carerConcern ?? undefined,
+        viaPhone,
       });
       if (carerConcern) {
         try {

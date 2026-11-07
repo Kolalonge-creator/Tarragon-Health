@@ -12,6 +12,7 @@
     "./severity-tile-tint": "./src/severity-tile-tint.ts",
     "./status": "./src/status.ts",
     "./components/stat-tile-value": "./src/components/stat-tile-value.ts",
+    "./components/data-table-model": "./src/components/data-table-model.ts",
     "./components/*": "./src/components/*.tsx"
   },
   "scripts": {

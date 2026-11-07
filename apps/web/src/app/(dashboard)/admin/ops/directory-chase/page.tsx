@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { kindLabel, loadChaseList, scoreBand } from "@/lib/directory-freshness/chase";
+import { PageHeader } from "@/components/ui/page-header";
+import { DataTable, type DataTableColumn, type DataTableRow } from "@/components/ui/data-table";
 
 export const metadata = { title: "Partner chase list" };
 export const dynamic = "force-dynamic";
@@ -20,49 +22,58 @@ export default async function DirectoryChasePage() {
   const loaded = await loadChaseList();
   if (!loaded.ok && loaded.denied) redirect("/admin");
 
+  const columns: DataTableColumn[] = [
+    { header: "Listing", sortable: true, className: "min-w-48" },
+    { header: "Kind", sortable: true },
+    { header: "Score", sortable: true, align: "right" },
+    { header: "Last checked", sortable: true },
+    { header: "Can be emailed", sortable: true },
+    { header: "Last emailed", sortable: true, defaultDir: "desc" },
+  ];
+  const rows: DataTableRow[] = loaded.ok
+    ? loaded.data.map((r) => ({
+        key: `${r.listing_table}:${r.listing_id}`,
+        searchText: `${r.name} ${kindLabel(r.listing_table)}`,
+        sort: [r.name, kindLabel(r.listing_table), r.freshness_score, r.last_verified_at, r.can_notify ? 1 : 0, r.last_partner_notice_on],
+        cells: [
+          <span key="name" className="font-medium text-charcoal-ink">{r.name}</span>,
+          kindLabel(r.listing_table),
+          <span key="score" className={`font-semibold ${BAND_CLASS[scoreBand(r.freshness_score)]}`}>{r.freshness_score}</span>,
+          <span key="checked">
+            {lagos(r.last_verified_at)}
+            {r.days_since_verified !== null && <span className="text-charcoal-ink/60"> ({r.days_since_verified} days ago)</span>}
+          </span>,
+          r.can_notify ? "Yes" : "No contact address",
+          r.last_partner_notice_on ?? "-",
+        ],
+      }))
+    : [];
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">Partner chase list</h1>
-        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">
-          Active partner listings, stalest first. The score is worked out fresh every day from the last check. To record a check, use{" "}
-          <Link href="/admin/ops/directory-freshness" className="font-medium text-brand-green hover:underline">Directory freshness</Link>.
-        </p>
-      </div>
+      <PageHeader
+        title="Partner chase list"
+        description={
+          <>
+            Active partner listings, stalest first. The score is worked out fresh every day from the last check. To record a check, use{" "}
+            <Link href="/admin/ops/directory-freshness" className="font-medium text-brand-green hover:underline">Directory freshness</Link>.
+          </>
+        }
+      />
       {!loaded.ok ? (
         <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-charcoal-ink">
           The chase list could not be loaded. This is a loading problem, not an empty list.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-charcoal-ink/15 text-xs uppercase tracking-wide text-charcoal-ink/60">
-                <th className="py-2 pr-3">Listing</th>
-                <th className="py-2 pr-3">Kind</th>
-                <th className="py-2 pr-3">Score</th>
-                <th className="py-2 pr-3">Last checked</th>
-                <th className="py-2 pr-3">Can be emailed</th>
-                <th className="py-2">Last emailed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loaded.data.map((r) => (
-                <tr key={`${r.listing_table}:${r.listing_id}`} className="border-b border-charcoal-ink/10">
-                  <td className="py-2 pr-3 font-medium text-charcoal-ink">{r.name}</td>
-                  <td className="py-2 pr-3">{kindLabel(r.listing_table)}</td>
-                  <td className={`py-2 pr-3 font-semibold ${BAND_CLASS[scoreBand(r.freshness_score)]}`}>{r.freshness_score}</td>
-                  <td className="py-2 pr-3">
-                    {lagos(r.last_verified_at)}
-                    {r.days_since_verified !== null && <span className="text-charcoal-ink/60"> ({r.days_since_verified} days ago)</span>}
-                  </td>
-                  <td className="py-2 pr-3">{r.can_notify ? "Yes" : "No contact address"}</td>
-                  <td className="py-2">{r.last_partner_notice_on ?? "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        // No initial sort: the list arrives stalest first from the loader, and that order is the point of the page.
+        <DataTable
+          caption="Partner chase list, stalest first"
+          columns={columns}
+          rows={rows}
+          searchLabel="Search listings"
+          emptyMessage="No active partner listings."
+          noun={{ one: "listing", many: "listings" }}
+        />
       )}
     </div>
   );

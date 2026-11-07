@@ -21,8 +21,28 @@ import {
   type UtilisationInput,
 } from "@/lib/staffing/caseload";
 import { IN_PROGRESS_ESCALATION_STATUSES } from "@tarragon/shared";
+import { DataTable, type DataTableColumn, type DataTableRow } from "@/components/ui/data-table";
 
 export const metadata = { title: "Doctor caseload" };
+
+const CASELOAD_COLUMNS: DataTableColumn[] = [
+  { header: "Clinician", sortable: true },
+  { header: "Tier", sortable: true },
+  { header: "Panel", sortable: true, defaultDir: "desc", align: "right" },
+  { header: "Active escalations", sortable: true, defaultDir: "desc", align: "right" },
+  { header: "Active outreach", sortable: true, defaultDir: "desc", align: "right" },
+  { header: "Load score", sortable: true, defaultDir: "desc", align: "right" },
+];
+
+const UTILISATION_COLUMNS: DataTableColumn[] = [
+  { header: "Clinician", sortable: true },
+  { header: "Available hrs/wk", sortable: true, defaultDir: "desc", align: "right" },
+  { header: "On leave", sortable: true },
+  { header: "Completed (30d)", sortable: true, defaultDir: "desc", align: "right" },
+  { header: "Cancelled", sortable: true, defaultDir: "desc", align: "right" },
+  { header: "No-show", sortable: true, defaultDir: "desc", align: "right" },
+  { header: "Utilisation %", sortable: true, defaultDir: "desc", align: "right" },
+];
 
 /**
  * Ops-facing view of who's carrying how much, right now — not a fixed
@@ -269,55 +289,31 @@ export default async function DoctorCaseloadPage() {
               work, and the load scores it would have shown cannot be trusted. Reload the page to
               try again.
             </LoadFailure>
-          ) : rows.length === 0 ? (
-            <p className="text-sm text-charcoal-ink/60">No active clinical staff in this organisation.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-charcoal-ink/10 text-left text-xs uppercase tracking-wide text-charcoal-ink/50">
-                    <th className="py-2 pr-4">Clinician</th>
-                    <th className="py-2 pr-4">Tier</th>
-                    <th className="py-2 pr-4 text-right">Panel</th>
-                    <th className="py-2 pr-4 text-right">Active escalations</th>
-                    <th className="py-2 pr-4 text-right">Active outreach</th>
-                    <th className="py-2 pr-4 text-right">Load score</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-charcoal-ink/5">
-                  {rows.map((row) => (
-                    <tr key={row.profileId}>
-                      <td className="py-2 pr-4 font-medium text-charcoal-ink">
-                        {row.fullName}
-                        {row.doctorTier === "chief_medical_officer" && (
-                          <Badge variant="blue" className="ml-2">
-                            Director
-                          </Badge>
-                        )}
-                        {row.isHighLoad && (
-                          <Badge variant="red" className="ml-2">
-                            High load
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="py-2 pr-4 text-charcoal-ink/70">
-                        {row.doctorTier ? DOCTOR_TIER_LABEL[row.doctorTier] : "—"}
-                      </td>
-                      <td className="py-2 pr-4 text-right text-charcoal-ink/80">{row.panelSize}</td>
-                      <td className="py-2 pr-4 text-right text-charcoal-ink/80">
-                        {row.activeEscalations}
-                      </td>
-                      <td className="py-2 pr-4 text-right text-charcoal-ink/80">
-                        {row.activeOutreach}
-                      </td>
-                      <td className="py-2 pr-4 text-right font-semibold text-charcoal-ink">
-                        {row.loadScore}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              caption="Doctor caseload"
+              columns={CASELOAD_COLUMNS}
+              rows={rows.map((row): DataTableRow => ({
+                key: row.profileId,
+                searchText: `${row.fullName} ${row.doctorTier ? DOCTOR_TIER_LABEL[row.doctorTier] : ""}${row.isHighLoad ? " high load" : ""}`,
+                sort: [row.fullName, row.doctorTier ? DOCTOR_TIER_LABEL[row.doctorTier] : null, row.panelSize, row.activeEscalations, row.activeOutreach, row.loadScore],
+                cells: [
+                  <span key="who" className="font-medium text-charcoal-ink">
+                    {row.fullName}
+                    {row.doctorTier === "chief_medical_officer" && <Badge variant="blue" className="ml-2">Director</Badge>}
+                    {row.isHighLoad && <Badge variant="red" className="ml-2">High load</Badge>}
+                  </span>,
+                  row.doctorTier ? DOCTOR_TIER_LABEL[row.doctorTier] : "—",
+                  row.panelSize,
+                  row.activeEscalations,
+                  row.activeOutreach,
+                  <span key="load" className="font-semibold text-charcoal-ink">{row.loadScore}</span>,
+                ],
+              }))}
+              searchLabel="Search clinicians"
+              emptyMessage="No active clinical staff in this organisation."
+              noun={{ one: "clinician", many: "clinicians" }}
+            />
           )}
         </CardContent>
       </Card>
@@ -339,57 +335,42 @@ export default async function DoctorCaseloadPage() {
               30 days of appointments are all missing rather than zero, so no percentage here can
               be read as low or high. Reload the page to try again.
             </LoadFailure>
-          ) : utilisationRows.length === 0 ? (
-            <p className="text-sm text-charcoal-ink/60">No active clinical staff in this organisation.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-charcoal-ink/10 text-left text-xs uppercase tracking-wide text-charcoal-ink/50">
-                    <th className="py-2 pr-4">Clinician</th>
-                    <th className="py-2 pr-4 text-right">Available hrs/wk</th>
-                    <th className="py-2 pr-4">On leave</th>
-                    <th className="py-2 pr-4 text-right">Completed (30d)</th>
-                    <th className="py-2 pr-4 text-right">Cancelled</th>
-                    <th className="py-2 pr-4 text-right">No-show</th>
-                    <th className="py-2 pr-4 text-right">Utilisation %</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-charcoal-ink/5">
-                  {utilisationRows.map((row) => (
-                    <tr key={row.clinicianId}>
-                      <td className="py-2 pr-4 font-medium text-charcoal-ink">{row.fullName}</td>
-                      <td className="py-2 pr-4 text-right text-charcoal-ink/80">
-                        {row.availableHoursPerWeek.toFixed(1)}
-                      </td>
-                      <td className="py-2 pr-4">
-                        {row.onLeave && row.currentOrNextLeave ? (
-                          <Badge variant="amber">Until {formatDate(row.currentOrNextLeave.endsAt)}</Badge>
-                        ) : row.currentOrNextLeave ? (
-                          <span className="text-charcoal-ink/50">
-                            From {formatDate(row.currentOrNextLeave.startsAt)}
-                          </span>
-                        ) : (
-                          <span className="text-charcoal-ink/40">—</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-4 text-right text-charcoal-ink/80">
-                        {row.completedConsultations}
-                      </td>
-                      <td className="py-2 pr-4 text-right text-charcoal-ink/80">
-                        {row.cancelledConsultations}
-                      </td>
-                      <td className="py-2 pr-4 text-right text-charcoal-ink/80">
-                        {row.noShowConsultations}
-                      </td>
-                      <td className="py-2 pr-4 text-right font-semibold text-charcoal-ink">
-                        {(row.utilisationPct * 100).toFixed(0)}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              caption="Utilisation"
+              columns={UTILISATION_COLUMNS}
+              rows={utilisationRows.map((row): DataTableRow => ({
+                key: row.clinicianId,
+                searchText: row.fullName,
+                sort: [
+                  row.fullName,
+                  row.availableHoursPerWeek,
+                  row.currentOrNextLeave ? (row.onLeave ? row.currentOrNextLeave.endsAt : row.currentOrNextLeave.startsAt) : null,
+                  row.completedConsultations,
+                  row.cancelledConsultations,
+                  row.noShowConsultations,
+                  row.utilisationPct,
+                ],
+                cells: [
+                  <span key="who" className="font-medium text-charcoal-ink">{row.fullName}</span>,
+                  row.availableHoursPerWeek.toFixed(1),
+                  row.onLeave && row.currentOrNextLeave ? (
+                    <Badge key="leave" variant="amber">Until {formatDate(row.currentOrNextLeave.endsAt)}</Badge>
+                  ) : row.currentOrNextLeave ? (
+                    <span key="leave" className="text-charcoal-ink/50">From {formatDate(row.currentOrNextLeave.startsAt)}</span>
+                  ) : (
+                    <span key="leave" className="text-charcoal-ink/40">—</span>
+                  ),
+                  row.completedConsultations,
+                  row.cancelledConsultations,
+                  row.noShowConsultations,
+                  <span key="pct" className="font-semibold text-charcoal-ink">{(row.utilisationPct * 100).toFixed(0)}%</span>,
+                ],
+              }))}
+              searchLabel="Search clinicians"
+              emptyMessage="No active clinical staff in this organisation."
+              noun={{ one: "clinician", many: "clinicians" }}
+            />
           )}
         </CardContent>
       </Card>

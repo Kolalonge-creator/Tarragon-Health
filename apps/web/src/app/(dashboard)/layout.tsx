@@ -211,7 +211,7 @@ export default async function DashboardLayout({
         profileHref={profileHref}
         navSections={withoutHiddenNav(
           withCommunityNav(
-            getNavSections(profile?.role, profile?.receives_care, { communityOpen }),
+            getNavSections(profile?.role, profile?.receives_care, { communityOpen, cmo: isChiefMedicalOfficer }),
             profile?.role,
             communityStaff,
           ),
@@ -221,6 +221,8 @@ export default async function DashboardLayout({
         // G6: every clinician and care coordinator can find a patient from any page (the directory is in both allow-lists).
         patientSearch={profile?.role === "clinician" || profile?.role === "care_coordinator"}
         adminSearch={adminSearchEntries}
+        // The superadmin console: icon-only sidebar and header breadcrumbs (docs/design/SUPERADMIN-CONSOLE.md).
+        consoleChrome={profile?.role === "admin"}
         searchKind={isPatient ? "patient" : "admin"}
         // The Chief Medical Officer's pending-signature count beside "Sign-off hub", from the same list the banner and the hub show.
         hrefBadges={{
