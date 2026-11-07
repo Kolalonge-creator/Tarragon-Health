@@ -56999,6 +56999,8 @@ export type Database = {
         Returns: Json
       }
       finance_reconciliation_summary: { Args: never; Returns: Json }
+      finance_refund_queue: { Args: never; Returns: Json }
+      finance_refund_settings_get: { Args: never; Returns: Json }
       finance_reject_request: {
         Args: { p_id: string; p_note: string }
         Returns: undefined
@@ -57028,6 +57030,10 @@ export type Database = {
       finance_run_revenue_recognition: { Args: never; Returns: number }
       finance_set_period_status: {
         Args: { p_month: string; p_status: string }
+        Returns: Json
+      }
+      finance_set_refund_second_approval_threshold: {
+        Args: { p_reason: string; p_threshold_minor: number }
         Returns: Json
       }
       finance_tax_rates_list: { Args: never; Returns: Json }

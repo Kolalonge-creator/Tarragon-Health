@@ -410,7 +410,7 @@ function fetchFinanceCounts(supabase: Client) {
   return Promise.resolve(supabase.rpc("finance_open_item_counts"));
 }
 
-async function financeOpenItemCount(supabase: Client, key: "reconciliation" | "fraud" | "approvals") {
+async function financeOpenItemCount(supabase: Client, key: "reconciliation" | "fraud" | "approvals" | "refunds") {
   let call = financeCountsCalls.get(supabase);
   if (!call) {
     call = fetchFinanceCounts(supabase);
@@ -603,11 +603,12 @@ export type WorklistCountKey =
   | "mentalHealthWorklistWaiting"
   | "financeReconciliationOpen"
   | "financeFraudOpen"
-  | "financeApprovalsPending";
+  | "financeApprovalsPending"
+  | "financeRefundsPending";
 
 /** Finance console badges. Not clinical worklists: the clinician launch summary (launch-worklist.ts) leaves them out, because a
  * clinician calling the finance counts RPC is refused and would fail the whole summary. */
-export const FINANCE_COUNT_KEYS = ["financeReconciliationOpen", "financeFraudOpen", "financeApprovalsPending"] as const;
+export const FINANCE_COUNT_KEYS = ["financeReconciliationOpen", "financeFraudOpen", "financeApprovalsPending", "financeRefundsPending"] as const;
 export type FinanceCountKey = (typeof FINANCE_COUNT_KEYS)[number];
 export type ClinicalWorklistCountKey = Exclude<WorklistCountKey, FinanceCountKey>;
 
@@ -667,6 +668,7 @@ export const COUNTERS: Record<
   financeReconciliationOpen: (supabase) => financeOpenItemCount(supabase, "reconciliation"),
   financeFraudOpen: (supabase) => financeOpenItemCount(supabase, "fraud"),
   financeApprovalsPending: (supabase) => financeOpenItemCount(supabase, "approvals"),
+  financeRefundsPending: (supabase) => financeOpenItemCount(supabase, "refunds"),
 };
 
 /**

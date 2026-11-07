@@ -166,6 +166,24 @@ function Commercial({ d }: { d: TransactionDetail }) {
   );
 }
 
+function OtherRefunds({ d }: { d: TransactionDetail }) {
+  if (d.other_refunds.length === 0) return null;
+  return (
+    <SectionCard title="Refunds of this charge" description="Confirmed refunds recorded against this Paystack charge.">
+      <ul className="space-y-2 text-sm">
+        {d.other_refunds.map((r) => (
+          <li key={r.event_id} className="flex flex-wrap items-baseline justify-between gap-2">
+            <Link href={`/finance/transactions/${r.record_type}/${r.record_id}`} className="text-brand-green hover:underline dark:text-brand-green-bright">
+              {streamLabel(r.stream)} refund, {when(r.occurred_at)}
+            </Link>
+            <span className="tabular-nums">{formatMinor(r.amount_minor, "NGN")}</span>
+          </li>
+        ))}
+      </ul>
+    </SectionCard>
+  );
+}
+
 function Refunds({ d }: { d: TransactionDetail }) {
   if (d.event.record_type !== "order" && d.refunds.length === 0) return null;
   return (
@@ -337,6 +355,7 @@ export function TransactionDetailView({ recordType, recordId }: { recordType: Re
             <div className="space-y-6">
               <Commercial d={q.data} />
               <Refunds d={q.data} />
+              <OtherRefunds d={q.data} />
               <Provider d={q.data} />
               <Ledger d={q.data} />
             </div>
