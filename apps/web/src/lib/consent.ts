@@ -68,6 +68,8 @@ export const SIGNED_IN_APP_PREFIXES = [
   "/admin",
   "/analytics",
   "/clinician",
+  // the shared Community moderation desk (COM-31), staff only
+  "/community-desk",
   "/credentialing",
   "/dashboard",
   "/doctor",

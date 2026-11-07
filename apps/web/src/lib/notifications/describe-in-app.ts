@@ -1,5 +1,4 @@
 import { t, type MessageKey } from "@tarragon/i18n";
-import { communityDeskQueueHref } from "@/components/community/community-nav";
 /** The two fields the copy depends on. `InAppNotification` (lib/queries/notifications.ts) satisfies it, and keeping it
  * structural lets the INV-07 lint in packages/notifications render every case without loading the web app. */
 export interface InAppNotificationInput {
@@ -1213,7 +1212,9 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
  * by the database and no longer changes the address; older notices that carry it land in the same place.
  */
 function communityStaffHref(_area: unknown, kind: "safety" | "queue"): string {
-  return communityDeskQueueHref(kind === "safety" ? "safety" : "moderation");
+  // the same address as communityDeskQueueHref (components/community/community-nav.ts); this file is also compiled by packages/shared,
+  // which has no "@/" alias, so it cannot import it
+  return `/community-desk/queue?tab=${kind === "safety" ? "safety" : "moderation"}`;
 }
 
 function communityNotice(title: MessageKey, body: MessageKey, href: string): { text: string; href: string } {
