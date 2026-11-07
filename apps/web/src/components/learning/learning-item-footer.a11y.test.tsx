@@ -50,6 +50,15 @@ describe("LearningItemFooter", () => {
     expect(screen.getByTestId("trust-line").textContent).toContain("Next review due 2027-09-01");
   });
 
+  it("P20: never shows a review date without a named reviewer", () => {
+    trust = { ...FULL, reviewed_by_name: null };
+    render(<LearningItemFooter code="htn-basics" title="Basics" />);
+    const line = screen.getByTestId("trust-line");
+    expect(line.textContent).not.toContain("Reviewed by");
+    expect(line.textContent).not.toContain("Last reviewed");
+    expect(line.textContent).toContain("Sources: WHO hypertension guideline 2021");
+  });
+
   it("says details are being added, and invents nothing, when the record lacks them", () => {
     trust = { code: "old", reviewed_by_name: null, reviewed_at: null, source_reference: null, evidence_source: null, self_care_action: null, is_shareable: false };
     render(<LearningItemFooter code="old" title="Old" />);

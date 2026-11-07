@@ -43,8 +43,10 @@ describe("HelpAlertCard while paused", () => {
     paused = true;
     renderIt();
     expect(await screen.findByText(/Your Care Circle is paused/)).toBeTruthy();
+    // P22: the patient picks a kind of help first
+    fireEvent.click(screen.getByRole("radio", { name: "Please call me" }));
     fireEvent.click(screen.getByRole("button", { name: /help/i }));
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith("send_circle_help_alert", {}));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith("send_circle_help_alert", { p_request_type: "call_me" }));
     expect(await screen.findByText(/this alert was still sent/)).toBeTruthy();
   });
 
