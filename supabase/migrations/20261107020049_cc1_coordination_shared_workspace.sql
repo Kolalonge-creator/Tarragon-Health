@@ -339,6 +339,25 @@ grant execute on function public.hold_appointment_slot_by_phone(uuid, uuid, appo
 
 -- 3. Routing -------------------------------------------------------------------------------------------------------------------------
 
+-- Columns first: the SQL functions below are checked against them when they are created (a fresh replay failed otherwise).
+alter table public.care_outreach_tasks add column if not exists auto_assigned boolean not null default false;
+alter table public.navigation_requests add column if not exists auto_assigned boolean not null default false;
+alter table public.chronic_programme_coordinator_tasks
+  add column if not exists assigned_to uuid references public.profiles(id) on delete set null,
+  add column if not exists auto_assigned boolean not null default false;
+create index if not exists chronic_programme_coordinator_tasks_assigned_open_idx
+  on public.chronic_programme_coordinator_tasks (assigned_to) where status = 'open';
+create index if not exists care_outreach_tasks_auto_open_idx
+  on public.care_outreach_tasks (organisation_id) where auto_assigned and status = 'open';
+create index if not exists navigation_requests_auto_open_idx
+  on public.navigation_requests (organisation_id) where auto_assigned and status = 'open';
+
+comment on column public.care_outreach_tasks.auto_assigned is
+  'CC-2: true while the assignee was chosen by the system (private.pick_coordination_owner); a hand claim clears it, and only auto-assigned untouched items move to a coordinator in the handover sweep.';
+comment on column public.navigation_requests.auto_assigned is 'CC-2: see care_outreach_tasks.auto_assigned.';
+comment on column public.chronic_programme_coordinator_tasks.auto_assigned is 'CC-2: see care_outreach_tasks.auto_assigned.';
+comment on column public.chronic_programme_coordinator_tasks.assigned_to is 'CC-2: who holds this task; chosen by private.pick_coordination_owner at insert.';
+
 -- One load measure for everything a person holds: coordination items, care gaps and queue tasks. The S90 pickers count only gaps and
 -- queue tasks, so routing coordination work through them would send every new item to the same person (review finding, 2026-11-07).
 create or replace function private.coordination_load(p_profile uuid)
@@ -432,24 +451,6 @@ as $$
     private.pick_coordination_doctor(p_org, p_patient, p_now));
 $$;
 revoke all on function private.pick_coordination_owner(uuid, uuid, timestamptz) from public;
-
-alter table public.care_outreach_tasks add column if not exists auto_assigned boolean not null default false;
-alter table public.navigation_requests add column if not exists auto_assigned boolean not null default false;
-alter table public.chronic_programme_coordinator_tasks
-  add column if not exists assigned_to uuid references public.profiles(id) on delete set null,
-  add column if not exists auto_assigned boolean not null default false;
-create index if not exists chronic_programme_coordinator_tasks_assigned_open_idx
-  on public.chronic_programme_coordinator_tasks (assigned_to) where status = 'open';
-create index if not exists care_outreach_tasks_auto_open_idx
-  on public.care_outreach_tasks (organisation_id) where auto_assigned and status = 'open';
-create index if not exists navigation_requests_auto_open_idx
-  on public.navigation_requests (organisation_id) where auto_assigned and status = 'open';
-
-comment on column public.care_outreach_tasks.auto_assigned is
-  'CC-2: true while the assignee was chosen by the system (private.pick_coordination_owner); a hand claim clears it, and only auto-assigned untouched items move to a coordinator in the handover sweep.';
-comment on column public.navigation_requests.auto_assigned is 'CC-2: see care_outreach_tasks.auto_assigned.';
-comment on column public.chronic_programme_coordinator_tasks.auto_assigned is 'CC-2: see care_outreach_tasks.auto_assigned.';
-comment on column public.chronic_programme_coordinator_tasks.assigned_to is 'CC-2: who holds this task; chosen by private.pick_coordination_owner at insert.';
 
 -- One trigger function for all three tables. BEFORE INSERT: no assignee -> pick one, mark auto. BEFORE UPDATE: a changed assignee
 -- by anyone but the sweep clears the mark; a caller who is not org staff (a patient editing their own support request) cannot move
