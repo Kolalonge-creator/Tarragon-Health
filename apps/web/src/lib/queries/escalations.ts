@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { compareByAlert } from "@/lib/worklist/priority";
 import { generateCaseBriefAction } from "@/lib/case-briefs/actions";
 import { handleIfPermissionDenied } from "@/lib/audit/log-denied-action";
-import type { EscalationLevel, ScreeningResultStatus, Tables } from "@tarragon/shared";
+import type { Database, EscalationLevel, ScreeningResultStatus, Tables } from "@tarragon/shared";
 import { ACTIVE_ESCALATION_STATUSES, type WorkingEscalationStatus } from "@tarragon/shared";
 
 export type EscalationWithDetails = Tables<"escalations"> & {
@@ -547,6 +547,81 @@ export function useLogContactAttempt() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["escalation-contact-attempts", variables.escalationId] });
+    },
+  });
+}
+
+/** G10: every handover on one case, newest first (who, why, what is outstanding, and the answer). */
+export type EscalationHandover = Database["public"]["Functions"]["escalation_handovers_for"]["Returns"][number];
+
+export function useEscalationHandovers(escalationId: string) {
+  return useQuery({
+    queryKey: ["escalation-handovers", escalationId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("escalation_handovers_for", { p_escalation_id: escalationId });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!escalationId,
+  });
+}
+
+/** G10 (DW-16, DW-19): the assigned doctor or the CMO asks another doctor to take the case. Nothing moves until they accept. */
+export function useRequestHandover() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { escalationId: string; toProfileId: string; reason: string; outstandingAction: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("request_escalation_handover", {
+        p_escalation_id: input.escalationId,
+        p_to_profile_id: input.toProfileId,
+        p_reason: input.reason.trim(),
+        p_outstanding_action: input.outstandingAction.trim(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["escalation-handovers", variables.escalationId] });
+    },
+  });
+}
+
+/**
+ * G10 (DW-17, DW-18): the new doctor accepts (the case becomes theirs) or declines with a reason. Resolves to the handover's
+ * status afterwards; "superseded" means the case closed or changed hands while it waited, and nothing moved.
+ */
+export function useRespondHandover() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { escalationId: string; handoverId: string; accept: boolean; declineReason?: string }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("respond_escalation_handover", {
+        p_handover_id: input.handoverId,
+        p_accept: input.accept,
+        p_decline_reason: input.accept ? undefined : input.declineReason?.trim(),
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["escalation-handovers", variables.escalationId] });
+      queryClient.invalidateQueries({ queryKey: ["escalations"] });
+    },
+  });
+}
+
+/** G10: whoever asked, the doctor handing over, or the CMO withdraws a waiting handover. */
+export function useCancelHandover() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { escalationId: string; handoverId: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("cancel_escalation_handover", { p_handover_id: input.handoverId });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["escalation-handovers", variables.escalationId] });
     },
   });
 }

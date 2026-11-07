@@ -117,7 +117,7 @@ Ranked by safety value, then by how much doctor time they save. "Approval" means
 | G7 | 140-link sidebar | 5 | M | **Yes (Q2)**, IA below |
 | G8 | No unified worklist | 8.4, 9 | L | **Yes (Q1)** |
 | G9 | Escalation status set is smaller than the spec's | 10.2 | M | **Yes (Q3)** |
-| G10 | Handover has no acknowledgement or structured record | 10.4 | M | No (schema, Phase 6) |
+| G10 | Handover has no acknowledgement or structured record | 10.4 | M | Built 2026-11-07 (DW-16..19): `escalation_handovers`, request/accept/decline/cancel |
 | G11 | Escalation resolve note not enforced in the DB | 10.2 | S | No (DB, needs ultra review) |
 | G12 | Order form uses a bundle dropdown, not catalogue search | 13.1 | S | No |
 | G13 | Doctor cannot download the lab request or referral letter | 13.1 | S | No |

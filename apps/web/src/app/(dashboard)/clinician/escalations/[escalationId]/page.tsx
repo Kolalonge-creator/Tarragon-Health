@@ -19,6 +19,7 @@ import { NotesPanel } from "./notes-panel";
 import { ResolveForm } from "./resolve-form";
 import { WorkingStateCard } from "./working-state-card";
 import { ContactAttemptsPanel } from "./contact-attempts-panel";
+import { HandoverCard } from "./handover-card";
 import { TestAccountBadge } from "@/components/clinical/test-account-badge";
 
 export default async function EscalationDetailPage({
@@ -126,6 +127,9 @@ export default async function EscalationDetailPage({
   const caseIsActive = isActiveEscalationStatus(escalation.status);
   const canMoveState = caseIsActive && isClinicalStaff && (isAssignedDoctor || isCmo);
   const canLogContact = caseIsActive && (isAssignedDoctor || isCmo || staff?.doctor_tier === "care_coordinator");
+  // G10 (DW-16): the assigned doctor (a doctor, not a coordinator) or the CMO can hand an open, assigned case to another doctor.
+  const canRequestHandover =
+    caseIsActive && escalation.assigned_doctor_id !== null && isClinicalStaff && (isAssignedDoctor || isCmo);
   const resolveLocked =
     !isClinicalStaff ||
     (requiresEmergencyAuthority(escalation.clinician_alert) && !canResolveEmergency);
@@ -245,6 +249,14 @@ export default async function EscalationDetailPage({
           canMove={canMoveState}
         />
       )}
+
+      <HandoverCard
+        escalationId={escalation.id}
+        assignedProfileId={escalation.assigned_doctor_id}
+        viewerProfileId={viewer?.id ?? null}
+        canRequest={canRequestHandover}
+        isCmo={isCmo}
+      />
 
       <ContactAttemptsPanel escalationId={escalation.id} canLog={canLogContact} />
 

@@ -29,12 +29,15 @@ import { WorklistTable } from "./worklist/worklist-table";
 import { loadDoctorWorklist } from "@/lib/worklist/doctor-worklist-load";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
 import { CmoOversightSection, type OnLeaveDoctor } from "./cmo-oversight-section";
+import { HandoversOfferedSection, type OpenHandover } from "./handover-lists";
 import { loadWorklist } from "@/lib/security/worklists";
 import {
   criticalBannerView,
   escalationsForDoctor,
   figure,
+  handoversOfferedTo,
   lagosDayBounds,
+  overdueHandoversForOversight,
   nextActionView,
   rankEscalations,
   sortWorklist,
@@ -152,6 +155,11 @@ export default async function ClinicianPage() {
   // DW-14: the CMO's oversight reads start now, alongside the rest of the page. The sign-off hub is the same per-request
   // read the layout banner already made (cached); leave is today's provider_time_off of kind 'leave', one line per clinician.
   const isCmo = canAssignCases(staff);
+  // G10: waiting handovers that involve the viewer (all of the organisation's for the CMO). Null when the read failed, so the
+  // CMO's "not answered in time" block says so instead of showing an empty all-clear.
+  const handoversPromise: Promise<OpenHandover[] | null> = staff
+    ? Promise.resolve(supabase.rpc("open_escalation_handovers")).then(({ data, error }) => (error ? null : (data ?? [])))
+    : Promise.resolve([]);
   const nowIso = now.toISOString();
   const oversightPromise = isCmo
     ? Promise.all([
@@ -345,6 +353,8 @@ export default async function ClinicianPage() {
 
   const attention = await attentionPromise;
   const oversight = await oversightPromise;
+  const openHandovers = await handoversPromise;
+  const offeredToMe = handoversOfferedTo(openHandovers ?? [], profile?.id ?? null);
 
   const attentionTop = sortWorklist(attention.rows, now).slice(0, 8);
 
@@ -387,6 +397,8 @@ export default async function ClinicianPage() {
         ]}
       />
 
+      <HandoversOfferedSection handovers={offeredToMe} now={now} />
+
       <section aria-labelledby="attention-heading" className="space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="attention-heading" className="font-heading text-lg font-semibold text-charcoal-ink">
@@ -422,6 +434,7 @@ export default async function ClinicianPage() {
           signoffsWaiting={oversight.signoffsWaiting}
           signoffsFailed={oversight.signoffsFailed}
           onLeave={oversight.onLeave}
+          overdueHandovers={openHandovers === null ? null : overdueHandoversForOversight(openHandovers, now)}
         />
       )}
 

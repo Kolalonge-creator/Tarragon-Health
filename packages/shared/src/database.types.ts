@@ -19067,6 +19067,63 @@ export type Database = {
         }
         Relationships: []
       }
+      escalation_handovers: {
+        Row: {
+          acknowledge_by: string
+          decline_reason: string | null
+          escalation_id: string
+          from_profile_id: string
+          id: string
+          is_critical: boolean
+          organisation_id: string
+          outstanding_action: string
+          patient_id: string
+          reason: string
+          requested_at: string
+          requested_by: string
+          responded_at: string | null
+          responded_by: string | null
+          status: string
+          to_profile_id: string
+        }
+        Insert: {
+          acknowledge_by: string
+          decline_reason?: string | null
+          escalation_id: string
+          from_profile_id: string
+          id?: string
+          is_critical: boolean
+          organisation_id: string
+          outstanding_action: string
+          patient_id: string
+          reason: string
+          requested_at?: string
+          requested_by: string
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
+          to_profile_id: string
+        }
+        Update: {
+          acknowledge_by?: string
+          decline_reason?: string | null
+          escalation_id?: string
+          from_profile_id?: string
+          id?: string
+          is_critical?: boolean
+          organisation_id?: string
+          outstanding_action?: string
+          patient_id?: string
+          reason?: string
+          requested_at?: string
+          requested_by?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          status?: string
+          to_profile_id?: string
+        }
+        Relationships: []
+      }
       escalation_notes: {
         Row: {
           author_id: string | null
@@ -53130,6 +53187,56 @@ export type Database = {
       log_escalation_contact_attempt: {
         Args: { p_escalation_id: string; p_note?: string; p_outcome: string }
         Returns: string
+      }
+      request_escalation_handover: {
+        Args: { p_escalation_id: string; p_outstanding_action: string; p_reason: string; p_to_profile_id: string }
+        Returns: string
+      }
+      respond_escalation_handover: {
+        Args: { p_accept: boolean; p_decline_reason?: string; p_handover_id: string }
+        Returns: string
+      }
+      cancel_escalation_handover: { Args: { p_handover_id: string }; Returns: undefined }
+      escalation_handovers_for: {
+        Args: { p_escalation_id: string }
+        Returns: {
+          acknowledge_by: string
+          decline_reason: string | null
+          from_name: string | null
+          from_profile_id: string
+          id: string
+          is_critical: boolean
+          outstanding_action: string
+          reason: string
+          requested_at: string
+          requested_by: string
+          requested_by_name: string | null
+          responded_at: string | null
+          responded_by_name: string | null
+          status: string
+          to_name: string | null
+          to_profile_id: string
+        }[]
+      }
+      open_escalation_handovers: {
+        Args: never
+        Returns: {
+          acknowledge_by: string
+          escalation_id: string
+          from_name: string | null
+          from_profile_id: string
+          id: string
+          is_critical: boolean
+          outstanding_action: string
+          patient_is_test: boolean
+          patient_name: string | null
+          patient_number: string | null
+          reason: string
+          requested_at: string
+          requested_by_name: string | null
+          to_name: string | null
+          to_profile_id: string
+        }[]
       }
       apply_upload_scan_verdict: {
         Args: {

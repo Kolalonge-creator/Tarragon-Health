@@ -3,6 +3,7 @@ import { cmoOversightView, figure, type DoctorWorklistRow, type WorklistSource }
 import { LoadFailure } from "@/components/ui/load-failure";
 import { TodayStrip } from "./today-strip";
 import { WorklistTable } from "./worklist/worklist-table";
+import { OverdueHandoversBlock, type OpenHandover } from "./handover-lists";
 
 export type OnLeaveDoctor = { name: string; until: string };
 
@@ -23,6 +24,7 @@ export function CmoOversightSection({
   signoffsWaiting,
   signoffsFailed,
   onLeave,
+  overdueHandovers,
 }: {
   rows: readonly DoctorWorklistRow[];
   failedSources: readonly WorklistSource[];
@@ -32,6 +34,8 @@ export function CmoOversightSection({
   signoffsFailed: boolean;
   /** Null when the leave read failed. */
   onLeave: OnLeaveDoctor[] | null;
+  /** G10 (DW-18): waiting handovers past their answer-by time. Null when the read failed. */
+  overdueHandovers: OpenHandover[] | null;
 }) {
   const view = cmoOversightView(rows, failedSources, now);
 
@@ -92,7 +96,8 @@ export function CmoOversightSection({
           )}
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="space-y-3 lg:col-span-2">
+          <OverdueHandoversBlock handovers={overdueHandovers} />
           {view.teamRows.length === 0 ? (
             <p className="rounded-2xl bg-white p-5 text-sm text-charcoal-ink/70">
               {failedSources.length > 0 ? "Nothing to show from the work that did load. This is not an all-clear." : "No open team work right now."}
