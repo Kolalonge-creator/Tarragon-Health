@@ -4,6 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { PanelLeftClose } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ICON, APP_ICON } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { ThemeToggle, type ThemePreference } from "./theme-toggle";
 import { Avatar } from "@/components/avatar";
 import { itemIsActive, primaryNavItems, tabIsActive, type NavItem, type NavSection } from "@/lib/navigation";
 import { NavMoreItems } from "./nav-more-items";
+import { NavRail, ConsoleBreadcrumbs, OPEN_GROUPS_STORAGE_KEY, navGroupScope, openNavGroup, useRailCollapsed, type RailBadge } from "./nav-rail";
 import { UiLanguageProvider, useT } from "@/components/ui-language-provider";
 import { useSupportingAttention } from "@/lib/queries/care-circle";
 import { DEFAULT_UI_LANGUAGE, type UiLanguage } from "@tarragon/shared";
@@ -246,10 +248,9 @@ function SidebarNav({
   );
 }
 
-/** Which manually-opened sidebar groups to remember between visits. Reads and
- * writes are wrapped in try/catch — private windows and cleared site data must
- * degrade to the defaults, never to a crash. */
-const OPEN_GROUPS_STORAGE_KEY = "nav-open-groups-v1";
+// Which manually-opened sidebar groups to remember between visits: OPEN_GROUPS_STORAGE_KEY and navGroupScope live in
+// nav-rail.tsx, which also writes the key when a rail icon opens a group. Reads and writes are wrapped in try/catch, so
+// private windows and cleared site data degrade to the defaults, never to a crash.
 
 // localStorage plumbing for useSyncExternalStore: the raw string is the
 // snapshot (referentially stable between writes), the server snapshot is
@@ -404,8 +405,7 @@ function CollapsibleSidebarNav({
   // silently force the same state on an unrelated "Operations" group under a
   // different role. The pathname's own top segment is the same scoping unit
   // proxy.ts already uses to tell roles' routes apart.
-  const navScope = pathname.split("/")[1] || "root";
-  const scopePrefix = `${navScope}::`;
+  const scopePrefix = `${navGroupScope(pathname)}::`;
 
   // Manual overrides on top of the "only the active group is open" default:
   // true = opened by hand, false = collapsed by hand (session-local; only
@@ -420,7 +420,7 @@ function CollapsibleSidebarNav({
   );
   // Every scope's keys, unfiltered — needed so writing this scope's toggles
   // never clobbers another scope's already-persisted entries under the same
-  // shared storage key (see navScope's comment above).
+  // shared storage key (see the scoping comment above).
   const allStoredKeys = React.useMemo<string[]>(() => {
     if (!storedRaw) return [];
     try {
@@ -555,8 +555,12 @@ export function AppShell({
   searchKind,
   patientSearch,
   hrefBadges,
+  consoleChrome = false,
   children,
 }: {
+  /** The superadmin console's extras (docs/design/SUPERADMIN-CONSOLE.md): a desktop sidebar that folds to an icon-only
+   * rail, and breadcrumbs in the header. Admin only; every other role's shell is unchanged. */
+  consoleChrome?: boolean;
   /** Shows the header "Find a patient" box (clinicians and care coordinators, who can open the patient directory). */
   patientSearch?: boolean;
   /** Counts shown beside specific links, computed on the server (href to count). A failed read shows the amber dot, never a hidden zero. */
@@ -593,6 +597,8 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [railCollapsedStored, setRailCollapsed] = useRailCollapsed();
+  const railCollapsed = consoleChrome && railCollapsedStored;
   const [theme, setTheme] = React.useState<ThemePreference>(initialTheme);
 
   // "system" resolves to a concrete dark/light here (the CSS variant only
@@ -672,6 +678,11 @@ export function AppShell({
   // four-link menu would otherwise get a button opening a drawer that shows
   // them nothing new.
   const showBottomBar = primaryItems.length > 0;
+  // The folded rail has no room for each link's badge, so it shows the same counts rolled up to each icon.
+  const railBadgeFor = (item: NavItem): RailBadge | null => {
+    if (item.countKey) return { count: navCounts.counts?.[item.countKey] ?? 0, failed: navCounts.failed };
+    return navCounts.hrefBadges?.[item.href] ?? null;
+  };
   const showMoreTab = allItems.length > primaryItems.length;
 
   const userBlock = (
@@ -722,14 +733,54 @@ export function AppShell({
       </a>
       {/* Desktop sidebar */}
       {hasNav && (
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex print:hidden dark:border-night-ink/15 dark:bg-night-card">
-          <BrandLockup homeHref={homeHref} />
-          {useCollapsibleNav ? (
-            <CollapsibleSidebarNav sections={navSections} pathname={pathname} navCounts={navCounts} />
-          ) : (
-            <SidebarNav sections={navSections} pathname={pathname} navCounts={navCounts} />
+        <aside
+          id="desktop-sidebar"
+          aria-label={railCollapsed ? "Menu, folded to icons" : undefined}
+          className={cn(
+            "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex print:hidden dark:border-night-ink/15 dark:bg-night-card",
+            railCollapsed ? "w-16" : "w-64"
           )}
-          {userBlock}
+        >
+          {railCollapsed ? (
+            <NavRail
+              sections={navSections}
+              pathname={pathname}
+              homeHref={homeHref}
+              profileHref={profileHref}
+              userName={userName}
+              avatarUrl={avatarUrl}
+              badgeFor={railBadgeFor}
+              onOpenGroup={(label) => {
+                openNavGroup(pathname, label);
+                setRailCollapsed(false);
+              }}
+              onExpand={() => setRailCollapsed(false)}
+            />
+          ) : (
+            <>
+              <BrandLockup homeHref={homeHref} />
+              {useCollapsibleNav ? (
+                <CollapsibleSidebarNav sections={navSections} pathname={pathname} navCounts={navCounts} />
+              ) : (
+                <SidebarNav sections={navSections} pathname={pathname} navCounts={navCounts} />
+              )}
+              {consoleChrome && (
+                <div className="px-3 pb-2">
+                  <button
+                    type="button"
+                    aria-expanded={true}
+                    aria-controls="desktop-sidebar"
+                    onClick={() => setRailCollapsed(true)}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-charcoal-ink/60 transition-colors hover:bg-charcoal-ink/5 hover:text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+                  >
+                    <PanelLeftClose aria-hidden="true" className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
+                    Collapse menu
+                  </button>
+                </div>
+              )}
+              {userBlock}
+            </>
+          )}
         </aside>
       )}
 
@@ -814,6 +865,7 @@ export function AppShell({
                 TarragonHealth
               </span>
               <EnvironmentBadge />
+              {consoleChrome && <ConsoleBreadcrumbs sections={navSections} pathname={pathname} />}
             </div>
             <div className="flex items-center gap-3 text-sm">
               {surface === "warm" && <ThemeToggle theme={theme} onChange={setTheme} />}

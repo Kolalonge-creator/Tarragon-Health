@@ -1,0 +1,117 @@
+# Superadmin console: audit and phased plan (2026-11-07)
+
+Source: the founder's "Superadmin Dashboard Enterprise UX ... Enhancement Specification" (pasted 2026-11-07).
+This file is Phase 1 of that spec (the audit). It records what exists, what conflicts with standing decisions,
+and the order the work should land in. Nothing here is built yet.
+
+Audited against `origin/main-dev` at the time of writing (the main checkout was 141 commits behind).
+
+## 1. What exists today
+
+| Area | What is there | Where |
+| --- | --- | --- |
+| Pages | 197 `page.tsx` under `/admin`, 56 top-level areas, 82 settings pages | `apps/web/src/app/(dashboard)/admin/` |
+| Sidebar | 3 groups: an unlabelled top band (7 links), **"Operations" (86 links, one flat list)**, "Configuration" (1 link: Settings) | `lib/navigation.ts` `case "admin"` |
+| Collapsible groups | Exists: labelled groups collapse to headings, open state kept in localStorage, the active group re-opens | `components/shell/app-shell.tsx` |
+| Settings | 82 pages behind one Settings link, a 7-section tab bar | `admin/settings/layout.tsx`, `lib/admin-settings-nav` |
+| Global search | ⌘K overlay. Pages: every reachable page, matched in the browser with extra keywords. Records: **staff and profiles only** | `lib/admin-search.ts`, `components/shell/admin-search.tsx`, `app/api/admin/search/route.ts` |
+| Header | Notification bell, profile menu, theme toggle, environment badge (draws nothing on Production, a label on Preview and local) | `components/shell/` |
+| Homepage | Attention hero (`attentionView` from shared), 4 KPI tiles (patients, active clinicians, 90-day revenue, open bookings), "All areas" tile grid, System status from `checkDependencies` | `admin/page.tsx` (718 lines) |
+| Operations | Ops console, incidents, event bus, partner webhooks, chain health, providers, automation health, AI cost and monitoring, reliability, wall, desk | `admin/ops/*` |
+| Security and governance | Security dashboard, access review, staff access review, data rights requests, data-breach incidents, account recovery | `admin/security`, `admin/access-review`, `admin/staff-access-review`, `admin/data-rights`, `admin/settings/data-breach-incidents` |
+| Integrations | A settings page exists | `admin/settings/integrations` |
+| Gates | Go-live guards (G-01: 9 masters plus features), platform modules, feature flags page | `admin/go-live`, `admin/settings/feature-flags`, `admin/settings/platform-modules` |
+| Commercial | Memberships, catalogue and prices, organisation prices, promo codes, Membership discount codes, refund requests, payouts, earnings, sponsors, employers, access fund; finance console at `/finance` | `admin/*`, `finance/*` |
+
+## 2. The real problems (what the spec is right about)
+
+1. **Navigation.** 86 links in one "Operations" group is the main usability problem. Pages for payments, partners,
+   outcomes, AI, security and settings sit side by side with no hierarchy. Several appear twice (Go-live guards and
+   its "(view)", AI cost twice, ops links copied into three roles' menus).
+2. **Record search is narrow.** ⌘K finds any page but only staff and profile records. No organisation, provider,
+   branch, transaction, Membership, incident or audit event.
+3. **The homepage answers "what needs me" but not "how is the platform doing".** Four tiles, no period selector,
+   no previous-period comparison, no commercial split (free / Membership / sponsored / employer), no recent activity.
+4. **No shared page frame.** Each admin page builds its own title, filters and table. Tables differ in paging,
+   sorting, empty and error states.
+5. **No single integrations view with evidence.** Health lives across `checkDependencies`, the event bus, partner
+   webhooks and automation health; there is no one page per provider showing last success, last failure and errors.
+
+## 3. Where the spec conflicts with standing decisions (these win; the spec is adjusted)
+
+| Spec asks for | Standing decision | What we do |
+| --- | --- | --- |
+| WhatsApp Business, SMS integration pages | WhatsApp removed (F-02, 2026-09-30); SMS is phone verification only | Show Email (Resend), Push (Expo/VAPID), SMS (verification only). No WhatsApp anywhere |
+| Flutterwave | Paystack is the only payment provider | Show Paystack only |
+| Feature flag management with staged rollout | G-01: nine masters plus features, one gate per feature, no new flags | The "Feature flags" area **is** the go-live page. No staged-rollout control (nothing in the platform supports one) |
+| MFA required for privileged users | SEC-01 (2026-11-05): staff MFA stays opt-in | Show MFA status per privileged account; do not enforce |
+| Superadmin drills into any record | I9 and the privacy model: superadmin is not a clinical reader by default; Support view-as is audited | Search returns identity and account facts only, never clinical content. Links go to existing audited pages |
+| "Membership ₦100,000, no Plus" | Check live `service_products` / Membership config before quoting any price | Read the price from the database; never hard-code it on the page |
+| Restart services / alter infrastructure | Not supported | Not built |
+| Separate staff app | S01d: staff areas move to `apps/console` one at a time; only `/ngo` has moved | Decision needed (Q1 below) |
+
+## 4. Phased plan (one PR each, in this order)
+
+**Phase 2a: navigation and page frame** (no data change, no migration)
+- Regroup the admin sidebar into labelled, collapsible groups. Proposed groups, mapped only to pages that exist:
+  Overview; People and access; Care delivery; Organisations and partners; Membership and money;
+  Outcomes and analytics; Platform operations; Security and governance; Configuration.
+- Remove duplicate entries; keep every page reachable (a test asserts every current href is still in the nav or
+  in Settings, so nothing silently drops out).
+- Icon-only collapsed sidebar with tooltips (desktop), breadcrumbs from the nav tree.
+- A shared `AdminPageHeader` (title, one-line description, primary actions) and `DataTable` frame (search, filters,
+  sort, server paging, total count, empty and error states). Adopt on the 5 busiest pages first, the rest move as touched.
+
+**Phase 2b: homepage**
+- Period selector (today, 7, 30, 90 days, year to date), last-updated time, live vs historical clearly separated.
+- Keep the attention hero; group items Critical / High / Needs attention / Information with a link to each record.
+- 8 to 10 KPIs with previous-period comparison, each with its definition and a link to the underlying list:
+  registered users, active patients, active clinicians, new registrations, active Memberships, renewal rate (with
+  numerator and denominator), gross collected, refunds, net collected, failed notifications, failed jobs.
+- Commercial split: Free / Membership / employer-sponsored / individually sponsored.
+- System health with five states (operational, degraded, failed, unknown, not configured) from real checks only.
+- Recent activity from the existing audit tables, no clinical content.
+- Money figures come from the existing finance readers (`analytics_clean`, test data excluded), never a new sum.
+
+**Phase 2c: record search**
+- Extend `/api/admin/search` to organisations, facilities and branches, diagnostic directory entries, Memberships,
+  payments (by Paystack reference), sponsors and employers, incidents, and audit events.
+- Recent searches and recently viewed records (per viewer).
+- Every result scoped by the caller's own RLS session (never the service-role client), with a Jest test proving a
+  non-admin gets nothing back.
+
+**Phase 2d: integrations centre**
+- One page listing each configured provider (Paystack, Resend, Expo push, Termii verification, Zoom, Google Maps,
+  Anthropic, ClamAV, Supabase storage) with last success, last failure, recent error count, webhook status, last check.
+- "Test connection" only where a safe read-only probe exists. No secret is ever sent to the browser.
+
+**Phase 3: module pages** (users, organisations and providers, Memberships and payments, security and audit log)
+moved onto the shared frame with detail pages in tabs. Each is its own PR.
+
+**Phase 4: reports** (exports, data freshness, metric definitions) and the test pass in the spec's section 21.
+
+## 5. Founder decisions (2026-11-07)
+
+- Q1: build in `apps/web` `/admin` now, shaped so a later move to `apps/console` is a plain move.
+- Q2: sidebar regroup approved, including "More in this group" for less-used links.
+- Q3: keep the current brand (Tarragon Green, Clinical Navy, current font); denser tables, page headers and breadcrumbs.
+  No new colours or fonts.
+- Q4: after the sidebar and page frame, the homepage ships first, then record search, then the integrations centre.
+
+## 6. Progress
+
+- **2a-1 sidebar regroup: done** (this branch). One unlabelled top band plus eight labelled groups. All 84 previous
+  links kept; six admin pages that had no link gained one (Security, Record access review, Staff access review,
+  Assisted account recovery, Task types and priorities, Refund requests). The group first drafted as "Clinical
+  operations" is named "Care delivery" because the old name pulled every page in the group into a search for the
+  `clinical_operations_enabled` master switch and pushed the go-live page off the results. `lib/admin-console-nav.test.ts`
+  pins every link.
+- **2a-2 icon-only sidebar and breadcrumbs: done** (this branch). Admin only, through `AppShell`'s `consoleChrome`;
+  every other role's shell is unchanged. "Collapse menu" folds the desktop sidebar to a 64px rail
+  (`components/shell/nav-rail.tsx`): the top band's links as icons, then one icon per group. A group icon unfolds the
+  sidebar with that group open rather than jumping to one of its pages. Each icon has an accessible name and a label on
+  hover and keyboard focus. The fold is remembered per browser (localStorage, read safely; the server always draws the
+  sidebar unfolded, so a folded sidebar unfolds for one frame on first load). Breadcrumbs (home, group, page) come from
+  the same nav tree (`lib/navigation-breadcrumbs.ts`) and are hidden on phones. Tests: `navigation-breadcrumbs.test.ts`,
+  `nav-rail.test.tsx` (including an axe check).
+- 2a-3 shared `AdminPageHeader` and `DataTable` frame on the five busiest pages: after that.
