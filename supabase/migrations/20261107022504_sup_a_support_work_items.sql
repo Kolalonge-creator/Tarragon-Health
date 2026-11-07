@@ -322,6 +322,29 @@ $$;
 revoke all on function public.assign_support_work_item(text, uuid, uuid) from public, anon;
 grant execute on function public.assign_support_work_item(text, uuid, uuid) to authenticated;
 
+-- Who can be given support work, for the assignment picker: active people who can work the desk, in the caller's
+-- organisation (the super admin is listed too). Names only.
+create or replace function public.list_support_desk_staff()
+returns table (profile_id uuid, full_name text, is_lead boolean)
+language sql
+stable
+security definer
+set search_path to ''
+as $$
+  select p.id, p.full_name,
+         (p.role = 'admin'
+          or exists (select 1 from public.user_permission_grants g where g.profile_id = p.id and g.revoked_at is null and g.permission_key = 'support.manage')
+          or exists (select 1 from public.role_permissions rp where rp.custom_role_id = p.custom_role_id and rp.permission_key = 'support.manage'))
+    from public.profiles p
+   where private.is_support_staff()
+     and private.profile_can_work_support(p.id)
+     and (p.role = 'admin' or p.organisation_id = private.current_org_id())
+   order by p.full_name;
+$$;
+
+revoke all on function public.list_support_desk_staff() from public, anon;
+grant execute on function public.list_support_desk_staff() to authenticated;
+
 -- Headline figures for the overview, read through the view (so the reader's RLS applies). Test accounts are left out.
 -- Satisfaction is returned only when at least p_min_csat_sample ratings exist in the period; otherwise null, which the
 -- page shows as "not yet available" rather than a misleading score from two answers.

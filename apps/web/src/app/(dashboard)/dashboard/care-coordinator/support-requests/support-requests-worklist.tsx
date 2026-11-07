@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { RaiseHandoff } from "@/components/support-desk/raise-handoff";
 import {
   useOrgNavigationRequests,
   useAssignNavigationRequest,
@@ -268,6 +269,16 @@ function SupportRequestRow({
 
       {r.status === "resolved" && r.resolution_note && (
         <p className="rounded-md bg-warm-ivory p-2 text-sm text-charcoal-ink/80">{r.resolution_note}</p>
+      )}
+
+      {/* SUP-2: a payment, provider or Membership question goes to the team that decides it; clinical ones use the care-team hand-off above. */}
+      {r.status !== "resolved" && !needsHandOff && (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-charcoal-ink/70">Hand to Finance or another team</summary>
+          <div className="mt-2">
+            <RaiseHandoff source="help_request" sourceId={r.id} />
+          </div>
+        </details>
       )}
     </li>
   );

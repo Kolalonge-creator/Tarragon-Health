@@ -63,6 +63,11 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       href: supporter ? "/patient/supporting" : "/patient/messages",
     };
   }
+  if (n.template === "support_ticket_reply") {
+    // SUP-2: support replied on the patient's technical ticket. The ticket id only; the reply itself stays in the app.
+    const ticketId = typeof payload.ticket_id === "string" ? payload.ticket_id : null;
+    return { text: "Your support team replied", href: ticketId ? `/patient/support/${ticketId}` : "/patient/support" };
+  }
   if (n.template === "care_message_reminder") {
     return { text: "You have an unread message from your care team", href: "/patient/messages" };
   }

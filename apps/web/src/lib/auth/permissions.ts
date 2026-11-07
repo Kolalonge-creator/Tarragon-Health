@@ -67,7 +67,10 @@ export const PERMISSION_KEYS = [
   "incidents.manage",
   "feature_flags.manage",
   "ops.console.view",
+  // support.manage gates the support lead's actions (reassign, bulk assign, desk settings) since SUP-2 (2026-11-07);
+  // support.agent works the desk. Seeded by 20261107022501_sup_b_support_desk_permissions.sql.
   "support.manage",
+  "support.agent",
   // Seeded by 20260922175144_support_view_as.sql — a time-boxed, read-only,
   // audited shadow view of a specific patient's or clinician's account
   // summary, to debug a reported issue. Distinct from support.manage (which
@@ -158,4 +161,20 @@ export async function canViewOpsConsole(): Promise<boolean> {
  */
 export async function canStartSupportViewAs(): Promise<boolean> {
   return hasPermission("support.view_as");
+}
+
+export type SupportDeskAccess = { canWork: boolean; isLead: boolean };
+
+/**
+ * The support desk gate (SUP-2), mirroring private.is_support_staff / private.is_support_lead: support.agent or
+ * support.manage (the super admin holds both), or an active Care Coordinator (the first owner of the support queue under
+ * MSG-2). A clinician is NOT let in by role; they keep their own pages unless granted support.agent.
+ */
+export async function getSupportDeskAccess(): Promise<SupportDeskAccess> {
+  const profile = await getCurrentProfile();
+  if (!profile) return { canWork: false, isLead: false };
+  const { isSuperAdmin, keys } = await getCallerPermissions();
+  const isLead = isSuperAdmin || keys.has("support.manage");
+  const canWork = isLead || keys.has("support.agent") || profile.role === "care_coordinator";
+  return { canWork, isLead };
 }

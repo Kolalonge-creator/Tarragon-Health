@@ -347,6 +347,8 @@ export function getNavSections(
                   icon: "medication",
                 },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
+                // SUP-1: one workspace over tickets, help requests, support messages and complaints.
+                { label: "Support desk", href: "/clinician/support-desk", icon: "helpCenter" },
                 { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
                 { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
                 {
@@ -755,6 +757,8 @@ export function getNavSections(
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
             { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
             { label: "AI monitoring", href: "/admin/ops/ai-monitoring", icon: "governance" },
+            { label: "Support desk", href: "/clinician/support-desk", icon: "helpCenter" },
+            { label: "Support hand-offs", href: "/admin/support/handoffs", icon: "helpCenter" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
