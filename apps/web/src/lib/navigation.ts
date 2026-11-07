@@ -711,6 +711,8 @@ export function getNavSections(
             { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             // Community groups, topics, moderators, filter rules, the recorded member lookup.
             { label: "Community", href: "/admin/community", icon: "messages" },
+            // The shared moderation desk every Community role holder uses (COM-31); an admin always has it.
+            { label: "Community desk", href: "/community-desk", icon: "messages" },
             // The symptom checker's regulatory position, accuracy audit and safety settings (S60).
             { label: "Symptom checker safety", href: "/admin/symptom-safety", icon: "governance", more: true },
             { label: "Triage agreement", href: "/admin/triage-agreement", icon: "analytics", more: true },

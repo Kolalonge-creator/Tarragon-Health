@@ -122,7 +122,9 @@ describe("the Chief Medical Officer index", () => {
   );
 
   it("points at the /clinician pages, never /admin (which a clinician account cannot open)", () => {
-    expect(cmo.every((e) => e.href.startsWith("/clinician"))).toBe(true);
+    // /community-desk is the one shared page outside /clinician: it is not a role home, and the CMO always has the desk (COM-31)
+    expect(cmo.every((e) => e.href.startsWith("/clinician") || e.href === "/community-desk")).toBe(true);
+    expect(cmo.some((e) => e.href.startsWith("/admin"))).toBe(false);
     expect(searchAdminEntries(cmo, "test content").map((e) => e.href)).toContain("/clinician/credentialing/content");
     expect(searchAdminEntries(cmo, "licence").map((e) => e.href)).toContain("/clinician/credentialing/expiry");
   });
@@ -133,7 +135,9 @@ describe("the Chief Medical Officer index for the learning content review list",
     const cmo = buildAdminSearchIndex([], [], CMO_EXTRA_PAGES);
     expect(searchAdminEntries(cmo, "expiry backlog").map((e) => e.href)).toContain("/clinician/learning-review");
     expect(searchAdminEntries(cmo, "assign owner").map((e) => e.href)).toContain("/clinician/learning-review");
-    expect(cmo.every((e) => e.href.startsWith("/clinician"))).toBe(true);
+    // /community-desk is the one shared page outside /clinician: it is not a role home, and the CMO always has the desk (COM-31)
+    expect(cmo.every((e) => e.href.startsWith("/clinician") || e.href === "/community-desk")).toBe(true);
+    expect(cmo.some((e) => e.href.startsWith("/admin"))).toBe(false);
   });
 });
 

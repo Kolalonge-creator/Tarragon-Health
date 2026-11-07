@@ -1207,14 +1207,14 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   return { text: "You have an update", href: "/patient" };
 }
 
-/** The console page a staff reader opens for Community work. `area` is stamped by the database from the reader's role; a clinician is the default. */
-function communityStaffHref(area: unknown, kind: "safety" | "queue"): string {
-  const tab = kind === "safety" ? "safety" : "moderation";
-  if (area === "coordinator") return `/dashboard/care-coordinator/community?tab=${tab}`;
-  if (area === "analyst") return `/analytics/community?tab=${tab}`;
-  if (area === "finance") return `/finance/community?tab=${tab}`;
-  if (area === "admin") return `/admin/community/moderation?tab=${tab}`;
-  return `/clinician/community/moderation?tab=${tab}`;
+/**
+ * The page a staff reader opens for Community work: the shared Community desk (COM-31), whatever their role. `area` is still stamped
+ * by the database and no longer changes the address; older notices that carry it land in the same place.
+ */
+function communityStaffHref(_area: unknown, kind: "safety" | "queue"): string {
+  // the same address as communityDeskQueueHref (components/community/community-nav.ts); this file is also compiled by packages/shared,
+  // which has no "@/" alias, so it cannot import it
+  return `/community-desk/queue?tab=${kind === "safety" ? "safety" : "moderation"}`;
 }
 
 function communityNotice(title: MessageKey, body: MessageKey, href: string): { text: string; href: string } {

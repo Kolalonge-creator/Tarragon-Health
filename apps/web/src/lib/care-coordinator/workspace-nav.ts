@@ -80,8 +80,9 @@ export function workspaceSections(opts: { showCommunity: boolean }): WorkspaceSe
   ];
   if (opts.showCommunity) {
     sections[3].links.push({
-      href: `${BASE}/community`,
-      label: "Community",
+      // the shared Community desk (COM-31); the old ${BASE}/community address redirects there
+      href: "/community-desk",
+      label: "Community desk",
       subtitle: "Check posts held for review and handle safety signals. You see handles, never names.",
       icon: "community",
     });

@@ -457,7 +457,7 @@ async function proxyInner(request: NextRequest) {
       profile.role === "clinician" &&
       (pathname === "/dashboard/care-coordinator/community" || pathname.startsWith("/dashboard/care-coordinator/community/"))
     ) {
-      return NextResponse.redirect(new URL("/clinician/community/moderation", request.url));
+      return NextResponse.redirect(new URL("/community-desk/queue", request.url));
     }
     const isCoordinatorClinicianPath =
       profile.role === "care_coordinator" &&

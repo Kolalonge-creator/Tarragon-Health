@@ -8,7 +8,8 @@ import { card, h1, h2, help, warn } from "../ui";
 export const metadata = { title: "Moderator rota" };
 export const dynamic = "force-dynamic";
 
-const SCOPE = { moderator: "Moderator", safety_reviewer: "Safety reviewer" } as const;
+// A senior moderator also holds a moderator role; rota cover counts the moderator role, so put their shifts there.
+const SCOPE = { moderator: "Moderator", safety_reviewer: "Safety reviewer", senior_moderator: "Senior moderator (shifts count on their moderator role)" } as const;
 const hourText = (h: number) => (h === 24 ? "24:00" : `${String(h).padStart(2, "0")}:00`);
 
 export default async function CommunityRotaPage() {

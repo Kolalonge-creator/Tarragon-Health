@@ -1,9 +1,9 @@
-import { ModerationDesk } from "@/components/community/moderation-desk";
+import { redirect } from "next/navigation";
+import { communityDeskQueueHref } from "@/components/community/community-nav";
 
-export const metadata = { title: "Community" };
 export const dynamic = "force-dynamic";
 
-/** The moderation desk for a finance account. Internal staff moderate automatically; an admin can withdraw it (COM-28). */
-export default async function FinanceCommunityPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  return <ModerationDesk requestedTab={(await searchParams).tab} basePath="/finance/community" />;
+/** Moved to the shared Community desk (decision COM-31, 2026-11-07). Kept so old links, bookmarks and notices still land. */
+export default async function MovedToCommunityDesk({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  redirect(communityDeskQueueHref((await searchParams).tab));
 }

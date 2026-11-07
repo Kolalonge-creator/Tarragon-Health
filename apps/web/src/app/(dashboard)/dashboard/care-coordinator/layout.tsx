@@ -52,8 +52,8 @@ export default async function CareCoordinationLayout({ children }: { children: R
     );
   }
 
-  // A doctor's community desk is under /clinician (proxy.ts sends them there), so only a coordinator gets the link here.
-  const showCommunity = profile.role === "care_coordinator" && showsCommunityEntry("care_coordinator", await getCommunityStaffContext());
+  // The shared Community desk (COM-31) is one address for every role holder, so a covering doctor with a Community role gets the link too.
+  const showCommunity = showsCommunityEntry(profile.role, await getCommunityStaffContext());
 
   return (
     <WorkspaceProvider

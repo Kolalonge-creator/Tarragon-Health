@@ -709,3 +709,27 @@ Migration `20261104165453_community_saved_posts_and_feed_sort.sql`, proof `commu
   `community_search_posts` used to send `is_mine: null` for them, and both apps' parsers require a boolean, so one such row made a whole
   reply list or search fail to load. Both now coalesce to false, like the feed and the saved list
   (`20261104235707_community_is_mine_never_null_in_replies_and_search.sql`, proof `community_is_mine_never_null.sql`).
+
+## 22. Grant-only roles and the shared Community desk (2026-11-07, COM-31)
+
+Migration `20261107020600_community_moderation_desk_grant_only_and_overview.sql`, proof `community_moderation_desk_grant_only.sql` (replaces
+the two COM-28 proofs). Section 19 no longer applies.
+- **Grant-only.** `private.community_auto_grant` and its triggers on `profiles` and `clinical_staff` are gone, as is the default-rota seeding
+  for automatic grants. Live automatic grants were withdrawn (`revoked_by` null, event `staff_revoked` / `grant_only_com31`). An admin gives
+  roles on `/admin/community/staff` to any internal staff account. The CMO is still paged on every safety signal by doctor tier, grant or not,
+  and `private.community_is_safety_reviewer()` now admits the active CMO by tier so the page can be acted on (the one exception to grant-only).
+  All 49 earlier shifts belonged to automatic grants, so the rota is empty until shifts are entered for the people given roles.
+- **Senior moderator.** `community_staff.scope` gains `senior_moderator`. The grant is global, the grant RPC adds a global moderator grant if
+  the person has none, and withdrawing the global moderator grant withdraws the senior one, so every existing `scope = 'moderator'` check is
+  unchanged. `private.community_is_senior_moderator()` and `community_staff_context().is_senior_moderator` expose it; the powers it adds
+  arrive with the worklist (Phase B).
+- **One desk.** `/community-desk` (Overview) and `/community-desk/queue` (the existing moderation desk). `community_staff_context().has_desk`
+  (any grant, the CMO, an admin) opens it; the menu adds "Community desk" for those people. The old desk pages under care coordinator,
+  clinician, analyst, finance and admin redirect to it, and staff alert links point at it. Configuration (groups, staff, rota, drills, rules)
+  stays in the admin and CMO areas and is linked from the desk only for those people.
+- **Overview.** `community_desk_overview(days)` (1, 7, 30 or 90; anything else is 7): attention items (safety signals, posts hidden after
+  reports, held posts, reports on visible posts, appeals, failed staff alerts, no reviewer or moderator on the rota this hour, the overdue
+  check not running, no passed drill in 90 days), key figures, a day-by-day series separating member actions, automatic checks and
+  moderator decisions, per-group health, staff workload and the last 25 events. No profile id, handle or post text is returned; safety
+  detail is shown only to a safety reviewer, the CMO or an admin. A figure with no data says so instead of showing zero as a trend.
+

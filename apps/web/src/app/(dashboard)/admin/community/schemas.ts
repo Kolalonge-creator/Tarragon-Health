@@ -41,7 +41,7 @@ export const topicSchema = z.object({
 });
 export const grantSchema = z.object({
   profile_id: uuid,
-  scope: z.enum(["moderator", "safety_reviewer"]),
+  scope: z.enum(["moderator", "safety_reviewer", "senior_moderator"]),
   group_id: z.preprocess(blankToNull, uuid.nullable()),
 });
 export const revokeSchema = z.object({ id: uuid });
