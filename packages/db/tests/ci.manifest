@@ -1962,3 +1962,5 @@ dw07_dw08_audited_onboarding_and_care_circle_reads.sql
 p14_risk_assessment_drafts.sql
 # P16 (2026-11-07, CMO decision from chat): a patient's "Not sure" answer is a routine medication_dispense_flags patient_query row, one per patient per Lagos day (medication_dispense_flags_not_sure_one_per_day): a second the same day is refused, a free-text concern and another patient are not limited, yesterday's row does not block today's, a supporter cannot raise one for the patient. Sabotage: dropping the index lets the second row in.
 p16_not_sure_task_one_per_day.sql
+# DW follow-ups (2026-11-07): a returned monitoring case tells its doctor in-app (only the escalation id), an unheld one tells the CMO, a not-yet-due one tells nobody; no staff account (doctor or coordinator) can delete an escalation. Sabotage: the old org-staff delete policy lets a coordinator delete.
+dw_followups_monitoring_notice_and_no_escalation_delete.sql

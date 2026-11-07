@@ -974,6 +974,15 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // From public.cancel_clinical_task (S16-S20): fixed wording, no reason, no patient, nothing clinical (INV-07).
     return { text: "A task you were working on was withdrawn by the clinical lead", href: "/clinician/queue" };
   }
+  if (n.template === "escalation_monitoring_returned") {
+    // DW-11 follow-up: private.return_due_escalation_monitoring. Fixed wording, no patient, nothing clinical (INV-07);
+    // the link opens the case, where the doctor's own note says what they were watching for.
+    const id = typeof payload.escalation_id === "string" && /^[0-9a-f-]{36}$/i.test(payload.escalation_id) ? payload.escalation_id : null;
+    return {
+      text: "A case you were monitoring is back for review",
+      href: id ? `/clinician/escalations/${id}` : "/clinician/worklist",
+    };
+  }
   if (n.template === "queue_backlog_notice") {
     return { text: "A clinical task is waiting longer than planned", href: "/clinician/queue" };
   }

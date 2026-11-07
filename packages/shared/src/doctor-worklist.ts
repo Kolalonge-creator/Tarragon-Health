@@ -61,8 +61,9 @@ export type DoctorWorklistRow = {
   status: string;
   nextAction: string;
   href: string;
-  /** Escalation rows only: the case id and the assigned doctor's profile id, so the CMO's row can offer reassignment (DW-15). */
+  /** Escalation rows only: the case id, so the CMO's row can offer reassignment (DW-15). */
   escalationId?: string;
+  /** The owner's profile id (escalation: assigned doctor; alert: responsible clinician's profile), so the same person is counted once. */
   assignedProfileId?: string | null;
 };
 

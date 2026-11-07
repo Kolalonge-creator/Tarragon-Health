@@ -53,6 +53,20 @@ describe("cmoOversightView (DW-14)", () => {
     ]);
   });
 
+  it("counts one doctor once even when names differ, and keeps two same-named doctors apart", () => {
+    const view = cmoOversightView(
+      [
+        row({ key: "e1", assignedName: "Dr Ada Bello", assignedProfileId: "d1" }),
+        row({ key: "a1", source: "alert", assignedName: "Ada Bello", assignedProfileId: "d1" }),
+        row({ key: "e2", assignedName: "Dr Ada Bello", assignedProfileId: "d2" }),
+      ],
+      [],
+      NOW,
+    );
+    expect(view.byDoctor.map((d) => d.open).sort()).toEqual([1, 2]);
+    expect(view.byDoctor).toHaveLength(2);
+  });
+
   it("unknown is not zero: a failed escalation or alert read gives null figures", () => {
     expect(cmoOversightView(rows, ["alert"], NOW).overdue).toBeNull();
     expect(cmoOversightView(rows, ["escalation"], NOW).unassigned).toBeNull();
