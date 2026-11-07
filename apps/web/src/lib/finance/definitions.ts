@@ -65,7 +65,7 @@ export const FINANCE_TERMS: readonly FinanceTerm[] = [
     term: "Active paid Memberships",
     definition: "Memberships in force on the last day of the period that someone paid for.",
     basis:
-      "Bought by the member, by a family sponsor or Care Voucher, or by an employer. Memberships granted free by staff, Free accounts and test accounts are not counted.",
+      "Bought at checkout (by the member or a family sponsor) or by an employer. Memberships redeemed from a Care Voucher are not counted here, because a voucher can be a reward with no cash behind it; a voucher that was bought is counted in gross payment volume when it is paid for. Memberships granted free by staff, Free accounts and test accounts are not counted.",
   },
   {
     key: "successful_payments",

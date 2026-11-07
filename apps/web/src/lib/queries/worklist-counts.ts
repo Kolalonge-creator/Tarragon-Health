@@ -404,8 +404,21 @@ async function countMentalHealthWorklistWaiting(supabase: Client) {
  * RPC, refused for anyone without finance access, so a badge never under-reports
  * the way a capped list's length could. Throws on error like every counter here.
  */
+// One RPC call serves all three badges in a run: keyed by the client, which useWorklistCounts creates once per run.
+const financeCountsCalls = new WeakMap<object, ReturnType<typeof fetchFinanceCounts>>();
+function fetchFinanceCounts(supabase: Client) {
+  return Promise.resolve(supabase.rpc("finance_open_item_counts"));
+}
+
 async function financeOpenItemCount(supabase: Client, key: "reconciliation" | "fraud" | "approvals") {
-  const { data, error } = await supabase.rpc("finance_open_item_counts");
+  let call = financeCountsCalls.get(supabase);
+  if (!call) {
+    call = fetchFinanceCounts(supabase);
+    financeCountsCalls.set(supabase, call);
+    // A failed call is not cached, so the next run tries again.
+    call.then(({ error }) => { if (error) financeCountsCalls.delete(supabase); }, () => financeCountsCalls.delete(supabase));
+  }
+  const { data, error } = await call;
   if (error) throw error;
   // Same rule as every head-count counter here: a successful empty reply is zero. A reply that is there but lacks the
   // field is malformed and throws, so it shows as "could not be loaded", never as a hidden zero badge.

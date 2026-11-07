@@ -150,6 +150,8 @@ function baseRange(key: PeriodKey, today: Date, custom: { from?: string | null; 
       return [new Date(Date.UTC(today.getUTCFullYear(), q, 1)), today];
     }
     case "this_year":
+      // The whole calendar year, so a later period of the year shows as empty days rather than being cut off.
+      return [new Date(Date.UTC(today.getUTCFullYear(), 0, 1)), new Date(Date.UTC(today.getUTCFullYear(), 11, 31))];
     case "year_to_date":
       return [new Date(Date.UTC(today.getUTCFullYear(), 0, 1)), today];
     case "custom": {

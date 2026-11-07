@@ -1,4 +1,4 @@
-import { buildChartSeries, buildComposition, buildKpis, compareDelta, isQuietPeriod, moneyOverviewSchema, recordHref, type MoneyOverview } from "./money-overview";
+import { rateDelta, buildChartSeries, buildComposition, buildKpis, compareDelta, isQuietPeriod, moneyOverviewSchema, recordHref, type MoneyOverview } from "./money-overview";
 import { FINANCE_TERMS } from "./definitions";
 
 function totals(over: Partial<MoneyOverview["current"]> = {}): MoneyOverview["current"] {
@@ -65,6 +65,14 @@ describe("compareDelta", () => {
   it("never divides by zero", () => {
     expect(compareDelta(100, 0, true)).toEqual({ text: "↑ from none in the comparison period", direction: "up" });
     expect(compareDelta(0, 0, true)).toEqual({ text: "No change on the comparison period", direction: "flat" });
+  });
+});
+
+describe("rateDelta", () => {
+  it("describes a change in a rate in percentage points", () => {
+    expect(rateDelta(0.8, 0.75)).toEqual({ text: "↑ 5 points on the comparison period", direction: "up" });
+    expect(rateDelta(0.74, 0.75)).toEqual({ text: "↓ 1 point on the comparison period", direction: "down" });
+    expect(rateDelta(0.8, null)).toBeUndefined();
   });
 });
 

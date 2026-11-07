@@ -140,6 +140,16 @@ export function compareDelta(current: number | null, previous: number | null | u
   return { text: `${arrow} ${formatPercent(pct)} on the comparison period`, direction: tone };
 }
 
+/** The change in a rate, in percentage points (75% to 80% is "5 points", not "6.7%"). */
+export function rateDelta(current: number | null, previous: number | null | undefined): Delta | undefined {
+  if (current === null || previous === null || previous === undefined) return undefined;
+  const points = asPercent(current) - asPercent(previous);
+  if (Math.abs(points) < 0.05) return { text: "No change on the comparison period", direction: "flat" };
+  const arrow = points > 0 ? "↑" : "↓";
+  const n = Math.abs(points);
+  return { text: `${arrow} ${n.toLocaleString("en-NG", { maximumFractionDigits: 1 })} ${n === 1 ? "point" : "points"} on the comparison period`, direction: points > 0 ? "up" : "down" };
+}
+
 export interface KpiTile {
   key: string;
   label: string;
@@ -210,7 +220,7 @@ export function buildKpis(data: MoneyOverview): KpiTile[] {
       label: "Payment success rate",
       term: "payment_success_rate",
       value: rate(c.success_rate),
-      delta: c.success_rate === null ? undefined : compareDelta(c.success_rate, p?.success_rate, true),
+      delta: rateDelta(c.success_rate, p?.success_rate),
       href: "/finance/transactions",
     },
     {

@@ -129,6 +129,10 @@ create or replace view private.finance_money_events as
   where pt.event_type = 'charge.success'
     and pt.provider in ('paystack', 'stripe')
     and coalesce(pt.amount_minor, 0) > 0
+    -- analytics_clean only checks the patient for booking-typed rows; doctor services, vouchers,
+    -- screening days and subscriptions are matched to their payer here instead.
+    and not exists (select 1 from public.profiles tp
+                     where tp.id in (private.resolve_payment_payer(pt), cv.beneficiary_profile_id) and tp.is_test)
 
   union all
 
@@ -280,7 +284,7 @@ $$;
 revoke all on function private.finance_money_totals(date, date, text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- Paid Memberships in force on a given day.
+-- Paid Memberships in force on a given day (bought by the member or a sponsor, or by an employer).
 -- ---------------------------------------------------------------------------
 create or replace function private.finance_active_paid_memberships(p_on date)
 returns bigint
@@ -291,7 +295,9 @@ set search_path to ''
 as $$
   select count(*)::bigint
     from public.patient_memberships m
-   where m.source in ('purchase', 'voucher', 'employer')
+   -- 'voucher' is left out: a Care Voucher can be a reward with no cash behind it. A voucher that was bought
+   -- is counted in gross payment volume when it is paid for.
+   where m.source in ('purchase', 'employer')
      and not m.is_test
      and m.state in ('active', 'lapsed', 'ended', 'scheduled')
      and (m.starts_at at time zone 'Africa/Lagos')::date <= p_on
@@ -358,7 +364,7 @@ begin
   ),
   buckets as (
     select date_trunc(v_bucket, g)::date as b
-      from generate_series(p_from::timestamp, p_to::timestamp, ('1 ' || v_bucket)::interval) g
+      from generate_series(date_trunc(v_bucket, p_from::timestamp), p_to::timestamp, ('1 ' || v_bucket)::interval) g
   ),
   rev_daily as (
     select date_trunc(v_bucket, e.entry_date::timestamp)::date as b,

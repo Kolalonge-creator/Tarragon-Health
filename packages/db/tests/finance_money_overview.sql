@@ -119,6 +119,8 @@ select set_config('request.jwt.claims', json_build_object('sub', (select v from 
 set local role authenticated;
 insert into fmo_out select 'ov', public.finance_money_overview('2020-01-01', '2020-01-31', '2019-12-01', '2019-12-31', 'NGN', 'week');
 insert into fmo_out select 'counts', public.finance_open_item_counts();
+-- Wednesday 8 Jan to Monday 20 Jan, weekly: the completed refund sits on the final Monday.
+insert into fmo_out select 'weekly_edge', public.finance_money_overview('2020-01-08', '2020-01-20', null, null, 'NGN', 'week');
 reset role;
 
 -- ---- call as a patient: refused, and the view is unreadable ---------------
@@ -193,6 +195,16 @@ begin
     raise exception 'FAIL: sidebar counts do not match the tables: %', c;
   end if;
   insert into fmo_checks values ('PASS: sidebar counts are exact');
+end $$;
+do $$
+declare w jsonb := (select v from fmo_out where k = 'weekly_edge');
+begin
+  if (select coalesce(sum((e ->> 'refunds_minor')::bigint), 0) from jsonb_array_elements(w -> 'series') e) <> 3000000
+     or (select coalesce(sum((e ->> 'gross_minor')::bigint), 0) from jsonb_array_elements(w -> 'series') e)
+        <> ((w -> 'current') ->> 'gross_payment_volume_minor')::bigint then
+    raise exception 'FAIL: weekly series lost the events in the final partial week: %', w -> 'series';
+  end if;
+  insert into fmo_checks values ('PASS: a week range starting mid-week keeps its final week in the series');
 end $$;
 insert into fmo_checks values ('PASS: totals, refunds, failures, composition, series and recognised revenue are correct');
 

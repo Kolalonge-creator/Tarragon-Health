@@ -22,6 +22,7 @@ describe("resolvePeriod", () => {
   it("resolves quarter and year to date", () => {
     expect(resolvePeriod({ period: "this_quarter" }, TODAY)).toMatchObject({ from: "2026-10-01", to: TODAY, granularity: "day" });
     expect(resolvePeriod({ period: "year_to_date" }, TODAY)).toMatchObject({ from: "2026-01-01", to: TODAY, granularity: "month" });
+    expect(resolvePeriod({ period: "this_year" }, TODAY)).toMatchObject({ from: "2026-01-01", to: "2026-12-31", granularity: "month" });
   });
 
   it("compares with the same dates last year, clamping 29 February", () => {

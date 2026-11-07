@@ -81,3 +81,9 @@ Nothing in A to D writes to a payment, membership or ledger row. Every new RPC i
 - **FIN-V2-1.** Build all phases, A to E. Phase E views (cohorts, LTV, forecasting) ship now and say plainly when there is not enough history, rather than drawing a chart from nothing.
 - **FIN-V2-2.** Refunds get one shared workspace, opened and approved by admin and by finance staff holding the refund permission. No second workflow.
 - **FIN-V2-3.** Refunds above a threshold need a second, different approver. The threshold is a setting in finance settings, using the existing approvals machinery.
+
+## 8. Phase A review follow-ups (not fixed in the Phase A PR)
+
+- **Event dates that can drift.** Refund-queue refunds (`service_purchase_refund_queue`, `voucher_refund_queue`) and failed orders have no dedicated "happened at" column, so the money-events view uses `updated_at`, which moves if the row is touched later. Fix in Phase C (refunds workspace): add `refunded_at` / `failed_at` stamped once by trigger and switch the view to them.
+- **Query cost at scale.** One overview call reads the money-events view several times and resolves the legacy payer per row. Harmless at today's volume (zero real payments). Revisit with a single windowed CTE and timestamp-range predicates before volume grows; Phase B's transaction directory needs the same work.
+- **Names beside care categories in the activity feed.** The feed shows the payer's name next to the stream (for example Pharmacy or Laboratory), as the existing transactions lookup already does. Decision for the founder as DPO: keep names on the overview, or show the reference only and keep the name for the record page.

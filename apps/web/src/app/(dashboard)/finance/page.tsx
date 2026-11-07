@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { FinanceOverview } from "./_components/overview";
 import { MoneyOverviewSection } from "./_components/money-overview";
@@ -12,9 +13,9 @@ export default function FinanceOverviewPage() {
         <p className="text-charcoal-ink/60 dark:text-night-ink/60">
           Revenue, Membership activity, payments, refunds and collections across Tarragon Health. Every figure links to
           its definition in the{" "}
-          <a href="/finance/glossary" className="font-medium text-brand-green hover:underline dark:text-brand-green-bright">
+          <Link href="/finance/glossary" className="font-medium text-brand-green hover:underline dark:text-brand-green-bright">
             finance glossary
-          </a>
+          </Link>
           .
         </p>
       </div>
