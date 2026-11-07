@@ -15,6 +15,7 @@ const RAW = {
     result_reviewed: 1,
     follow_up_raised: 0,
     follow_up_all_closed: 0,
+    with_result_document: 1,
   },
   awaiting: {
     onboarding: { count: 2, oldest_days: 12 },
@@ -34,6 +35,13 @@ describe("parseJourneySummary", () => {
     expect(s?.stages.registered).toBe(10);
     expect(s?.median_hours.registered_to_onboarded).toBe(30.5);
     expect(s?.median_hours.uploaded_to_reviewed).toBeNull();
+    expect(s?.withResultDocument).toBe(1);
+  });
+
+  it("is null when the document denominator is missing (an older function), never a guess", () => {
+    const stages = { ...RAW.stages } as Record<string, unknown>;
+    delete stages.with_result_document;
+    expect(parseJourneySummary({ ...RAW, stages })).toBeNull();
   });
 
   it("returns null instead of zeros when any count is missing or malformed", () => {
@@ -46,13 +54,24 @@ describe("parseJourneySummary", () => {
 });
 
 describe("journeyStages", () => {
-  it("gives each stage its share of the previous stage, never a completion rate", () => {
+  it("gives each stage its share of all registered patients, never a share of the previous stage", () => {
     const stages = journeyStages(parseJourneySummary(RAW)!);
     expect(stages.map((s) => s.reached)).toEqual([10, 8, 6, 4, 3, 2, 1, 0, 0]);
-    expect(stages[0]?.ofPrevious).toBeNull();
-    expect(stages[1]?.ofPrevious).toEqual({ pct: 80, text: "8 of 10" });
-    // An empty previous stage has nothing to divide by.
-    expect(stages[8]?.ofPrevious).toBeNull();
+    expect(stages[0]?.ofRegistered).toBeNull();
+    expect(stages[1]?.ofRegistered).toEqual({ pct: 80, text: "8 of 10" });
+    expect(stages[8]?.ofRegistered).toEqual({ pct: 0, text: "0 of 10" });
+  });
+
+  it("never passes 100% when stages are not nested (more coordinators than onboarded patients)", () => {
+    const raw = { ...RAW, stages: { ...RAW.stages, onboarded: 3, with_coordinator: 5 } };
+    const stages = journeyStages(parseJourneySummary(raw)!);
+    expect(stages.every((s) => (s.ofRegistered?.pct ?? 0) <= 100)).toBe(true);
+    expect(stages[2]?.ofRegistered?.text).toBe("5 of 10");
+  });
+
+  it("has nothing to divide by when nobody is registered", () => {
+    const raw = { ...RAW, stages: { ...RAW.stages, registered: 0 } };
+    expect(journeyStages(parseJourneySummary(raw)!).every((s) => s.ofRegistered === null)).toBe(true);
   });
 });
 

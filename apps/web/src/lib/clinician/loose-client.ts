@@ -9,6 +9,7 @@ interface Filterable extends Result {
   eq: (column: string, value: string) => Filterable;
   in: (column: string, values: string[]) => Filterable;
   order: (column: string, options: { ascending: boolean }) => Filterable;
+  limit: (count: number) => Filterable;
   maybeSingle: () => Result;
 }
 

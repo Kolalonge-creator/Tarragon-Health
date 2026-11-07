@@ -1,5 +1,6 @@
 -- CMO Clinical Operations, slice 1 proof: public.cmo_patient_journey_summary().
--- Migration *_cmo_patient_journey_summary.sql. One rolled-back transaction proves:
+-- Migrations *_cmo_patient_journey_summary.sql and *_cmo_patient_journey_summary_result_document_denominator.sql. One rolled-back
+-- transaction proves:
 --   1. The CMO's figures move by exactly the fixture: two real patients (one through every stage, one stuck at several), and a
 --      test patient whose rows must not count anywhere. Deltas against a baseline, so existing data does not matter.
 --   2. The CMO counts patients they are NOT tied to (the reason this is SECURITY DEFINER): the CMO has no care-team row, alert,
@@ -107,6 +108,7 @@ begin
   perform pg_temp.rec('investigation ordered +2', '2', pg_temp.delta(v_before, v_after, '{stages,investigation_ordered}'));
   perform pg_temp.rec('result received +2 (resulted order, or an upload)', '2', pg_temp.delta(v_before, v_after, '{stages,result_received}'));
   perform pg_temp.rec('result reviewed +1', '1', pg_temp.delta(v_before, v_after, '{stages,result_reviewed}'));
+  perform pg_temp.rec('patients with an uploaded result document +2 (the reviewed-rate denominator)', '2', pg_temp.delta(v_before, v_after, '{stages,with_result_document}'));
   perform pg_temp.rec('follow-up raised +2', '2', pg_temp.delta(v_before, v_after, '{stages,follow_up_raised}'));
   perform pg_temp.rec('follow-up all closed +1', '1', pg_temp.delta(v_before, v_after, '{stages,follow_up_all_closed}'));
   perform pg_temp.rec('awaiting onboarding +1', '1', pg_temp.delta(v_before, v_after, '{awaiting,onboarding,count}'));

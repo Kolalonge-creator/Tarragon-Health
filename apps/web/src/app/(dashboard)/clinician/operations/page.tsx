@@ -65,7 +65,8 @@ export default async function ClinicalOperationsPage({
   const onboarding = pct(s?.onboarded, s?.registered);
   const plans = pct(s?.care_plan_approved, s?.registered);
   const coordinators = pct(s?.with_coordinator, s?.registered);
-  const reviewed = pct(s?.result_reviewed, s?.result_received);
+  // Review is recorded on uploaded documents, so the denominator is patients with an uploaded document, not every patient with a result.
+  const reviewed = pct(s?.result_reviewed, summary?.withResultDocument);
   const fuClosed = pct(s?.follow_up_all_closed, s?.follow_up_raised);
   const attendance = ratioText(appts.completed, appts.completed === null || appts.noShow === null ? null : appts.completed + appts.noShow);
   const rateValue = (r: ReturnType<typeof ratioText>, known: boolean) => (r.pct !== null ? `${r.pct}%` : known ? "None yet" : null);
@@ -135,7 +136,7 @@ export default async function ClinicalOperationsPage({
           <KpiCard label="Onboarding completed" value={rateValue(onboarding, !!s)} detail={onboarding.counts ? `${onboarding.counts} patients` : undefined} target={NO_TARGET} definition="Registered patients who finished onboarding." href="/clinician/operations/journey#awaiting-onboarding" />
           <KpiCard label="Care plan approved" value={rateValue(plans, !!s)} detail={plans.counts ? `${plans.counts} patients` : undefined} target={NO_TARGET} definition="Registered patients with an active or completed care plan." href="/clinician/care-plan-review" />
           <KpiCard label="Coordinator assigned" value={rateValue(coordinators, !!s)} detail={coordinators.counts ? `${coordinators.counts} patients` : undefined} target={NO_TARGET} definition="Registered patients with a named care coordinator." href="/clinician/team-caseload" />
-          <KpiCard label="Results reviewed by a doctor" value={rateValue(reviewed, !!s)} detail={reviewed.counts ? `${reviewed.counts} patients with a result` : undefined} target={NO_TARGET} definition="Patients with a result who have at least one uploaded result marked reviewed." href="/clinician/lab-results" />
+          <KpiCard label="Results reviewed by a doctor" value={rateValue(reviewed, !!s)} detail={reviewed.counts ? `${reviewed.counts} patients with an uploaded result` : undefined} target={NO_TARGET} definition="Patients with an uploaded result document who have at least one marked reviewed by a doctor." href="/clinician/lab-results" />
           <KpiCard label="Follow-ups closed" value={rateValue(fuClosed, !!s)} detail={fuClosed.counts ? `${fuClosed.counts} patients with a follow-up` : undefined} target={NO_TARGET} definition="Patients whose follow-ups are all closed with a recorded outcome (a sent reminder never counts)." href="/clinician/follow-ups" />
           <KpiCard label="Follow-ups past due" value={summary ? summary.awaiting.follow_up_overdue.count : null} target={NO_TARGET} definition="Open follow-ups whose recorded due date has passed." href="/clinician/operations/journey#awaiting-follow_up_overdue" />
           <KpiCard

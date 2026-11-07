@@ -6,7 +6,8 @@ import { excludeTestPatients } from "@/lib/queries/real-patients";
 /**
  * Patient-level journey exceptions the CMO may open (CMO Clinical Operations, 2026-11-07). Read under the CMO's OWN RLS, so the list
  * holds only patients the CMO is tied to (INV-12); the org-wide counts come from the aggregate summary. Patient number only, never a
- * name or clinical content. Each list is null when its read failed.
+ * name or clinical content. Each list is null when its read failed. lab_orders is readable by all org staff, so the order list is
+ * organisation-wide and links to the orders page, not to a record the CMO may not be allowed to open.
  */
 export type JourneyException = {
   key: string;
@@ -23,17 +24,18 @@ export type JourneyExceptions = {
   followUpsOverdue: JourneyException[] | null;
   awaitingReview: JourneyException[] | null;
   awaitingResult: JourneyException[] | null;
+  /** The patient-number lookup failed: rows show no number, and the page says so. */
+  numbersFailed: boolean;
 };
 
 const LIMIT = 100;
 const AWAITING_RESULT = ["payment_confirmed", "ordered", "sample_collected", "sample_rejected", "processing"] as const;
 
-const followUpRows = (data: unknown): { id: string; patient_id: string; kind: string; due_at: string }[] | null => {
-  if (!Array.isArray(data)) return null;
-  return data.filter(
-    (r): r is { id: string; patient_id: string; kind: string; due_at: string } =>
-      !!r && typeof r === "object" && typeof (r as { id?: unknown }).id === "string" && typeof (r as { patient_id?: unknown }).patient_id === "string" && typeof (r as { due_at?: unknown }).due_at === "string"
-  );
+type FollowUpRow = { id: string; patient_id: string; kind: string; due_at: string };
+const isFollowUpRow = (r: unknown): r is FollowUpRow => {
+  if (!r || typeof r !== "object") return false;
+  const o = r as Record<string, unknown>;
+  return typeof o.id === "string" && typeof o.patient_id === "string" && typeof o.kind === "string" && typeof o.due_at === "string";
 };
 
 export async function loadJourneyExceptions(
@@ -43,8 +45,14 @@ export async function loadJourneyExceptions(
 ): Promise<JourneyExceptions> {
   const nowIso = now.toISOString();
   const [fuRes, docRes, orderRes] = await Promise.all([
-    // clinical_follow_ups is not in the generated types yet: loose client, parsed below. The `lt` filter is applied in code.
-    loose(supabase).from("clinical_follow_ups").select("id, patient_id, kind, due_at").eq("state", "open").order("due_at", { ascending: true }),
+    // clinical_follow_ups is not in the generated types yet: loose client, parsed below. Not closed = open or acknowledged.
+    // Oldest due first, so the bounded read always holds the most overdue; "past due" is applied in code.
+    loose(supabase)
+      .from("clinical_follow_ups")
+      .select("id, patient_id, kind, due_at")
+      .in("state", ["open", "acknowledged"])
+      .order("due_at", { ascending: true })
+      .limit(LIMIT * 5),
     excludeTestPatients(
       supabase
         .from("lab_result_documents")
@@ -66,9 +74,7 @@ export async function loadJourneyExceptions(
     ),
   ]);
 
-  // Open follow-ups also include acknowledged ones; "open" in the summary means not closed.
-  const ackRes = await loose(supabase).from("clinical_follow_ups").select("id, patient_id, kind, due_at").eq("state", "acknowledged").order("due_at", { ascending: true });
-  const fuOpen = fuRes.error || ackRes.error ? null : [...(followUpRows(fuRes.data) ?? []), ...(followUpRows(ackRes.data) ?? [])];
+  const fuOpen = fuRes.error || !Array.isArray(fuRes.data) ? null : fuRes.data.filter(isFollowUpRow);
   const test = new Set(testPatientIds);
   const overdue = fuOpen
     ? fuOpen.filter((f) => f.due_at < nowIso && !test.has(f.patient_id)).sort((a, b) => a.due_at.localeCompare(b.due_at)).slice(0, LIMIT)
@@ -79,13 +85,16 @@ export async function loadJourneyExceptions(
   for (const r of docRes.data ?? []) ids.add(r.patient_id);
   for (const r of orderRes.data ?? []) ids.add(r.patient_id);
   const numbers = new Map<string, string | null>();
+  let numbersFailed = false;
   if (ids.size > 0) {
-    const { data } = await supabase.from("profiles").select("id, patient_number").in("id", [...ids]);
+    const { data, error } = await supabase.from("profiles").select("id, patient_number").in("id", [...ids]);
+    if (error) numbersFailed = true;
     for (const p of data ?? []) numbers.set(p.id, p.patient_number ?? null);
   }
   const href = (patientId: string) => `/clinician/patients/${patientId}`;
 
   return {
+    numbersFailed,
     followUpsOverdue: overdue
       ? overdue.map((f) => ({
           key: `fu:${f.id}`,
@@ -117,7 +126,7 @@ export async function loadJourneyExceptions(
           patientNumber: numbers.get(o.patient_id) ?? null,
           label: `Lab order waiting for a result (${o.status.replace(/_/g, " ")})`,
           since: o.ordered_at ?? o.payment_confirmed_at ?? o.created_at,
-          href: href(o.patient_id),
+          href: "/clinician/orders",
         })),
   };
 }

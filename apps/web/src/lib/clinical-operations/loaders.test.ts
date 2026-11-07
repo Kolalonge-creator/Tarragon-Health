@@ -27,7 +27,7 @@ function client(queue: Record<string, Result[]>, rpcResult?: Result) {
 
 const SUMMARY = {
   generated_at: "2026-11-07T12:00:00Z",
-  stages: { registered: 4, onboarded: 1, with_coordinator: 0, care_plan_approved: 0, investigation_ordered: 2, result_received: 0, result_reviewed: 0, follow_up_raised: 0, follow_up_all_closed: 0 },
+  stages: { registered: 4, onboarded: 1, with_coordinator: 0, care_plan_approved: 0, investigation_ordered: 2, result_received: 0, result_reviewed: 0, follow_up_raised: 0, follow_up_all_closed: 0, with_result_document: 0 },
   awaiting: {
     onboarding: { count: 3, oldest_days: 20 },
     care_plan_approval: { count: 0, oldest_days: null },
@@ -76,16 +76,26 @@ describe("loadJourneyExceptions", () => {
   it("lists overdue follow-ups (open and acknowledged), unreviewed results and outstanding orders by patient number only", async () => {
     const { supabase } = client({
       clinical_follow_ups: [
-        { data: [{ id: "f1", patient_id: "p1", kind: "follow_up", due_at: "2026-11-01T00:00:00Z" }, { id: "f2", patient_id: "p1", kind: "order", due_at: "2026-12-01T00:00:00Z" }], error: null },
-        { data: [{ id: "f3", patient_id: "t1", kind: "follow_up", due_at: "2026-11-02T00:00:00Z" }], error: null },
+        {
+          data: [
+            { id: "f1", patient_id: "p1", kind: "follow_up", due_at: "2026-11-01T00:00:00Z" },
+            { id: "f3", patient_id: "t1", kind: "follow_up", due_at: "2026-11-02T00:00:00Z" },
+            { id: "f4", patient_id: "p1", kind: null, due_at: "2026-11-03T00:00:00Z" },
+            { id: "f2", patient_id: "p1", kind: "order", due_at: "2026-12-01T00:00:00Z" },
+          ],
+          error: null,
+        },
       ],
       lab_result_documents: [{ data: [{ id: "d1", patient_id: "p2", created_at: "2026-11-04T00:00:00Z" }], error: null }],
       lab_orders: [{ data: [{ id: "o1", patient_id: "p2", status: "ordered", ordered_at: "2026-10-20T00:00:00Z", payment_confirmed_at: null, created_at: "2026-10-19T00:00:00Z" }], error: null }],
       profiles: [{ data: [{ id: "p1", patient_number: "TH-1" }, { id: "p2", patient_number: "TH-2" }], error: null }],
     });
     const e = await loadJourneyExceptions(supabase, now, ["t1"]);
-    // Not yet due, and the test patient's, are left out.
+    // Not yet due, the test patient's, and a malformed row (no kind) are left out.
     expect(e.followUpsOverdue?.map((r) => [r.key, r.patientNumber])).toEqual([["fu:f1", "TH-1"]]);
+    expect(e.numbersFailed).toBe(false);
+    // Lab orders are org-wide under RLS, so they open the orders page, not a record.
+    expect(e.awaitingResult?.[0]?.href).toBe("/clinician/orders");
     expect(e.awaitingReview?.[0]?.patientNumber).toBe("TH-2");
     expect(e.awaitingResult?.[0]?.since).toBe("2026-10-20T00:00:00Z");
     expect(JSON.stringify(e)).not.toMatch(/full_name/);
@@ -93,7 +103,7 @@ describe("loadJourneyExceptions", () => {
 
   it("marks a list unknown when its read fails", async () => {
     const { supabase } = client({
-      clinical_follow_ups: [{ data: null, error: { message: "x" } }, { data: [], error: null }],
+      clinical_follow_ups: [{ data: null, error: { message: "x" } }],
       lab_result_documents: [{ data: null, error: { message: "x" } }],
       lab_orders: [{ data: [], error: null }],
     });
@@ -101,5 +111,17 @@ describe("loadJourneyExceptions", () => {
     expect(e.followUpsOverdue).toBeNull();
     expect(e.awaitingReview).toBeNull();
     expect(e.awaitingResult).toEqual([]);
+  });
+
+  it("flags a failed patient-number lookup instead of hiding it", async () => {
+    const { supabase } = client({
+      clinical_follow_ups: [{ data: [], error: null }],
+      lab_result_documents: [{ data: [{ id: "d1", patient_id: "p2", created_at: "2026-11-04T00:00:00Z" }], error: null }],
+      lab_orders: [{ data: [], error: null }],
+      profiles: [{ data: null, error: { message: "timeout" } }],
+    });
+    const e = await loadJourneyExceptions(supabase, now, []);
+    expect(e.numbersFailed).toBe(true);
+    expect(e.awaitingReview?.[0]?.patientNumber).toBeNull();
   });
 });

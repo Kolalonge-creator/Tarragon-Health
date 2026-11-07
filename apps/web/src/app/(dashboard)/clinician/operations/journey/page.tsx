@@ -50,6 +50,7 @@ export default async function PatientJourneyPage() {
   ];
   const exceptionRows = lists.flatMap((l) => l.rows ?? []);
   const failedLists = lists.filter((l) => l.rows === null).map((l) => l.title.toLowerCase());
+  if (exceptions.numbersFailed) failedLists.push("patient numbers");
 
   return (
     <div className="space-y-6">
@@ -78,7 +79,7 @@ export default async function PatientJourneyPage() {
                 <tr>
                   <th scope="col" className="py-2 pr-3 font-medium">Stage</th>
                   <th scope="col" className="py-2 pr-3 font-medium">Patients</th>
-                  <th scope="col" className="py-2 pr-3 font-medium">Of previous stage</th>
+                  <th scope="col" className="py-2 pr-3 font-medium">Of registered patients</th>
                   <th scope="col" className="py-2 font-medium">What is counted</th>
                 </tr>
               </thead>
@@ -87,7 +88,7 @@ export default async function PatientJourneyPage() {
                   <tr key={s.key}>
                     <th scope="row" className="py-2 pr-3 font-medium text-charcoal-ink">{s.label}</th>
                     <td className="py-2 pr-3 tabular-nums">{s.reached.toLocaleString("en-NG")}</td>
-                    <td className="py-2 pr-3 tabular-nums text-charcoal-ink/75">{s.ofPrevious ? `${s.ofPrevious.pct}% (${s.ofPrevious.text})` : "Not applicable"}</td>
+                    <td className="py-2 pr-3 tabular-nums text-charcoal-ink/75">{s.ofRegistered ? `${s.ofRegistered.pct}% (${s.ofRegistered.text})` : "Not applicable"}</td>
                     <td className="py-2 text-charcoal-ink/65">{s.definition}</td>
                   </tr>
                 ))}
@@ -139,8 +140,9 @@ export default async function PatientJourneyPage() {
         <div>
           <h2 id="journey-exceptions-heading" className="font-heading text-lg font-semibold text-charcoal-ink">Patients you can open</h2>
           <p className="text-sm text-charcoal-ink/65">
-            Exceptions for patients you are on the care team for, or otherwise currently responsible for, oldest first, by patient number.
-            The counts above cover everyone; this list does not, because the Chief Medical Officer role does not open every record.
+            Oldest first, by patient number. Follow-ups and results are for patients you are on the care team for or otherwise currently
+            responsible for; the counts above cover everyone, because the Chief Medical Officer role does not open every record. Lab
+            orders are visible to all staff, so that list covers the whole organisation and opens the orders page rather than a record.
           </p>
         </div>
         {failedLists.length > 0 && <LoadFailure>Could not load {failedLists.join(", ")}. This list is incomplete.</LoadFailure>}
@@ -167,7 +169,7 @@ export default async function PatientJourneyPage() {
                   .map((r) => (
                     <tr key={r.key}>
                       <td className="py-2 pr-3">
-                        <Link href={r.href} className="font-medium text-brand-green underline">{r.patientNumber ?? "Open record"}</Link>
+                        <Link href={r.href} className="font-medium text-brand-green underline">{r.patientNumber ?? (r.kind === "investigation_result" ? "Open orders" : "Open record")}</Link>
                       </td>
                       <td className="py-2 pr-3 text-charcoal-ink">{r.label}</td>
                       <td className="whitespace-nowrap py-2 pr-3 text-charcoal-ink/75">{formatPatientDate(r.since)}</td>

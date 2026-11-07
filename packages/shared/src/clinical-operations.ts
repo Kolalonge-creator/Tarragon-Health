@@ -5,8 +5,10 @@
  *  - Operational warnings are not safety items. They never go above "requires attention", and only an item past a RECORDED due
  *    date reaches it; everything else is "routine" with its age shown. Safety stays on the Leadership overview.
  *  - No target is invented. Until the CMO signs operational targets, every figure says "No approved target".
- *  - Longitudinal care has no finish line, and not every patient needs every investigation, so stage-to-stage conversion is
- *    shown as "of the previous stage", never as a completion or failure rate.
+ *  - Longitudinal care has no finish line, and not every patient needs every investigation, so each stage is shown as a share of
+ *    all registered patients, never as a completion or failure rate. The stages are not nested (a coordinator can be assigned
+ *    before onboarding finishes; a patient can upload a result with no order), so a "share of the previous stage" could pass 100%
+ *    and is not shown.
  */
 import type { ExecutiveAttentionItem } from "./cmo-leadership";
 
@@ -32,6 +34,8 @@ export type JourneySummary = {
     follow_up_raised: number;
     follow_up_all_closed: number;
   };
+  /** Patients with a current uploaded result document: the denominator for "reviewed", since review is recorded on documents. */
+  withResultDocument: number;
   awaiting: Record<JourneyAwaitingKey, { count: number; oldest_days: number | null }>;
   median_hours: {
     registered_to_onboarded: number | null;
@@ -80,6 +84,8 @@ export function parseJourneySummary(raw: unknown): JourneySummary | null {
     if (v === null) return null;
     stages[k] = v;
   }
+  const withResultDocument = num(stagesRaw.with_result_document);
+  if (withResultDocument === null) return null;
   const awaiting = {} as JourneySummary["awaiting"];
   for (const k of AWAITING_KEYS) {
     const a = awaitingRaw[k];
@@ -89,7 +95,7 @@ export function parseJourneySummary(raw: unknown): JourneySummary | null {
   }
   const median_hours = {} as JourneySummary["median_hours"];
   for (const k of MEDIAN_KEYS) median_hours[k] = num(mediansRaw[k]);
-  return { generatedAt: r.generated_at, stages, awaiting, median_hours };
+  return { generatedAt: r.generated_at, stages, withResultDocument, awaiting, median_hours };
 }
 
 export type JourneyStage = {
@@ -97,8 +103,8 @@ export type JourneyStage = {
   label: string;
   definition: string;
   reached: number;
-  /** Share of the previous stage that reached this one, as "a of b"; null for the first stage or an empty previous stage. */
-  ofPrevious: { pct: number; text: string } | null;
+  /** Share of all registered patients who reached this stage, as "a of b"; null for the first stage or when nobody is registered. */
+  ofRegistered: { pct: number; text: string } | null;
   /** Where to act on patients who have not yet reached this stage. */
   href: string;
 };
@@ -116,14 +122,14 @@ const STAGE_META: Record<(typeof STAGE_KEYS)[number], { label: string; definitio
 };
 
 export function journeyStages(s: JourneySummary): JourneyStage[] {
+  const registered = s.stages.registered;
   return STAGE_KEYS.map((key, i) => {
     const reached = s.stages[key];
-    const prev = i === 0 ? null : s.stages[STAGE_KEYS[i - 1]!];
-    const ofPrevious =
-      prev === null || prev === 0
+    const ofRegistered =
+      i === 0 || registered === 0
         ? null
-        : { pct: Math.round((reached / prev) * 100), text: `${reached.toLocaleString("en-NG")} of ${prev.toLocaleString("en-NG")}` };
-    return { key, ...STAGE_META[key], reached, ofPrevious };
+        : { pct: Math.round((reached / registered) * 100), text: `${reached.toLocaleString("en-NG")} of ${registered.toLocaleString("en-NG")}` };
+    return { key, ...STAGE_META[key], reached, ofRegistered };
   });
 }
 
