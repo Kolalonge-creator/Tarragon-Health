@@ -12,6 +12,7 @@ import {
   type SignScreeningCadenceState,
 } from "./actions";
 import { isSupersededVersion } from "@/lib/clinical/refuse-superseded-draft";
+import { DataTable } from "@/components/ui/data-table";
 
 type CadenceRow = {
   instrument: string;
@@ -96,26 +97,25 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
 
 function CadenceTable({ config }: { config: CadenceRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-mist-grey/40">
-      <table className="w-full text-left text-xs">
-        <thead className="bg-mist-grey/20 text-charcoal-ink/60">
-          <tr>
-            <th className="p-2 font-medium">Instrument</th>
-            <th className="p-2 font-medium">Standard interval</th>
-            <th className="p-2 font-medium">Follow-up interval after a concern band</th>
-          </tr>
-        </thead>
-        <tbody>
-          {config.map((entry) => (
-            <tr key={entry.instrument} className="border-t border-mist-grey/30">
-              <td className="p-2 text-charcoal-ink/80">{INSTRUMENT_LABEL[entry.instrument] ?? entry.instrument}</td>
-              <td className="p-2 text-charcoal-ink/70">{entry.standard_interval_months} months</td>
-              <td className="p-2 text-charcoal-ink/70">{entry.followup_interval_months} months</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      caption="Screening cadence"
+      columns={[
+        { header: "Instrument", sortable: true },
+        { header: "Standard interval", sortable: true, align: "right" },
+        { header: "Follow-up interval after a concern band", sortable: true, align: "right" },
+      ]}
+      rows={config.map((entry) => ({
+        key: entry.instrument,
+        sort: [INSTRUMENT_LABEL[entry.instrument] ?? entry.instrument, entry.standard_interval_months, entry.followup_interval_months],
+        cells: [
+          <span key="i" className="text-charcoal-ink/80">{INSTRUMENT_LABEL[entry.instrument] ?? entry.instrument}</span>,
+          `${entry.standard_interval_months} months`,
+          `${entry.followup_interval_months} months`,
+        ],
+      }))}
+      emptyMessage="No cadence configured."
+      noun={{ one: "instrument", many: "instruments" }}
+    />
   );
 }
 

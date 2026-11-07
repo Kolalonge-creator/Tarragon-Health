@@ -6,6 +6,7 @@ import { fdRpcData } from "@/lib/frontdesk/raw-db";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Badge } from "@/components/ui/badge";
+import { DataTable } from "@/components/ui/data-table";
 import { BackToDryRun, ConfirmBasis, GoLive, HubspotSwitch, MasterSwitch } from "./follow-up-controls";
 
 export const metadata = { title: "Follow-ups" };
@@ -132,27 +133,22 @@ export default async function FollowUpsPage() {
 
           <section aria-label="Recent" className="space-y-3">
             <h2 className="font-heading text-xl font-semibold">Latest 30</h2>
-            {data.recent.length === 0 ? (
-              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Nothing yet.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="text-xs uppercase text-charcoal-ink/60 dark:text-night-ink/60">
-                    <tr><th className="py-1 pr-3">Due</th><th className="pr-3">Who</th><th className="pr-3">Email</th><th>Result</th></tr>
-                  </thead>
-                  <tbody>
-                    {data.recent.map((r) => (
-                      <tr key={r.id} className="border-t border-charcoal-ink/10 dark:border-night-ink/15">
-                        <td className="py-1 pr-3">{when(r.at)}</td>
-                        <td className="pr-3">{r.who}</td>
-                        <td className="pr-3">{r.step_key}</td>
-                        <td>{r.state}{r.skip_reason ? `: ${SKIP_LABEL[r.skip_reason] ?? r.skip_reason}` : ""}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <DataTable
+              caption="Latest 30 follow-up emails"
+              columns={[
+                { header: "Due", sortable: true, defaultDir: "desc" },
+                { header: "Who", sortable: true },
+                { header: "Email", sortable: true },
+                { header: "Result", sortable: true },
+              ]}
+              rows={data.recent.map((r) => {
+                const result = `${r.state}${r.skip_reason ? `: ${SKIP_LABEL[r.skip_reason] ?? r.skip_reason}` : ""}`;
+                return { key: r.id, searchText: `${r.who} ${r.step_key} ${result}`, sort: [r.at, r.who, r.step_key, result], cells: [when(r.at), r.who, r.step_key, result] };
+              })}
+              searchLabel="Search follow-ups"
+              emptyMessage="Nothing yet."
+              noun={{ one: "email", many: "emails" }}
+            />
           </section>
         </>
       )}

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { DataTable } from "@/components/ui/data-table";
 
 /** Mirrors the database CHECK on promo_codes.applicable_order_types (20260901174915_promo_codes_service_purchases.sql).
  * service_purchase is the pay-per-item doctor time on /patient/subscription (Ask a doctor, video visit credits and the rest). */
@@ -213,58 +214,37 @@ export function PromoCodeManager() {
           <CardTitle>Existing codes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-charcoal-ink/10 text-left">
-                  <th className="py-2 pr-4 font-medium">Code</th>
-                  <th className="py-2 pr-4 font-medium">Value</th>
-                  <th className="py-2 pr-4 font-medium">Applies to</th>
-                  <th className="py-2 pr-4 font-medium">Limits</th>
-                  <th className="py-2 pr-4 font-medium">Expires</th>
-                  <th className="py-2 pr-4 font-medium">Status</th>
-                  <th className="py-2 pr-4 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {(codes ?? []).map((row) => (
-                  <tr key={row.id} className="border-b border-charcoal-ink/5">
-                    <td className="py-2 pr-4 font-mono">{row.code}</td>
-                    <td className="py-2 pr-4">{describeValue(row)}</td>
-                    <td className="py-2 pr-4">{row.applicable_order_types.map(orderTypeLabel).join(", ")}</td>
-                    <td className="py-2 pr-4">
-                      {row.per_profile_limit}/patient
-                      {row.max_redemptions ? `, ${row.max_redemptions} total` : ""}
-                    </td>
-                    <td className="py-2 pr-4">
-                      {row.expires_at ? new Date(row.expires_at).toLocaleDateString("en-NG") : "—"}
-                    </td>
-                    <td className="py-2 pr-4">
-                      <Badge variant={row.is_active ? "green" : "grey"}>
-                        {row.is_active ? "active" : "inactive"}
-                      </Badge>
-                    </td>
-                    <td className="py-2 pr-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setActive.mutate({ id: row.id, isActive: !row.is_active })}
-                      >
-                        {row.is_active ? "Deactivate" : "Activate"}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {(codes ?? []).length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="py-6 text-center text-charcoal-ink/50">
-                      No promo codes yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            caption="Promo codes"
+            columns={[
+              { header: "Code", sortable: true },
+              { header: "Value" },
+              { header: "Applies to" },
+              { header: "Limits" },
+              { header: "Expires", sortable: true },
+              { header: "Status", sortable: true },
+              { header: "Actions" },
+            ]}
+            rows={(codes ?? []).map((row) => ({
+              key: row.id,
+              searchText: `${row.code} ${describeValue(row)} ${row.applicable_order_types.map(orderTypeLabel).join(" ")}`,
+              sort: [row.code, null, null, null, row.expires_at, row.is_active ? 0 : 1, null],
+              cells: [
+                <span key="c" className="font-mono">{row.code}</span>,
+                describeValue(row),
+                row.applicable_order_types.map(orderTypeLabel).join(", "),
+                `${row.per_profile_limit}/patient${row.max_redemptions ? `, ${row.max_redemptions} total` : ""}`,
+                row.expires_at ? new Date(row.expires_at).toLocaleDateString("en-NG", { timeZone: "Africa/Lagos" }) : "—",
+                <Badge key="s" variant={row.is_active ? "green" : "grey"}>{row.is_active ? "active" : "inactive"}</Badge>,
+                <Button key="a" variant="outline" size="sm" onClick={() => setActive.mutate({ id: row.id, isActive: !row.is_active })}>
+                  {row.is_active ? "Deactivate" : "Activate"}
+                </Button>,
+              ],
+            }))}
+            searchLabel="Search promo codes"
+            emptyMessage="No promo codes yet."
+            noun={{ one: "promo code", many: "promo codes" }}
+          />
         </CardContent>
       </Card>
     </div>

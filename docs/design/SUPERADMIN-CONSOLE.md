@@ -114,4 +114,41 @@ moved onto the shared frame with detail pages in tabs. Each is its own PR.
   sidebar unfolded, so a folded sidebar unfolds for one frame on first load). Breadcrumbs (home, group, page) come from
   the same nav tree (`lib/navigation-breadcrumbs.ts`) and are hidden on phones. Tests: `navigation-breadcrumbs.test.ts`,
   `nav-rail.test.tsx` (including an axe check).
-- 2a-3 shared `AdminPageHeader` and `DataTable` frame on the five busiest pages: after that.
+- **2a-3 page frame: done** (branch `feat/superadmin-page-frame`, stacked on 2a-1/2a-2).
+  - Header: no new component. The shared `PageHeader` (`@tarragon/ui`) already had title, description, actions and a
+    back link and was used by 128 of 197 admin pages; the bare titles on Patients, Security, Staff access review, both
+    AI cost pages, the partner chase list and the access history page now use it too. About 30 others remain and move
+    as they are touched.
+  - Table: `DataTable` (`@tarragon/ui/components/data-table`, pure rules in `data-table-model.ts`), lifted from the
+    patient directory. Rows carry pre-rendered cells so a Server Component can pass them. Client mode searches, sorts
+    and pages itself; server mode hands sort and page to the caller. Sticky header, sortable headers with
+    `aria-sort`, missing values sort last both ways, numbers sort as numbers, count line, empty and error states.
+  - Moved onto it: patient directory (server mode), AI cost by month, AI cost per feature (cost deliberately not
+    sortable: rows can be in different currencies), partner chase list (keeps the loader's stalest-first order), and
+    all three lists on "Who holds which access". Community pages keep their own style module for now (a separate
+    decision).
+  - Second batch: event bus (subscribers; deliveries sort only the database page in hand and say "on this page",
+    since that list is cursor-paged with an "older" link), partner webhooks (endpoints and the event map), payment,
+    video and email providers (health, settlement breaks with the difference sorted by size, payout postings that need
+    finance, the event inbox), the lab and imaging directory, follow-ups, and doctor caseload (caseload and
+    utilisation). Sorting by status puts what needs attention first (down providers, dead deliveries, switched-off
+    endpoints). The free-text fields inside row forms on the providers page gained labels; they had placeholders only.
+  - Twelve more list pages moved to `PageHeader` (patient directory, clinical sign-off, sign-up invites, translations,
+    automation health, automations, lab and imaging directory and its import page, AI monitoring, directory freshness,
+    Community Access Fund). Left on purpose: the 12 Community pages, the dashboard (2b), the settings tab bar, the AI
+    governance console (its header block carries a long scoping note) and record detail pages (phase 3).
+  - Third batch: the exception queue (worst first, from the queue's own rank; a failed filter says "Not loaded", never
+    the empty-domain wording), both health-education reports (the emoji thumbs headings became "Helpful" and "Not
+    helpful" for screen readers; quiz score sorts as a share of its total), provider quality (metric health, and the
+    provider list), service margins,
+    alert types, result release policies, the vaccination schedule, mental-health screening cadence, quality-policy
+    metrics (arrows became "higher/lower is better"), and promo codes (expiry now shown in Lagos time).
+  - Review fix: in client mode the table keeps every row mounted and hides the ones a search or page leaves out, so
+    in-row state survives (a rotated signing key shown once on Partner webhooks, a half-typed break note or lift
+    reason). Tested, with a sabotage run. The count line is announced to screen readers once typing pauses.
+  - Left as they are, on purpose: the escalation SLA table (CMO-signed, and its number boxes are fields of one form, so
+    filtering or paging would unmount some and drop them from the save), reward rules (a row component with its own
+    controls), the patient merge preview and the broadcast composer (small, inside a multi-step tool), and the three
+    Community files. Seven files in all.
+  - Also: the three small items from 2a-2's second review (one roll-up rule for the badge mark and words; one badge
+    lookup per link; a count shared by two links counted once on its group icon, with a sabotage-checked test).

@@ -100,13 +100,33 @@ export interface RailBadge {
   failed: boolean;
 }
 
-/** The rolled-up badge on a rail icon: the summed count, or the amber dot when any underlying read failed. */
-function RailBadgeMark({ badges }: { badges: (RailBadge | null)[] }) {
+/** One rule for rolling badges up, read by both the visible mark and the words, so the two can never disagree. */
+function rollUp(badges: readonly (RailBadge | null)[]): { failed: boolean; total: number } {
   const present = badges.filter((b): b is RailBadge => b !== null);
-  if (present.some((b) => b.failed)) {
+  return { failed: present.some((b) => b.failed), total: present.reduce((sum, b) => sum + b.count, 0) };
+}
+
+/**
+ * A group's badges, counting each live count once: two links can share one countKey (the same worklist reached two
+ * ways), and adding both would double the number on the group icon.
+ */
+function groupBadges(items: NavSection["items"], badgeFor: (item: NavSection["items"][number]) => RailBadge | null): (RailBadge | null)[] {
+  const seen = new Set<string>();
+  return items.map((item) => {
+    if (item.countKey) {
+      if (seen.has(item.countKey)) return null;
+      seen.add(item.countKey);
+    }
+    return badgeFor(item);
+  });
+}
+
+/** The rolled-up badge on a rail icon: the summed count, or the amber dot when any underlying read failed. */
+function RailBadgeMark({ badges }: { badges: readonly (RailBadge | null)[] }) {
+  const { failed, total } = rollUp(badges);
+  if (failed) {
     return <span aria-hidden="true" className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-500" />;
   }
-  const total = present.reduce((sum, b) => sum + b.count, 0);
   if (!total) return null;
   return (
     <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 rounded-full bg-brand-green px-1 text-[10px] font-semibold leading-4 text-white">
@@ -116,10 +136,9 @@ function RailBadgeMark({ badges }: { badges: (RailBadge | null)[] }) {
 }
 
 /** Words for the same badge, added to the control's name so the rail never relies on the mark alone. */
-function badgeWords(badges: (RailBadge | null)[]): string {
-  const present = badges.filter((b): b is RailBadge => b !== null);
-  if (present.some((b) => b.failed)) return ", count could not load";
-  const total = present.reduce((sum, b) => sum + b.count, 0);
+function badgeWords(badges: readonly (RailBadge | null)[]): string {
+  const { failed, total } = rollUp(badges);
+  if (failed) return ", count could not load";
   return total ? `, ${total} waiting` : "";
 }
 
@@ -177,12 +196,13 @@ export function NavRail({
                 {section.items.map((item) => {
                   const Icon = APP_ICON[item.icon];
                   const active = itemIsActive(pathname, item);
+                  const badges = [badgeFor(item)];
                   return (
                     <li key={item.href}>
                       <Link
                         href={item.href}
                         prefetch={false}
-                        aria-label={`${item.label}${badgeWords([badgeFor(item)])}`}
+                        aria-label={`${item.label}${badgeWords(badges)}`}
                         aria-current={active ? "page" : undefined}
                         className={cn(
                           railItemClass,
@@ -190,7 +210,7 @@ export function NavRail({
                         )}
                       >
                         <Icon aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={2} />
-                        <RailBadgeMark badges={[badgeFor(item)]} />
+                        <RailBadgeMark badges={badges} />
                         <RailTip>{item.label}</RailTip>
                       </Link>
                     </li>
@@ -202,7 +222,7 @@ export function NavRail({
           const label = section.label;
           const Icon = APP_ICON[section.icon ?? "menu"];
           const holdsCurrent = section.items.some((item) => itemIsActive(pathname, item));
-          const badges = section.items.map(badgeFor);
+          const badges = groupBadges(section.items, badgeFor);
           return (
             <button
               key={label}

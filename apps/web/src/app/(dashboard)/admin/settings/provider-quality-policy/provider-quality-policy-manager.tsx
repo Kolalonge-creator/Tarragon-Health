@@ -12,6 +12,7 @@ import {
   type SignProviderQualityPolicyState,
 } from "./actions";
 import { isSupersededVersion } from "@/lib/clinical/refuse-superseded-draft";
+import { DataTable } from "@/components/ui/data-table";
 
 type MetricRow = {
   metric: string;
@@ -116,49 +117,48 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
 
 function MetricsTable({ metrics }: { metrics: MetricRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-mist-grey/40">
-      <table className="w-full text-left text-xs">
-        <thead className="bg-mist-grey/20 text-charcoal-ink/60">
-          <tr>
-            <th className="p-2 font-medium">Metric</th>
-            <th className="p-2 font-medium">Domain</th>
-            <th className="p-2 font-medium">Target</th>
-            <th className="p-2 font-medium">Warning</th>
-            <th className="p-2 font-medium">Clinical governance</th>
-          </tr>
-        </thead>
-        <tbody>
-          {metrics.map((m) => (
-            <tr key={m.metric} className="border-t border-mist-grey/30 align-top">
-              <td className="p-2">
-                <p className="font-mono text-charcoal-ink/80">{m.metric}</p>
-                {m.note && <p className="mt-1 max-w-xs text-charcoal-ink/50">{m.note}</p>}
-              </td>
-              <td className="p-2">
-                <Badge variant={DOMAIN_BADGE[m.domain] ?? "grey"}>{m.domain.replace("_", " ")}</Badge>
-              </td>
-              <td className="p-2 text-charcoal-ink/70">
-                {m.target}
-                {m.unit === "percent" ? "%" : ` ${m.unit}`} ({m.direction === "higher_is_better" ? "↑" : "↓"} is better)
-              </td>
-              <td className="p-2 text-charcoal-ink/70">
-                {m.warning}
-                {m.unit === "percent" ? "%" : ` ${m.unit}`}
-              </td>
-              <td className="p-2">
-                {m.domain !== "clinical_quality" ? (
-                  <span className="text-charcoal-ink/40">— management target</span>
-                ) : m.clinically_governed === false ? (
-                  <Badge variant="amber">Not yet validated</Badge>
-                ) : (
-                  <Badge variant="green">Clinically governed</Badge>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      caption="Quality metrics"
+      columns={[
+        { header: "Metric", sortable: true },
+        { header: "Domain", sortable: true },
+        { header: "Target" },
+        { header: "Warning" },
+        { header: "Clinical governance", sortable: true },
+      ]}
+      rows={metrics.map((m) => {
+        const unit = m.unit === "percent" ? "%" : ` ${m.unit}`;
+        const governance = m.domain !== "clinical_quality" ? 2 : m.clinically_governed === false ? 0 : 1;
+        return {
+          key: m.metric,
+          searchText: `${m.metric} ${m.note ?? ""} ${m.domain.replace("_", " ")}`,
+          // Not yet validated sorts first: the metrics still owed a clinical review.
+          sort: [m.metric, m.domain, null, null, governance],
+          cells: [
+            <div key="m">
+              <p className="font-mono text-xs text-charcoal-ink/80">{m.metric}</p>
+              {m.note && <p className="mt-1 max-w-xs text-xs text-charcoal-ink/50">{m.note}</p>}
+            </div>,
+            <Badge key="d" variant={DOMAIN_BADGE[m.domain] ?? "grey"}>{m.domain.replace("_", " ")}</Badge>,
+            <span key="t" className="text-charcoal-ink/70">
+              {m.target}
+              {unit} ({m.direction === "higher_is_better" ? "higher" : "lower"} is better)
+            </span>,
+            <span key="w" className="text-charcoal-ink/70">{m.warning}{unit}</span>,
+            m.domain !== "clinical_quality" ? (
+              <span key="g" className="text-charcoal-ink/40">— management target</span>
+            ) : m.clinically_governed === false ? (
+              <Badge key="g" variant="amber">Not yet validated</Badge>
+            ) : (
+              <Badge key="g" variant="green">Clinically governed</Badge>
+            ),
+          ],
+        };
+      })}
+      searchLabel="Search metrics"
+      emptyMessage="No metrics configured."
+      noun={{ one: "metric", many: "metrics" }}
+    />
   );
 }
 

@@ -8,6 +8,8 @@ import { loadDiagnosticOverview } from "@/lib/diagnostic-directory/load";
 import { asNotice, BAD_NOTICES, type Overview } from "@/lib/diagnostic-directory/model";
 import { createFacilityAction, startListingAction } from "@/lib/diagnostic-directory/actions";
 import { BranchFields, btn, lagosDate, Notice, regulatorLabel } from "./ui";
+import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Lab and imaging directory" };
 export const dynamic = "force-dynamic";
@@ -27,11 +29,11 @@ export default async function DiagnosticDirectoryPage({ searchParams }: { search
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">{t("dxdir.title", locale)}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("dxdir.intro", locale)}</p>
-        <Link href="/admin/ops/diagnostic-directory/import" className="mt-2 inline-block text-sm font-semibold text-brand-green hover:underline">{t("dxdir.import.link", locale)}</Link>
-      </div>
+      <PageHeader
+        title={t("dxdir.title", locale)}
+        description={t("dxdir.intro", locale)}
+        actions={<Link href="/admin/ops/diagnostic-directory/import" className="text-sm font-semibold text-brand-green hover:underline">{t("dxdir.import.link", locale)}</Link>}
+      />
       {notice && <FlashClean />}
       {notice && <Notice notice={notice} bad={BAD_NOTICES.has(notice)} />}
       {!loaded.ok ? (
@@ -100,37 +102,35 @@ function Providers({ providers }: { providers: Overview["providers"] }) {
   return (
     <section aria-labelledby="dx-providers" className="space-y-3">
       <h2 id="dx-providers" className="font-heading text-xl font-semibold text-charcoal-ink">{t("dxdir.providers", locale)}</h2>
-      {providers.length === 0 ? (
-        <p className="text-sm text-charcoal-ink/70">{t("dxdir.providers.none", locale)}</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-xs text-charcoal-ink/60">
-              <tr>
-                <th className="py-2 pr-3">{t("dxdir.col.name", locale)}</th>
-                <th className="py-2 pr-3">{t("dxdir.col.kind", locale)}</th>
-                <th className="py-2 pr-3">{t("dxdir.col.status", locale)}</th>
-                <th className="py-2 pr-3">{t("dxdir.col.branches", locale)}</th>
-                <th className="py-2 pr-3">{t("dxdir.col.services", locale)}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {providers.map((p) => (
-                <tr key={p.listing_id} className="border-t border-charcoal-ink/10">
-                  <td className="py-2 pr-3">
-                    <Link href={`/admin/ops/diagnostic-directory/${p.listing_id}`} className="font-medium text-brand-green hover:underline">{p.name}</Link>
-                    <span className="ml-2 text-xs text-charcoal-ink/60">{t(p.contracted ? "dxdir.contracted" : "dxdir.not_contracted", locale)}</span>
-                  </td>
-                  <td className="py-2 pr-3">{t(`dxdir.kind.${p.kind}`, locale)}</td>
-                  <td className="py-2 pr-3">{t(`dxdir.status.${p.directory_status}`, locale)}</td>
-                  <td className="py-2 pr-3">{p.listed_branches} / {p.branches}</td>
-                  <td className="py-2 pr-3">{p.eligible_services} / {p.services}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        caption={t("dxdir.providers", locale)}
+        columns={[
+          { header: t("dxdir.col.name", locale), sortable: true, className: "min-w-56" },
+          { header: t("dxdir.col.kind", locale), sortable: true },
+          { header: t("dxdir.col.status", locale), sortable: true },
+          { header: t("dxdir.col.branches", locale), sortable: true, defaultDir: "desc" },
+          { header: t("dxdir.col.services", locale), sortable: true, defaultDir: "desc" },
+        ]}
+        rows={providers.map((p): DataTableRow => ({
+          key: p.listing_id,
+          searchText: `${p.name} ${t(`dxdir.kind.${p.kind}`, locale)} ${t(`dxdir.status.${p.directory_status}`, locale)}`,
+          // Branches and services sort by how many are listed or eligible, the figure that matters to a patient.
+          sort: [p.name, t(`dxdir.kind.${p.kind}`, locale), t(`dxdir.status.${p.directory_status}`, locale), p.listed_branches, p.eligible_services],
+          cells: [
+            <span key="name">
+              <Link href={`/admin/ops/diagnostic-directory/${p.listing_id}`} className="font-medium text-brand-green hover:underline">{p.name}</Link>
+              <span className="ml-2 text-xs text-charcoal-ink/60">{t(p.contracted ? "dxdir.contracted" : "dxdir.not_contracted", locale)}</span>
+            </span>,
+            t(`dxdir.kind.${p.kind}`, locale),
+            t(`dxdir.status.${p.directory_status}`, locale),
+            `${p.listed_branches} / ${p.branches}`,
+            `${p.eligible_services} / ${p.services}`,
+          ],
+        }))}
+        searchLabel="Search providers"
+        emptyMessage={t("dxdir.providers.none", locale)}
+        noun={{ one: "provider", many: "providers" }}
+      />
     </section>
   );
 }

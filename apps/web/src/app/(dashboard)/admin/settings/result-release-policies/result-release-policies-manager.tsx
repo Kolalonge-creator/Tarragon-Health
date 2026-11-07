@@ -10,6 +10,7 @@ import {
   type CreateResultReleasePolicyDraftState,
   type SignResultReleasePoliciesState,
 } from "./actions";
+import { DataTable } from "@/components/ui/data-table";
 
 type ReleasePolicyEntry = {
   screen_type_code: string;
@@ -100,31 +101,31 @@ function ConfigTable({ config }: { config: ReleasePolicyEntry[] }) {
   const sorted = [...config].sort((a, b) => a.screen_type_code.localeCompare(b.screen_type_code));
 
   return (
-    <div className="overflow-auto rounded-md border border-mist-grey/40">
-      <table className="w-full text-sm">
-        <thead className="sticky top-0 bg-mist-grey/40 text-left text-charcoal-ink/70">
-          <tr>
-            <th className="p-2">Screen type</th>
-            <th className="p-2">Release mode</th>
-            <th className="p-2">Reason</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((entry) => {
-            const badge = MODE_BADGE[entry.release_mode];
-            return (
-              <tr key={entry.screen_type_code} className="border-t border-mist-grey/30 align-top">
-                <td className="p-2 font-mono text-xs">{entry.screen_type_code}</td>
-                <td className="p-2">
-                  <Badge variant={badge.variant}>{badge.label}</Badge>
-                </td>
-                <td className="p-2 text-xs text-charcoal-ink/60">{entry.reason ?? "—"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      caption="Result release policies"
+      columns={[
+        { header: "Screen type", sortable: true },
+        { header: "Release mode", sortable: true },
+        { header: "Reason" },
+      ]}
+      rows={sorted.map((entry) => {
+        const badge = MODE_BADGE[entry.release_mode];
+        return {
+          key: entry.screen_type_code,
+          searchText: `${entry.screen_type_code} ${badge.label} ${entry.reason ?? ""}`,
+          sort: [entry.screen_type_code, badge.label, null],
+          cells: [
+            <span key="t" className="font-mono text-xs">{entry.screen_type_code}</span>,
+            <Badge key="m" variant={badge.variant}>{badge.label}</Badge>,
+            <span key="r" className="text-xs text-charcoal-ink/60">{entry.reason ?? "—"}</span>,
+          ],
+        };
+      })}
+      searchLabel="Search screen types"
+      pageSize={Math.max(25, sorted.length)}
+      emptyMessage="No release policies."
+      noun={{ one: "screen type", many: "screen types" }}
+    />
   );
 }
 

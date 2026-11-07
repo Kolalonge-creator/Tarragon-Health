@@ -8,6 +8,7 @@ import { loadImportBatches, loadImportRows } from "@/lib/diagnostic-directory/lo
 import { asNotice, BAD_NOTICES, type ImportBatch, type ImportRow } from "@/lib/diagnostic-directory/model";
 import { applyImportRowAction, rejectImportRowAction, stageImportAction } from "@/lib/diagnostic-directory/import-actions";
 import { btn, card, input, lagosDate, Notice } from "../ui";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Import directory rows" };
 export const dynamic = "force-dynamic";
@@ -31,11 +32,7 @@ export default async function DiagnosticImportPage({ searchParams }: { searchPar
 
   return (
     <div className="space-y-8">
-      <Link href="/admin/ops/diagnostic-directory" className="text-sm text-brand-green hover:underline">{t("dxdir.import.back", locale)}</Link>
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">{t("dxdir.import.title", locale)}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("dxdir.import.intro", locale)}</p>
-      </div>
+      <PageHeader title={t("dxdir.import.title", locale)} description={t("dxdir.import.intro", locale)} backTo={{ href: "/admin/ops/diagnostic-directory", label: t("dxdir.import.back", locale) }} />
       {notice && <FlashClean />}
       {notice && <Notice notice={notice} bad={BAD_NOTICES.has(notice)} />}
       <Upload />

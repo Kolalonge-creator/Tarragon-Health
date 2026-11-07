@@ -78,6 +78,26 @@ describe("NavRail badges and layout", () => {
     expect(screen.getByRole("button", { name: "Membership and money: open this group, 3 waiting" }).textContent).toContain("3");
   });
 
+  it("counts a live count shared by two links in one group once", () => {
+    const shared = [{ label: "Care delivery", icon: "caseload" as const, items: [
+      { label: "Queue", href: "/admin/a", icon: "review" as const, countKey: "open_tasks" as never },
+      { label: "Queue again", href: "/admin/b", icon: "review" as const, countKey: "open_tasks" as never },
+    ] }];
+    render(
+      <NavRail
+        sections={shared}
+        pathname="/admin"
+        homeHref="/admin"
+        profileHref="/admin/profile"
+        userName="Ada Admin"
+        badgeFor={() => ({ count: 4, failed: false })}
+        onOpenGroup={jest.fn()}
+        onExpand={jest.fn()}
+      />
+    );
+    expect(screen.getByRole("button", { name: "Care delivery: open this group, 4 waiting" })).toBeTruthy();
+  });
+
   it("shows a failed count as could-not-load, never as nothing", () => {
     render(
       <NavRail
