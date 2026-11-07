@@ -254,8 +254,31 @@ export function useHoldAppointmentSlot() {
        * p_patient_id to the caller when this is left out.
        */
       patientId?: string;
+      /**
+       * CC-1: a booking made for a patient on a phone call from the coordination workspace. Goes through
+       * hold_appointment_slot_by_phone, so a doctor covering coordination gets the same phone booking (30 minute hold, pay link,
+       * confirm on payment) a Care Coordinator gets. The database refuses anyone who may not coordinate.
+       */
+      viaPhone?: boolean;
     }) => {
       const supabase = createClient();
+      if (input.viaPhone) {
+        if (!input.patientId) throw new Error("A phone booking needs the patient it is for");
+        const { data, error } = await supabase.rpc("hold_appointment_slot_by_phone" as never, {
+          p_organisation_id: input.organisationId,
+          p_clinician_id: input.clinicianId,
+          p_appointment_type: input.appointmentType,
+          p_consultation_method: input.consultationMethod,
+          p_scheduled_for: input.scheduledFor,
+          p_ends_at: input.endsAt,
+          p_patient_id: input.patientId,
+          p_reason: input.reason,
+          p_service: input.service,
+          p_location: input.location,
+        } as never);
+        if (error) throw error;
+        return data as Appointment;
+      }
       const { data, error } = await supabase.rpc("hold_appointment_slot", {
         p_organisation_id: input.organisationId,
         p_clinician_id: input.clinicianId,

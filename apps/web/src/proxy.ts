@@ -481,8 +481,23 @@ async function proxyInner(request: NextRequest) {
         // for the reason given above.
         "/clinician/operations-queue",
         "/clinician/medication-issues",
+        // CC-3 (2026-11-07): coordinator-level queue tasks are now pushed to a coordinator first, so the queue and the task page
+        // must open. Both are safe for the role: the queue lists only the caller's own tasks, and the database refuses a claim
+        // below the task type's minimum tier (task_types.min_doctor_tier), so a coordinator can only ever hold coordinator work.
+        "/clinician/queue",
+        "/clinician/tasks",
       ].some((allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`));
     if (isCoordinatorClinicianPath) {
+      return response;
+    }
+
+    // CC-1 (2026-11-07): one shared coordination workspace. A doctor may open /dashboard/care-coordinator/* to do coordinator work
+    // while no coordinator is employed. The workspace layout decides who qualifies (an employed Senior Medical Officer or the CMO)
+    // and every action is gated again in the database (private.is_coordination_actor). The community redirect above runs first.
+    const isClinicianCoordinationPath =
+      profile.role === "clinician" &&
+      (pathname === "/dashboard/care-coordinator" || pathname.startsWith("/dashboard/care-coordinator/"));
+    if (isClinicianCoordinationPath) {
       return response;
     }
 

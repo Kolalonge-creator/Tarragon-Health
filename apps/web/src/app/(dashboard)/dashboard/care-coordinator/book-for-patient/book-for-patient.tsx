@@ -111,6 +111,7 @@ export function BookForPatient({ organisationId }: { organisationId: string }) {
             key={selected.patientId}
             organisationId={organisationId}
             patientId={selected.patientId}
+            viaPhone
             renderTerms={(type) => (
               <CoordinatorTermsNote appointmentType={type} patientName={selected.fullName} isMember={selected.membershipTier !== null} />
             )}

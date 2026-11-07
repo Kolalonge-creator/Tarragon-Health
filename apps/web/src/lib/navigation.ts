@@ -579,6 +579,9 @@ export function getNavSections(
                 },
                 // MSG-5: what is waiting across messages, alerts and monthly meetings, and who holds it.
                 { label: "Care operations", href: "/clinician/care-operations", icon: "operations" },
+                // CC-1 (2026-11-07): doctors cover care coordination while no Care Coordinator is employed. The workspace itself
+                // admits an employed Senior Medical Officer or the CMO and explains itself to anyone else.
+                { label: "Care coordination", href: "/dashboard/care-coordinator", icon: "team" },
                 {
                   label: "Support tickets",
                   href: "/clinician/support-tickets",

@@ -1960,3 +1960,5 @@ dw03_escalation_working_states.sql
 dw07_dw08_audited_onboarding_and_care_circle_reads.sql
 # DW follow-ups (2026-11-07): a returned monitoring case tells its doctor in-app (only the escalation id), an unheld one tells the CMO, a not-yet-due one tells nobody; no staff account (doctor or coordinator) can delete an escalation. Sabotage: the old org-staff delete policy lets a coordinator delete.
 dw_followups_monitoring_notice_and_no_escalation_delete.sql
+# CC-1..CC-4 (2026-11-07): one shared coordination workspace. Employed doctors and the CMO pass the coordinator gates, a partner specialist does not; outreach, support and programme work routes coordinator-first with doctor fallback and hands over in a sweep; coordinator-level queue tasks push to a coordinator first; the worklist/activity/roster read models are staff-only. Sabotage: old upload gate, no-op sweep, dropped routing trigger.
+cc1_coordination_shared_workspace.sql

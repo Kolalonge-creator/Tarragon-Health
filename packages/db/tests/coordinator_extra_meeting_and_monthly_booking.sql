@@ -8,7 +8,7 @@
 --      Free patient are not held to the rule.
 --   C. The included monthly meeting: a care coordinator of the patient's organisation sees the offered times and picks one for the Member;
 --      the booking is confirmed, free of charge (waived), stamped coordinator_phone and attributed to the coordinator, and the month is
---      marked booked. Another patient, the doctor who made the offer, and a coordinator of another organisation get nothing / are refused.
+--      marked booked. Another patient and a coordinator of another organisation get nothing / are refused; an employed doctor covering coordination is admitted (CC-1).
 --   D. SABOTAGE: the coordinator check forced false (the pick is refused); the Membership trigger removed (a Free patient can start buying);
 --      the tier gate removed from hold (a Free patient can book themselves). Each must flip, or the proof is vacuous.
 begin;
@@ -188,7 +188,8 @@ begin
   v_r := pg_temp.j(v_pf, format('select public.my_followups(%L)', v_pm));
   perform pg_temp.rec('C2 an unrelated patient sees nothing of it', '0', jsonb_array_length(v_r -> 'offers')::text);
   v_r := pg_temp.j(v_doc, format('select public.my_followups(%L)', v_pm));
-  perform pg_temp.rec('C3 the doctor who made the offer is not admitted by this function either', '0', jsonb_array_length(v_r -> 'offers')::text);
+  -- CC-1 (2026-11-07): an employed doctor covers coordination while no coordinator is employed, so this function now admits them too.
+  perform pg_temp.rec('C3 an employed doctor covering coordination sees the offer too (CC-1)', '1', jsonb_array_length(v_r -> 'offers')::text);
   if v_org2 is not null then
     v_cc2 := pg_temp.mkuser(v_org2, 'coordinator-other-org', 'care_coordinator', (current_date - interval '30 years')::date);
     -- mkuser leaves the organisation of a profile the signup trigger already made, so set it explicitly
