@@ -35,17 +35,14 @@ export const metadata = { title: "Clinical Leadership Overview" };
 
 const ATTENTION_LIMIT = 10;
 
-/** "168 of 200": the numerator and denominator under a percentage shown as the headline value. */
-function countsOf(numerator: number | null, denominator: number | null): string {
-  return `${(numerator ?? 0).toLocaleString("en-NG")} of ${(denominator ?? 0).toLocaleString("en-NG")}`;
-}
-
 /**
  * The Chief Medical Officer's command centre (founder decision 2026-11-07: a new CMO-only page, and the CMO's landing page).
  * Built on what already exists: the org-wide worklist (DW-01), the CMO oversight view (DW-14), the sign-off hub, and the
  * governance tables themselves. No figure is invented or cached: each is read live under the CMO's own RLS, a failed read
  * says "could not be loaded", and a rate always shows its numerator and denominator. The CMO's role does not widen access:
- * every link opens a page with its own access check, and the summary shows patient numbers, never names or clinical notes.
+ * every link opens a page with its own access check. The attention panel shows patient numbers only and no free text (no
+ * escalation reason, incident or safeguarding narrative); the Clinical oversight block below is the existing DW-14 block, which
+ * names patients, as it already does on the CMO's home, because the CMO acts on those rows (reassign).
  */
 export default async function LeadershipOverviewPage({
   searchParams,
@@ -92,6 +89,12 @@ export default async function LeadershipOverviewPage({
 
   const critical = teamFailed ? null : worklist.rows.filter((r) => (r.source === "escalation" || r.source === "alert") && r.priority === "critical").length;
   const seriousIncidents = signals.incidents ? signals.incidents.filter((i) => i.severity === "high" || i.severity === "critical").length : null;
+  // A list longer than the rows drawn: say so, so the panel and the serious-incident figure are not read as complete.
+  const truncated = [
+    signals.incidents && signals.totals.incidents !== null && signals.totals.incidents > signals.incidents.length && "clinical incidents",
+    signals.safeguarding && signals.totals.safeguarding !== null && signals.totals.safeguarding > signals.safeguarding.length && "safeguarding concerns",
+    signals.complaints && signals.totals.complaints !== null && signals.totals.complaints > signals.complaints.length && "complaints",
+  ].filter((x): x is string => Boolean(x));
   const comparable = previousPeriodComparable(bounds, kpis.dataSince);
   const planCoverage = ratioText(kpis.patientsWithActivePlan, kpis.patientsTotal);
   const resolvedRatio = ratioText(kpis.escalationsResolved, kpis.escalationsRaised);
@@ -114,7 +117,7 @@ export default async function LeadershipOverviewPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <PeriodSelector current={period} />
+          <PeriodSelector current={period} showAll={showAll} />
           <PrintButton />
         </div>
       </header>
@@ -126,11 +129,18 @@ export default async function LeadershipOverviewPage({
         </LoadFailure>
       )}
 
+      {truncated.length > 0 && (
+        <LoadFailure>
+          There are more open {truncated.join(", ")} than this panel draws, so only the oldest are listed below. The counts are exact;
+          open each page for the full list.
+        </LoadFailure>
+      )}
+
       <AttentionPanel
         items={attention}
         now={now}
         limit={showAll ? attention.length : ATTENTION_LIMIT}
-        incomplete={failedParts.length > 0}
+        incomplete={failedParts.length > 0 || truncated.length > 0}
         showAllHref={showAll ? null : query({ all: "1" })}
       />
 
@@ -156,13 +166,13 @@ export default async function LeadershipOverviewPage({
           <KpiCard
             label="Serious incidents open"
             value={seriousIncidents}
-            detail={signals.incidents ? `of ${signals.incidents.length.toLocaleString("en-NG")} open clinical incidents` : undefined}
+            detail={signals.totals.incidents !== null ? `of ${signals.totals.incidents.toLocaleString("en-NG")} open clinical incidents` : undefined}
             definition="Clinical incident reports of high or critical severity that are not closed."
             href="/clinician/safety-incidents"
           />
           <KpiCard
             label="Safeguarding concerns open"
-            value={signals.safeguarding?.length ?? null}
+            value={signals.totals.safeguarding}
             definition="Safeguarding concerns that are open or under review."
             href="/clinician/safeguarding"
           />
@@ -175,7 +185,7 @@ export default async function LeadershipOverviewPage({
           <KpiCard
             label="Patients with an active care plan"
             value={planCoverage.pct === null ? (kpis.patientsWithActivePlan === null || kpis.patientsTotal === null ? null : "None yet") : `${planCoverage.pct}%`}
-            detail={planCoverage.pct === null ? undefined : `${countsOf(kpis.patientsWithActivePlan, kpis.patientsTotal)} patients`}
+            detail={planCoverage.pct === null ? undefined : `${planCoverage.counts} patients`}
             definition="Patients with at least one care plan in status active, out of all patients (test accounts excluded)."
             href="/clinician/care-plan-review"
           />
@@ -210,7 +220,7 @@ export default async function LeadershipOverviewPage({
           <KpiCard
             label="Escalations resolved"
             value={resolvedRatio.pct === null ? (kpis.escalationsRaised === null || kpis.escalationsResolved === null ? null : "None raised") : `${resolvedRatio.pct}%`}
-            detail={resolvedRatio.pct === null ? undefined : `${countsOf(kpis.escalationsResolved, kpis.escalationsRaised)} raised in the period`}
+            detail={resolvedRatio.pct === null ? undefined : `${resolvedRatio.counts} raised in the period`}
             definition="Of the escalations raised in the period, how many are now resolved or referred."
             href="/clinician/escalations"
           />

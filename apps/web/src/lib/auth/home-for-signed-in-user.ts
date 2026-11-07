@@ -18,10 +18,15 @@ export async function homeForSignedInUser(
 ): Promise<string> {
   const home = getRoleHomePath(role);
   if (role !== "clinician") return home;
-  const { data: staff, error } = await supabase
-    .from("clinical_staff")
-    .select("doctor_tier, active")
-    .eq("profile_id", userId)
-    .maybeSingle();
-  return !error && isActiveChiefMedicalOfficer(staff ?? null) ? CMO_HOME_PATH : home;
+  // It runs in proxy.ts and the sign-in actions, so a failure must never become an error page: any throw means the role home.
+  try {
+    const { data: staff, error } = await supabase
+      .from("clinical_staff")
+      .select("doctor_tier, active")
+      .eq("profile_id", userId)
+      .maybeSingle();
+    return !error && isActiveChiefMedicalOfficer(staff ?? null) ? CMO_HOME_PATH : home;
+  } catch {
+    return home;
+  }
 }

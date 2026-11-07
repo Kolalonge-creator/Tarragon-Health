@@ -15,10 +15,13 @@ export type GovernanceSignals = {
   incidents: IncidentRow[] | null;
   safeguarding: SafeguardingRow[] | null;
   complaints: ComplaintRow[] | null;
+  /** The exact number open (a separate count, so it stays right when a list is longer than LIMIT). Null when the read failed. */
+  totals: { incidents: number | null; safeguarding: number | null; complaints: number | null };
 };
 
-/** Enough for an executive panel; the full lists live on each page. */
-const LIMIT = 200;
+/** Rows drawn per list for the executive panel (oldest first); `totals` always carries the exact open count. */
+export const GOVERNANCE_SIGNAL_LIMIT = 200;
+const LIMIT = GOVERNANCE_SIGNAL_LIMIT;
 
 type Named = { full_name: string | null } | null;
 
@@ -30,7 +33,7 @@ export async function loadGovernanceSignals(
     excludeTestPatients(
       supabase
         .from("clinical_incident_reports")
-        .select("id, category, severity, status, reported_at, reviewer:clinical_staff!clinical_incident_reports_reviewed_by_staff_fkey(full_name)")
+        .select("id, category, severity, status, reported_at, reviewer:clinical_staff!clinical_incident_reports_reviewed_by_staff_fkey(full_name)", { count: "exact" })
         .neq("status", "closed")
         .order("reported_at", { ascending: true })
         .limit(LIMIT),
@@ -40,7 +43,7 @@ export async function loadGovernanceSignals(
     excludeTestPatients(
       supabase
         .from("safeguarding_concerns")
-        .select("id, concern_category, status, reported_at, reviewer:clinical_staff!safeguarding_concerns_reviewed_by_staff_fkey(full_name)")
+        .select("id, concern_category, status, reported_at, reviewer:clinical_staff!safeguarding_concerns_reviewed_by_staff_fkey(full_name)", { count: "exact" })
         .neq("status", "closed")
         .order("reported_at", { ascending: true })
         .limit(LIMIT),
@@ -49,7 +52,7 @@ export async function loadGovernanceSignals(
     excludeTestPatients(
       supabase
         .from("complaints")
-        .select("id, category, status, created_at, assignee:profiles!complaints_assigned_to_fkey(full_name)")
+        .select("id, category, status, created_at, assignee:profiles!complaints_assigned_to_fkey(full_name)", { count: "exact" })
         .neq("status", "governance_review")
         .order("created_at", { ascending: true })
         .limit(LIMIT),
@@ -57,7 +60,10 @@ export async function loadGovernanceSignals(
     ).returns<{ id: string; category: string; status: string; created_at: string; assignee: Named }[]>(),
   ]);
 
+  const total = (r: { error: unknown; count: number | null; data: unknown[] | null }) =>
+    r.error ? null : (r.count ?? r.data?.length ?? 0);
   return {
+    totals: { incidents: total(incidentsRes), safeguarding: total(safeguardingRes), complaints: total(complaintsRes) },
     incidents: incidentsRes.error
       ? null
       : (incidentsRes.data ?? []).map((r) => ({

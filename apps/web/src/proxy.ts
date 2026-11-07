@@ -6,6 +6,7 @@ import {
   isRoleHomePrefixed,
   pathMatchesRole,
 } from "@/lib/auth/roles";
+import { homeForSignedInUser } from "@/lib/auth/home-for-signed-in-user";
 import { isAppHost, wwwRedirectTarget } from "@/lib/marketing/host";
 import { isMarketingPath } from "@/lib/marketing/routes";
 import { consoleBaseUrl, consoleRedirectTarget } from "@/lib/console-redirect";
@@ -269,7 +270,8 @@ async function proxyInner(request: NextRequest) {
       .eq("id", user.id)
       .single();
     if (profile) {
-      return NextResponse.redirect(new URL(getRoleHomePath(profile.role), request.url));
+      // An active Chief Medical Officer enters on the Leadership overview (2026-11-07); everyone else on their role home.
+      return NextResponse.redirect(new URL(await homeForSignedInUser(supabase, user.id, profile.role), request.url));
     }
     return NextResponse.redirect(new URL("/login", request.url));
   }
@@ -423,7 +425,9 @@ async function proxyInner(request: NextRequest) {
         new URL("/patient/prevention#health-check", request.url)
       );
     }
-    return NextResponse.redirect(new URL(home, request.url));
+    // Same entry rule as sign-in: an active Chief Medical Officer goes to the Leadership overview.
+    const entry = profile.role === "clinician" && !supporterOnly ? await homeForSignedInUser(supabase, user.id, profile.role) : home;
+    return NextResponse.redirect(new URL(entry, request.url));
   }
 
   // The super admin (`admin`) has full platform control and may traverse every

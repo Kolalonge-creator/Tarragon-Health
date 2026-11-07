@@ -85,11 +85,15 @@ export function leadershipPeriodBounds(period: LeadershipPeriod, now: Date): Per
 export type LeadershipFigure = number | null;
 
 /** "84%, 168 of 200". A zero denominator says so instead of dividing by zero; an unknown part makes the whole unknown. */
-export function ratioText(numerator: LeadershipFigure, denominator: LeadershipFigure): { pct: number | null; text: string } {
-  if (numerator === null || denominator === null) return { pct: null, text: "could not be loaded" };
-  if (denominator === 0) return { pct: null, text: "none to measure yet" };
+export function ratioText(
+  numerator: LeadershipFigure,
+  denominator: LeadershipFigure
+): { pct: number | null; text: string; counts: string | null } {
+  if (numerator === null || denominator === null) return { pct: null, text: "could not be loaded", counts: null };
+  if (denominator === 0) return { pct: null, text: "none to measure yet", counts: null };
   const pct = Math.round((numerator / denominator) * 100);
-  return { pct, text: `${pct}%, ${numerator.toLocaleString("en-NG")} of ${denominator.toLocaleString("en-NG")}` };
+  const counts = `${numerator.toLocaleString("en-NG")} of ${denominator.toLocaleString("en-NG")}`;
+  return { pct, text: `${pct}%, ${counts}`, counts };
 }
 
 export type PeriodTrend = { direction: "up" | "down" | "flat"; text: string };
@@ -183,11 +187,14 @@ export function attentionFromWorklist(rows: readonly DoctorWorklistRow[], now: D
       row.priority === "critical" ? "critical" : overdue ? "high" : row.unassigned ? "attention" : null;
     if (!tier) continue;
     const reason = row.priority === "critical" ? "Critical" : overdue ? "Past its response time" : "Not assigned to a doctor";
+    // An escalation's issue is the doctor's free-text reason (clinical narrative), so it stays on the case page; an alert's issue
+    // is its system-generated title ("Missing expected pulse readings"), which is safe to summarise.
+    const what = row.source === "escalation" ? "clinical escalation" : row.issue;
     out.push({
       key: row.key,
       tier,
       kind: row.source === "escalation" ? "Clinical escalation" : "Clinical alert",
-      title: `${reason}: ${row.issue}${row.patientNumber ? ` (${row.patientNumber})` : ""}`,
+      title: `${reason}: ${what}${row.patientNumber ? ` (${row.patientNumber})` : ""}`,
       raisedAt: row.receivedAt,
       owner: row.unassigned ? null : row.assignedName,
       status: row.status,

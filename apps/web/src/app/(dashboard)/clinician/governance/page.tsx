@@ -41,9 +41,9 @@ export default async function ClinicianGovernancePage() {
           label="Open governance items"
           tiles={[
             { label: "Waiting for your signature", figure: figure(hub?.items.length ?? null, hub === null || hub.failed), href: "/clinician/clinical-signoff", note: "sign-off items" },
-            { label: "Clinical incidents", figure: figure(signals.incidents?.length ?? null, signals.incidents === null), href: "/clinician/safety-incidents", note: "not closed" },
-            { label: "Safeguarding concerns", figure: figure(signals.safeguarding?.length ?? null, signals.safeguarding === null), href: "/clinician/safeguarding", note: "open or in review" },
-            { label: "Complaints", figure: figure(signals.complaints?.length ?? null, signals.complaints === null), href: "/clinician/complaints", note: "before governance review" },
+            { label: "Clinical incidents", figure: figure(signals.totals.incidents, signals.totals.incidents === null), href: "/clinician/safety-incidents", note: "not closed" },
+            { label: "Safeguarding concerns", figure: figure(signals.totals.safeguarding, signals.totals.safeguarding === null), href: "/clinician/safeguarding", note: "open or in review" },
+            { label: "Complaints", figure: figure(signals.totals.complaints, signals.totals.complaints === null), href: "/clinician/complaints", note: "before governance review" },
           ]}
         />
       </section>

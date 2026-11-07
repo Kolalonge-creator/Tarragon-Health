@@ -70,6 +70,8 @@ describe("reporting period", () => {
 describe("figures", () => {
   it("always shows the numerator and denominator with a percentage", () => {
     expect(ratioText(168, 200).text).toBe("84%, 168 of 200");
+    expect(ratioText(168, 200).counts).toBe("168 of 200");
+    expect(ratioText(null, 200).counts).toBeNull();
     expect(ratioText(0, 0).text).toBe("none to measure yet");
     expect(ratioText(null, 200).text).toBe("could not be loaded");
     expect(ratioText(5, null).pct).toBeNull();
@@ -123,6 +125,18 @@ describe("requires executive attention", () => {
     const [item] = attentionFromWorklist([row({ key: "a", priority: "critical" })], NOW);
     expect(item?.title).toContain("TH-000001");
     expect(item?.title).not.toContain("A Patient");
+  });
+
+  it("never copies an escalation's free-text reason into the summary, but keeps an alert's system title", () => {
+    const [esc, alert] = attentionFromWorklist(
+      [
+        row({ key: "e", priority: "critical", issue: "Disclosed self-harm last night" }),
+        row({ key: "a", source: "alert", priority: "critical", issue: "Missing expected pulse readings" }),
+      ],
+      NOW
+    );
+    expect(esc?.title).toBe("Critical: clinical escalation (TH-000001)");
+    expect(alert?.title).toBe("Critical: Missing expected pulse readings (TH-000001)");
   });
 
   it("tiers incidents by reported severity and skips closed ones", () => {

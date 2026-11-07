@@ -23,6 +23,12 @@ describe("homeForSignedInUser", () => {
     await expect(homeForSignedInUser(stub({ doctor_tier: "chief_medical_officer", active: true }, { message: "x" }).client, "u1", "clinician")).resolves.toBe("/clinician");
   });
 
+  it("falls back to the clinician home if the read throws (it runs in the proxy, which must never error)", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const throwing = { from: () => { throw new Error("network"); } } as any;
+    await expect(homeForSignedInUser(throwing, "u1", "clinician")).resolves.toBe("/clinician");
+  });
+
   it("does not read clinical_staff for other roles", async () => {
     const { client, from } = stub(null);
     await expect(homeForSignedInUser(client, "u1", "patient")).resolves.toBe("/patient");
