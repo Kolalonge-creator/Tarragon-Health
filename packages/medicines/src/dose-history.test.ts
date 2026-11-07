@@ -40,6 +40,14 @@ it("says nothing was due before a medicine was added", () => {
   expect(h.last7.percent).toBeNull(); // 2 due, below the minimum of 3
 });
 
+it("counts a dose marked taken late as taken", () => {
+  // Marked taken late (status "delayed") for an 08:00 dose: still a dose the patient marked taken.
+  const logs = [{ status: "delayed" as const, source: null, loggedAtMs: Date.parse("2026-11-05T13:00:00Z"), date: "2026-11-05", time: "08:00" }];
+  const m: AdherenceMedicine = { id: "m1", spec: specFromLegacyTimes(["08:00"]), logs: groupLogsBySlot(logs), activeFromMs: Date.parse("2026-09-01T00:00:00Z") };
+  const h = buildDoseHistory([m], NOW, { ...cfg, missedAfterMinutes: 60 });
+  expect(h.days.at(-1)).toEqual({ date: "2026-11-05", due: 1, taken: 1 });
+});
+
 it("puts each day in words, so the chart never depends on colour", () => {
   expect(doseDayText({ date: "2026-11-05", due: 2, taken: 1 })).toBe("Thu 5 Nov: 1 of 2 marked taken");
   expect(doseDayText({ date: "2026-11-05", due: 0, taken: 0 })).toBe("Thu 5 Nov: nothing was due");
