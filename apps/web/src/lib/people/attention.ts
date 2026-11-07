@@ -24,7 +24,8 @@ export type AttentionKind =
   | "no_line_manager"
   | "no_emergency_contact"
   | "training_overdue"
-  | "training_pending_verification";
+  | "training_pending_verification"
+  | "leave_awaiting_decision";
 
 export interface AttentionItem {
   kind: AttentionKind;

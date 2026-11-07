@@ -1971,3 +1971,5 @@ finance_money_overview.sql
 hr_people_phase_a_employment_records.sql
 # HR Phase B training (2026-11-07): requirements reach everyone/role/department with the right due date; completions recorded, verified only by a different admin, voided not edited or deleted; person reads own, colleague none. Sabotage: no-op guard, open read policy.
 hr_people_phase_b_training.sql
+# HR Phase C leave (2026-11-07, HR-03/HR-04): line manager (else admins) decides and is told, never self; approval writes provider_time_off with no reason and cancels bookings only at the confirmed count; sickness reason admin/self only (audited); colleague reads none. Sabotage: self-decision allowed, open read policy.
+hr_people_phase_c_leave.sql

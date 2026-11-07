@@ -4,10 +4,11 @@ const LINKS = [
   { href: "/admin/people", label: "Overview" },
   { href: "/admin/people/directory", label: "Staff directory" },
   { href: "/admin/people/training", label: "Training" },
+  { href: "/admin/people/leave", label: "Leave" },
   { href: "/admin/people/departments", label: "Departments" },
 ] as const;
 
-/** The HR area's own tabs (HR Phase A, Training in Phase B). Later phases add Leave and Supervision here. */
+/** The HR area's own tabs (HR Phase A, Training in Phase B, Leave in Phase C). Supervision comes later. */
 export function PeopleNav({ active }: { active: (typeof LINKS)[number]["href"] }) {
   return (
     <nav aria-label="People and HR" className="flex flex-wrap gap-2 border-b pb-2 text-sm">

@@ -15,6 +15,7 @@ import { SignOutOtherDevicesCard } from "@/components/account/sign-out-other-dev
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 import { JoinEmployerCodeForm } from "./join-employer-code-form";
 import { sanitizeRedirect } from "@tarragon/auth/redirect";
+import { INTERNAL_STAFF_ROLES } from "@/lib/people/directory";
 import { readMyMfaRequirement } from "@tarragon/auth/mfa-policy";
 
 // The seeded default consumer org (20260706084837) every self-serve signup
@@ -42,6 +43,9 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
  * admin-managed (CLAUDE.md's Clinical Tier Ladder rules), and a phone-number
  * change needs its own re-verification flow this page doesn't attempt.
  */
+/** Tarragon staff who ask for leave at /account/leave (HR Phase C). */
+const STAFF_LEAVE_ROLES: ReadonlySet<string> = new Set(INTERNAL_STAFF_ROLES);
+
 export default async function AccountPage({
   searchParams,
 }: {
@@ -145,6 +149,18 @@ export default async function AccountPage({
           </dl>
         </CardContent>
       </Card>
+
+      {STAFF_LEAVE_ROLES.has(profile.role) && (
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Leave</CardTitle>
+            <CardDescription>Ask for annual, sick or other leave, and see your requests and their decisions.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/account/leave" className="text-sm font-medium text-brand-green underline">Open leave</Link>
+          </CardContent>
+        </Card>
+      )}
 
       {isStaffTier && staff && (
         <Card>
