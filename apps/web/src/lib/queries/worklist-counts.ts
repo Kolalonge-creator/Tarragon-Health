@@ -399,6 +399,22 @@ async function countMentalHealthWorklistWaiting(supabase: Client) {
   return typeof data === "number" ? data : 0;
 }
 
+/**
+ * Finance sidebar badges (Finance v2, migration 20261107015736). One exact-count
+ * RPC, refused for anyone without finance access, so a badge never under-reports
+ * the way a capped list's length could. Throws on error like every counter here.
+ */
+async function financeOpenItemCount(supabase: Client, key: "reconciliation" | "fraud" | "approvals") {
+  const { data, error } = await supabase.rpc("finance_open_item_counts");
+  if (error) throw error;
+  // Same rule as every head-count counter here: a successful empty reply is zero. A reply that is there but lacks the
+  // field is malformed and throws, so it shows as "could not be loaded", never as a hidden zero badge.
+  if (data === null || data === undefined) return 0;
+  const value = (data as Record<string, unknown>)[key];
+  if (typeof value !== "number") throw new Error(`finance_open_item_counts returned no ${key} count`);
+  return value;
+}
+
 async function countTherapyApprovalsWaiting(supabase: Client) {
   // S56: therapy bookings are per-patient (INV-12); the count is the requests this clinician holds a task for.
   const { data, error } = await supabase.rpc("count_therapy_approvals_waiting");
@@ -571,7 +587,16 @@ export type WorklistCountKey =
   | "preventiveHealthCheckReviewsWaiting"
   | "curbsideConsultsAwaitingReply"
   | "recordChangeRequestsWaiting"
-  | "mentalHealthWorklistWaiting";
+  | "mentalHealthWorklistWaiting"
+  | "financeReconciliationOpen"
+  | "financeFraudOpen"
+  | "financeApprovalsPending";
+
+/** Finance console badges. Not clinical worklists: the clinician launch summary (launch-worklist.ts) leaves them out, because a
+ * clinician calling the finance counts RPC is refused and would fail the whole summary. */
+export const FINANCE_COUNT_KEYS = ["financeReconciliationOpen", "financeFraudOpen", "financeApprovalsPending"] as const;
+export type FinanceCountKey = (typeof FINANCE_COUNT_KEYS)[number];
+export type ClinicalWorklistCountKey = Exclude<WorklistCountKey, FinanceCountKey>;
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -626,6 +651,9 @@ export const COUNTERS: Record<
   preventiveHealthCheckReviewsWaiting: countPreventiveHealthCheckReviewsWaiting,
   curbsideConsultsAwaitingReply: countCurbsideConsultsAwaitingReply,
   recordChangeRequestsWaiting: countRecordChangeRequestsWaiting,
+  financeReconciliationOpen: (supabase) => financeOpenItemCount(supabase, "reconciliation"),
+  financeFraudOpen: (supabase) => financeOpenItemCount(supabase, "fraud"),
+  financeApprovalsPending: (supabase) => financeOpenItemCount(supabase, "approvals"),
 };
 
 /**
