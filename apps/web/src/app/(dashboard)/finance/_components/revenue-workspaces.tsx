@@ -65,6 +65,16 @@ function Chips({ legend, options, labels, selected, onChange }: {
 // Membership revenue
 // ---------------------------------------------------------------------------
 
+/** What the paid count leaves out, said plainly. */
+function notCountedNote(asOf: string, f: { auto_renew: number; granted: number; voucher: number }): string {
+  const parts = [`On ${day(asOf)}. ${formatNumber(f.auto_renew)} renew automatically.`];
+  const out: string[] = [];
+  if (f.granted) out.push(`${formatNumber(f.granted)} granted free`);
+  if (f.voucher) out.push(`${formatNumber(f.voucher)} from a Care Voucher`);
+  if (out.length) parts.push(`Not counted as paid: ${out.join(" and ")}.`);
+  return parts.join(" ");
+}
+
 export function MembershipWorkspace() {
   const period = useFinancePeriod();
   const rev = useMembershipRevenue(period.from, period.to);
@@ -90,10 +100,10 @@ export function MembershipWorkspace() {
       {r && (
         <>
           <section aria-label="Memberships in force" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Figure label="Paid Memberships in force" value={formatNumber(r.in_force.paid)} note={`On ${day(r.as_of)}. ${formatNumber(r.in_force.auto_renew)} renew automatically.`} />
+            <Figure label="Paid Memberships in force" value={formatNumber(r.in_force.paid)} note={notCountedNote(r.as_of, r.in_force)} />
             <Figure label="Paid by the member" value={formatNumber(r.in_force.individual)} />
             <Figure label="Paid by a family sponsor" value={formatNumber(r.in_force.family_sponsor)} />
-            <Figure label="Paid by an employer" value={formatNumber(r.in_force.employer)} note={r.in_force.granted ? `${formatNumber(r.in_force.granted)} granted free are not counted.` : undefined} />
+            <Figure label="Paid by an employer" value={formatNumber(r.in_force.employer)} />
           </section>
           <div className="grid gap-6 lg:grid-cols-2">
             <SectionCard title="Membership revenue" description={`Payments for Memberships confirmed ${period.label}, on the same basis as the overview.`}>
@@ -105,7 +115,7 @@ export function MembershipWorkspace() {
                   ["From renewals", formatMinor(r.revenue.renewal_gross_minor, "NGN")],
                   ["Paid by members", formatMinor(r.revenue.individual_minor, "NGN")],
                   ["Paid by sponsors", formatMinor(r.revenue.family_sponsor_minor, "NGN")],
-                  ["Paid by employers", formatMinor(r.revenue.employer_minor, "NGN")],
+                  ["Employer invoices paid", formatMinor(r.revenue.employer_minor, "NGN")],
                   ["Payments", formatNumber(r.revenue.payments)],
                 ].map(([k, v]) => (
                   <div key={k}>
@@ -145,7 +155,7 @@ export function MembershipWorkspace() {
         </>
       )}
 
-      <SectionCard title="Memberships" description="Each Membership with who it is for and who paid. Names only, no health information. Reading this list is logged.">
+      <SectionCard title="Memberships" description="Each Membership with who it is for and who paid, whatever the period above. Names only, no health information. Reading this list is logged.">
         <div className="mb-4 flex flex-wrap items-end gap-x-6 gap-y-3">
           <Chips legend="State" options={MEMBERSHIP_STATES} labels={MEMBERSHIP_STATE_LABEL} selected={filters.states} onChange={(states) => set({ states })} />
           <Chips legend="Paid by" options={MEMBERSHIP_PAYER_TYPES} labels={MEMBERSHIP_PAYER_LABEL} selected={filters.payerTypes} onChange={(payerTypes) => set({ payerTypes })} />
@@ -203,7 +213,7 @@ export function MembershipWorkspace() {
                       <td className="whitespace-nowrap py-2 pr-4 text-right tabular-nums">
                         {m.amount_paid_minor !== null ? (
                           href ? <Link className="text-brand-green hover:underline dark:text-brand-green-bright" href={href}>{formatMinor(m.amount_paid_minor, "NGN")}</Link> : formatMinor(m.amount_paid_minor, "NGN")
-                        ) : m.payer_type === "employer" ? "Invoiced" : "Not paid"}
+                        ) : m.payer_type === "employer" ? "Invoiced" : m.payer_type === "voucher" ? "Voucher" : "Not paid"}
                       </td>
                     </tr>
                   );

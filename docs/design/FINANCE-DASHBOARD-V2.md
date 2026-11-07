@@ -93,3 +93,10 @@ Nothing in A to D writes to a payment, membership or ledger row. Every new RPC i
 - **Refunds against legacy payments are not linked to their payment.** The directory's "refunded" amount and the detail page's refund list cover v5 checkout orders only. Lab, pharmacy, doctor-service and Care Voucher refunds appear as their own rows but are not tied back to the original Paystack charge. Fix with the shared refunds workspace (Phase C), which needs that link anyway.
 - **The detail reads the whole money-events view to find one record.** Fine at today's volume; read the source table for the record type directly before volume grows (same work as section 8's query-cost item).
 - **Decision taken (FIN-V2-4, for the founder to confirm):** every directory read that returns named rows is written to audit_log (`finance.transactions.listed`), not only exports, so a view-only member paging through the list is as traceable as an export.
+
+## 11. Phase C2 notes and follow-ups
+
+- Memberships redeemed from a Care Voucher are counted apart, not as paid, on both the overview and the Membership page (the voucher may be a reward). A bought voucher's money is counted when the voucher is paid for.
+- **Employer invoices are not split by what they bill.** `employer_invoices` has no item type, so a screening-day invoice and a Membership-seat invoice both count as employer Membership revenue. The Membership page labels the line "Employer invoices paid". Fix: add an invoice purpose (seats / screening / other) when employer billing next changes.
+- The new Membership, sponsorship and employer reads are not limited to the caller's organisation: an employer Membership belongs to the employer's organisation, so a caller-organisation filter would hide it. Revisit if a second Tarragon tenant ever exists.
+- Employer revenue repeats a renewal-date lookup per employer; fine at today's handful of employers.

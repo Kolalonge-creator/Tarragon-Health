@@ -35,7 +35,7 @@ const REV: MembershipRevenue = {
   to: "2026-11-07",
   as_of: "2026-11-07",
   generated_at: "2026-11-07T10:00:00Z",
-  in_force: { paid: 3, individual: 1, family_sponsor: 1, employer: 1, granted: 1, auto_renew: 1 },
+  in_force: { paid: 3, individual: 1, family_sponsor: 1, employer: 1, granted: 1, voucher: 1, auto_renew: 1 },
   new_paid: 2,
   renewals: 1,
   ended_early: 0,
@@ -89,7 +89,7 @@ describe("MembershipWorkspace", () => {
     mockList.mockReturnValue(ok({ total: 0, limit: 50, offset: 0, rows: [] }));
     render(<MembershipWorkspace />);
     expect(screen.getByText("Paid by a family sponsor")).toBeTruthy();
-    expect(screen.getByText(/1 granted free are not counted/)).toBeTruthy();
+    expect(screen.getByText(/Not counted as paid: 1 granted free and 1 from a Care Voucher/)).toBeTruthy();
     expect(screen.getByText(/1 of 2 renewed \(50%\)/)).toBeTruthy();
   });
 

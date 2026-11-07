@@ -83,6 +83,15 @@ begin
   insert into public.employer_invoices (organisation_id, period_start, period_end, billing_model, amount_kobo, status, issued_at, paid_at, due_at) values
     (v_emp, v_today - 30, v_today + 335, 'per_employee', 45000000, 'paid', now() - interval '30 days', now() - interval '20 days', now() - interval '15 days'),
     (v_emp, v_today - 29, v_today + 336, 'per_employee', 45000000, 'issued', now() - interval '30 days', null, now() - interval '2 days');
+  -- a gift that was refunded (left out of sponsorships), and a test seat pilot's invoice (left out of employer totals)
+  insert into public.orders (organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, fee_kobo, total_kobo, state, paid_at, paystack_reference, is_test)
+  values (c_org, p[3], p[5], c_item, c_price, 10000000, 0, 10000000, 'refunded', now() - interval '7 days', 'FMRREF0007', false);
+  with inv as (
+    insert into public.employer_invoices (organisation_id, period_start, period_end, billing_model, amount_kobo, status, issued_at, due_at)
+    values (v_emp, v_today - 28, v_today + 337, 'per_employee', 77700000, 'issued', now() - interval '3 days', now() + interval '20 days') returning id)
+  , pkg as (insert into public.employer_benefit_packages (organisation_id, name, catalog_item_id) values (v_emp, 'FMR test package', c_item) returning id)
+  insert into public.employer_seat_pilots (organisation_id, benefit_package_id, seat_price_id, seats_purchased, seat_price_kobo, total_kobo, starts_on, ends_on, terms_version, state, invoice_id, is_test)
+  select v_emp, pkg.id, c_price, 1, 77700000, 77700000, v_today, v_today + 365, 'test', 'invoiced', inv.id, true from inv, pkg;
   set local session_replication_role = origin;
 
   insert into fmr_fix values ('fin', v_fin), ('pat', p[1]), ('emp', v_emp);
@@ -153,10 +162,10 @@ begin
                   where x ->> 'reference' = 'FMRREF0002' and x ->> 'sponsor' = 'FMR Person 3' and x ->> 'beneficiary' = 'FMR Person 2')
      or not exists (select 1 from jsonb_array_elements((select v from fmr_out where k = 'spons') -> 'rows') x where x ->> 'reference' = 'FMRV-0001')
      or exists (select 1 from jsonb_array_elements((select v from fmr_out where k = 'spons') -> 'rows') x
-                 where x ->> 'reference' in ('FMRREF0001', 'FMRV-0002')) then
+                 where x ->> 'reference' in ('FMRREF0001', 'FMRV-0002', 'FMRREF0007')) then
     raise exception 'FAIL sponsorships: %', (select v -> 'rows' from fmr_out where k = 'spons');
   end if;
-  insert into fmr_checks values ('PASS: sponsorships list gifts and vouchers bought for others, never self-paid ones');
+  insert into fmr_checks values ('PASS: sponsorships list gifts and vouchers bought for others, never self-paid or refunded ones');
 
   if not exists (select 1 from jsonb_array_elements((select v from fmr_out where k = 'emp')) x
                   where x ->> 'organisation_id' = (select v::text from fmr_fix where k = 'emp')
@@ -165,7 +174,7 @@ begin
                     and (x ->> 'members_in_force')::int = 1 and (x ->> 'renewal_within_60d')::boolean) then
     raise exception 'FAIL employer revenue: %', (select v from fmr_out where k = 'emp');
   end if;
-  insert into fmr_checks values ('PASS: employer invoiced, paid, outstanding, overdue, members and renewal window are right');
+  insert into fmr_checks values ('PASS: employer invoiced, paid, outstanding, overdue, members and renewal window are right; a test pilot''s invoice is left out');
 end $$;
 
 -- ---- SABOTAGE: granted counted as paid -----------------------------------------------

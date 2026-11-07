@@ -22,7 +22,8 @@
 --   (finance.memberships.listed) when it returns rows.
 -- public.finance_sponsorships(from, to, ...)
 --   Payments where the payer is not the person receiving care: gifted checkout orders
---   and Care Vouchers bought for someone else. Sponsor and beneficiary are separate
+--   still paid (a refunded gift is left out) and Care Vouchers bought for someone else
+--   and not cancelled, dated by when the voucher was paid. Sponsor and beneficiary are separate
 --   fields; paying gives the sponsor no access to the beneficiary's record. Audited.
 -- public.finance_employer_revenue()
 --   Per employer: contract, seats, price per seat, invoiced, paid, outstanding (issued and
@@ -40,8 +41,11 @@ set search_path to ''
 as $$
   select case
     when p_source = 'employer' then 'employer'
-    when p_source in ('purchase', 'voucher') and p_buyer is not null and p_buyer is distinct from p_beneficiary then 'family_sponsor'
-    when p_source in ('purchase', 'voucher') then 'individual'
+    -- A Membership redeemed from a Care Voucher is shown apart, as the overview does: the voucher may have been a
+    -- reward with no cash behind it. A bought voucher's money is counted when the voucher is paid for.
+    when p_source = 'voucher' then 'voucher'
+    when p_source = 'purchase' and p_buyer is not null and p_buyer is distinct from p_beneficiary then 'family_sponsor'
+    when p_source = 'purchase' then 'individual'
     else 'granted'
   end;
 $$;
@@ -87,7 +91,7 @@ begin
     select m.id,
            exists (select 1 from public.orders r where r.renews_membership_id = m.id and r.paid_at is not null and not r.is_test) as renewed
       from m
-     where m.payer_type <> 'granted' and m.end_d between p_from and p_to and m.ends_at <= now()
+     where m.payer_type in ('individual', 'family_sponsor', 'employer') and m.end_d between p_from and p_to and m.ends_at <= now()
        and (m.ended_d is null or m.ended_d >= m.end_d)
   ),
   money as (
@@ -106,27 +110,30 @@ begin
   select jsonb_build_object(
     'from', p_from, 'to', p_to, 'as_of', v_on, 'generated_at', now(),
     'in_force', jsonb_build_object(
-      'paid', (select count(*) from in_force where payer_type <> 'granted'),
+      'paid', (select count(*) from in_force where payer_type in ('individual', 'family_sponsor', 'employer')),
       'individual', (select count(*) from in_force where payer_type = 'individual'),
       'family_sponsor', (select count(*) from in_force where payer_type = 'family_sponsor'),
       'employer', (select count(*) from in_force where payer_type = 'employer'),
       'granted', (select count(*) from in_force where payer_type = 'granted'),
-      'auto_renew', (select count(*) from in_force where payer_type <> 'granted' and auto_renew and renewal_cancelled_at is null)),
-    'new_paid', (select count(*) from m where payer_type <> 'granted' and order_renews is null and start_d between p_from and p_to),
+      'voucher', (select count(*) from in_force where payer_type = 'voucher'),
+      'auto_renew', (select count(*) from in_force where payer_type in ('individual', 'family_sponsor', 'employer') and auto_renew and renewal_cancelled_at is null)),
+    'new_paid', (select count(*) from m where payer_type in ('individual', 'family_sponsor', 'employer') and order_renews is null and start_d between p_from and p_to),
     'renewals', (select count(*) from public.orders r
                   where r.renews_membership_id is not null and r.paid_at is not null and not r.is_test
+                    and not exists (select 1 from public.profiles tp where tp.id = r.beneficiary_patient_id and tp.is_test)
                     and (r.paid_at at time zone 'Africa/Lagos')::date between p_from and p_to),
-    'ended_early', (select count(*) from m where payer_type <> 'granted' and state = 'ended' and ended_d between p_from and p_to
+    'ended_early', (select count(*) from m where payer_type in ('individual', 'family_sponsor', 'employer') and state = 'ended' and ended_d between p_from and p_to
                       and (end_d is null or ended_d < end_d)),
-    'lapsed', (select count(*) from m where payer_type <> 'granted' and state = 'lapsed' and end_d between p_from and p_to),
-    'expiring_30d', (select count(*) from m where payer_type <> 'granted' and state = 'active'
+    'lapsed', (select count(*) from m where payer_type in ('individual', 'family_sponsor', 'employer') and state = 'lapsed' and end_d between p_from and p_to),
+    'expiring_30d', (select count(*) from m where payer_type in ('individual', 'family_sponsor', 'employer') and state = 'active'
                        and end_d between v_today and v_today + 30),
-    'expiring_30d_auto_renew', (select count(*) from m where payer_type <> 'granted' and state = 'active'
+    'expiring_30d_auto_renew', (select count(*) from m where payer_type in ('individual', 'family_sponsor', 'employer') and state = 'active'
                                   and end_d between v_today and v_today + 30 and auto_renew and renewal_cancelled_at is null),
     'renewal_due', (select count(*) from due),
     'renewal_renewed', (select count(*) from due where renewed),
     'renewal_rate', (select case when count(*) = 0 then null else round(count(*) filter (where renewed)::numeric / count(*), 4) end from due),
     'failed_renewal_charges', (select count(*) from public.membership_renewal_attempts a
+                                join m on m.id = a.membership_id
                                 where a.outcome = 'failed' and (a.created_at at time zone 'Africa/Lagos')::date between p_from and p_to),
     'revenue', (select jsonb_build_object('gross_minor', gross, 'payments', payments, 'refunds_minor', refunds,
                                           'net_minor', gross - refunds, 'renewal_gross_minor', renewal_gross,
@@ -255,17 +262,21 @@ begin
               from public.patient_memberships pm where pm.order_id = o.id order by pm.starts_at limit 1) as membership
       from public.orders o
       left join public.catalog_items ci on ci.id = o.catalog_item_id
-     where o.paid_at is not null and not o.is_test
+     where o.paid_at is not null and o.state = 'paid' and not o.is_test
        and o.beneficiary_patient_id is not null and o.buyer_profile_id is distinct from o.beneficiary_patient_id
        and (o.paid_at at time zone 'Africa/Lagos')::date between p_from and p_to
     union all
     -- Care Vouchers bought for someone else
-    select 'care_voucher', cv.id, cv.created_at, cv.amount_paid_kobo, cv.voucher_number, cv.status::text,
+    select 'care_voucher', cv.id,
+           coalesce((select max(cvp.created_at) from public.care_voucher_payments cvp where cvp.voucher_id = cv.id and cvp.status = 'applied'),
+                    cv.created_at),
+           cv.amount_paid_kobo, cv.voucher_number, cv.status::text,
            cv.purchaser_profile_id, cv.beneficiary_profile_id, coalesce(cv.sku_code, cv.kind::text), null::jsonb
       from public.care_vouchers cv
      where cv.beneficiary_profile_id is not null and cv.purchaser_profile_id is distinct from cv.beneficiary_profile_id
-       and coalesce(cv.amount_paid_kobo, 0) > 0
-       and (cv.created_at at time zone 'Africa/Lagos')::date between p_from and p_to
+       and coalesce(cv.amount_paid_kobo, 0) > 0 and cv.status <> 'cancelled'
+       and (coalesce((select max(cvp.created_at) from public.care_voucher_payments cvp where cvp.voucher_id = cv.id and cvp.status = 'applied'),
+                     cv.created_at) at time zone 'Africa/Lagos')::date between p_from and p_to
   ),
   clean as (
     select s.*, coalesce(nullif(trim(sp.full_name), ''), 'Sponsor') as sponsor, coalesce(nullif(trim(bp.full_name), ''), 'Member') as beneficiary
@@ -327,17 +338,18 @@ begin
                       from public.employer_seat_pilots sp
                      where sp.organisation_id = o.id and not sp.is_test and sp.state in ('invoiced', 'active')),
           'invoiced_minor', (select coalesce(sum(i.amount_kobo), 0) from public.employer_invoices i
-                              where i.organisation_id = o.id and i.status in ('issued', 'paid')),
+                              where i.organisation_id = o.id and i.status in ('issued', 'paid') and not exists (select 1 from public.employer_seat_pilots tsp where tsp.invoice_id = i.id and tsp.is_test)),
           'paid_minor', (select coalesce(sum(i.amount_kobo), 0) from public.employer_invoices i
-                          where i.organisation_id = o.id and i.status = 'paid'),
+                          where i.organisation_id = o.id and i.status = 'paid' and not exists (select 1 from public.employer_seat_pilots tsp where tsp.invoice_id = i.id and tsp.is_test)),
           'outstanding_minor', (select coalesce(sum(i.amount_kobo), 0) from public.employer_invoices i
-                                 where i.organisation_id = o.id and i.status = 'issued'),
+                                 where i.organisation_id = o.id and i.status = 'issued' and not exists (select 1 from public.employer_seat_pilots tsp where tsp.invoice_id = i.id and tsp.is_test)),
           'overdue_minor', (select coalesce(sum(i.amount_kobo), 0) from public.employer_invoices i
-                             where i.organisation_id = o.id and i.status = 'issued' and i.due_at < now()),
-          'open_invoices', (select count(*) from public.employer_invoices i where i.organisation_id = o.id and i.status = 'issued'),
-          'last_paid_at', (select max(i.paid_at) from public.employer_invoices i where i.organisation_id = o.id and i.status = 'paid'),
+                             where i.organisation_id = o.id and i.status = 'issued' and i.due_at < now() and not exists (select 1 from public.employer_seat_pilots tsp where tsp.invoice_id = i.id and tsp.is_test)),
+          'open_invoices', (select count(*) from public.employer_invoices i where i.organisation_id = o.id and i.status = 'issued' and not exists (select 1 from public.employer_seat_pilots tsp where tsp.invoice_id = i.id and tsp.is_test)),
+          'last_paid_at', (select max(i.paid_at) from public.employer_invoices i where i.organisation_id = o.id and i.status = 'paid' and not exists (select 1 from public.employer_seat_pilots tsp where tsp.invoice_id = i.id and tsp.is_test)),
           'members_in_force', (select count(*) from public.patient_memberships pm
-                                where pm.organisation_id = o.id and pm.source = 'employer' and pm.state = 'active' and not pm.is_test),
+                                where pm.organisation_id = o.id and pm.source = 'employer' and pm.state = 'active' and not pm.is_test
+                                  and not exists (select 1 from public.profiles tp where tp.id = pm.patient_id and tp.is_test)),
           'renewal_date', coalesce(
              (select max(sp.ends_on) from public.employer_seat_pilots sp where sp.organisation_id = o.id and not sp.is_test and sp.state in ('invoiced', 'active')),
              (select c.effective_to from public.corporate_contracts c where c.organisation_id = o.id and c.status in ('active', 'paid', 'approved')
@@ -349,7 +361,7 @@ begin
         ) as row
         from public.organisations o
         left join public.employer_accounts ea on ea.organisation_id = o.id
-       where o.type = 'corporate'
+       where o.type in ('corporate', 'hmo')
          and (exists (select 1 from public.corporate_contracts c where c.organisation_id = o.id)
               or exists (select 1 from public.employer_invoices i where i.organisation_id = o.id)
               or exists (select 1 from public.employer_seat_pilots sp where sp.organisation_id = o.id and not sp.is_test))

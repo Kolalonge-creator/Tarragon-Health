@@ -18,7 +18,7 @@ export const membershipRevenueSchema = z.object({
   to: z.string(),
   as_of: z.string(),
   generated_at: z.string(),
-  in_force: z.object({ paid: count, individual: count, family_sponsor: count, employer: count, granted: count, auto_renew: count }),
+  in_force: z.object({ paid: count, individual: count, family_sponsor: count, employer: count, granted: count, voucher: count, auto_renew: count }),
   new_paid: count,
   renewals: count,
   ended_early: count,
@@ -54,7 +54,7 @@ export function useMembershipRevenue(from: string, to: string) {
 }
 
 export const MEMBERSHIP_STATES = ["active", "scheduled", "lapsed", "ended"] as const;
-export const MEMBERSHIP_PAYER_TYPES = ["individual", "family_sponsor", "employer", "granted"] as const;
+export const MEMBERSHIP_PAYER_TYPES = ["individual", "family_sponsor", "employer", "voucher", "granted"] as const;
 
 export const MEMBERSHIP_STATE_LABEL: Record<string, string> = {
   active: "Active",
@@ -67,6 +67,7 @@ export const MEMBERSHIP_PAYER_LABEL: Record<string, string> = {
   individual: "Paid by the member",
   family_sponsor: "Family sponsor",
   employer: "Employer",
+  voucher: "Care Voucher",
   granted: "Granted (unpaid)",
 };
 
