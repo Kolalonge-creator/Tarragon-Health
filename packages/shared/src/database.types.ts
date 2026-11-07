@@ -60060,7 +60060,7 @@ export type Database = {
       reply_to_facility_rating: { Args: { p_body: string; p_channel: string; p_rating: string }; Returns: undefined };
       report_directory_listing: { Args: { p_detail?: string; p_field: string; p_listing_id: string; p_listing_table: string }; Returns: Json };
       respond_facility_booking: { Args: { p_booking: string; p_response: string }; Returns: Json };
-      send_circle_help_alert: { Args: { p_accuracy_m?: number; p_lat?: number; p_lng?: number }; Returns: Json };
+      send_circle_help_alert: { Args: { p_accuracy_m?: number; p_lat?: number; p_lng?: number; p_note?: string; p_request_type?: string }; Returns: Json };
       set_circle_location_consent: { Args: { p_granted: boolean }; Returns: Json };
       submit_facility_rating: { Args: { p_booking?: string; p_comment?: string; p_facility: string; p_lab_order?: string; p_patient?: string; p_rating: number }; Returns: Json };
       my_supported_people: { Args: never; Returns: Json };

@@ -1958,3 +1958,5 @@ upload_check_kick_one_time_codes.sql
 dw03_escalation_working_states.sql
 # DW-07/DW-08 (2026-11-06): a tied clinician reads the patient's onboarding answers and active Care Circle (names, permissions, current pause) through two audited functions; an untied clinician and a patient are refused; revoked supporters are left out; every call writes an audit row. Sabotage: an ungated onboarding read lets the untied clinician in.
 dw07_dw08_audited_onboarding_and_care_circle_reads.sql
+# P22 / PD-08 (2026-11-07): Care Circle typed help requests. The patient's help alert carries a kind of help (booking, test payment, medicine collection, transport, call me) and an optional short note; a red_alerts supporter reads both through circle_help_alert_view; a supporter without red_alerts, a stranger and anon are refused; bad types and long notes are refused and write nothing; notifications and the audit carry no note; the untyped call still works and there is one function only. Sabotage: the view's membership gate removed, the RPC type check removed.
+care_circle_typed_help_requests.sql

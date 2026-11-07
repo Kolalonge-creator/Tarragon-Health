@@ -6,8 +6,19 @@ import { t, type Locale } from "@tarragon/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Disclosure } from "@/components/ui/disclosure";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { useMyCircle } from "@/lib/queries/care-circle";
+import {
+  HELP_NOTE_MAX,
+  HELP_REQUEST_TYPES,
+  buildHelpAlertArgs,
+  helpRequestTypeLabelKey,
+  isMissingTypedSignature,
+  withoutTypedArgs,
+  type HelpRequestType,
+} from "@/lib/care-circle/help-request";
 
 const TOUCH = "min-h-11";
 
@@ -53,6 +64,10 @@ export function HelpAlertCard({ patientId, locale }: { patientId: string; locale
   const circle = useMyCircle();
   const alertsPaused = circle.data?.pause?.pause_alerts === true;
   const [result, setResult] = useState<SendResult | null>(null);
+  // P22 / PD-08: the patient says what kind of help they want, and may add a short note. Supporters see both, nothing clinical.
+  const [type, setType] = useState<HelpRequestType | null>(null);
+  const [note, setNote] = useState("");
+  const [needType, setNeedType] = useState(false);
 
   const setConsent = useMutation({
     mutationFn: async (granted: boolean) => {
@@ -63,15 +78,30 @@ export function HelpAlertCard({ patientId, locale }: { patientId: string; locale
   });
 
   const send = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (chosen: HelpRequestType) => {
       const pos = consent.data ? await currentPosition() : null;
-      const { data, error } = await createClient().rpc("send_circle_help_alert", pos ? { p_lat: pos.lat, p_lng: pos.lng, p_accuracy_m: pos.accuracy } : {});
+      const args = buildHelpAlertArgs({ type: chosen, note }, pos);
+      if (!args) throw Object.assign(new Error("invalid help request"), { code: "22023" });
+      const supabase = createClient();
+      let { data, error } = await supabase.rpc("send_circle_help_alert", args);
+      // Deploy window only: the app is live before the database has the typed version. Asking for help must still work.
+      if (isMissingTypedSignature(error)) ({ data, error } = await supabase.rpc("send_circle_help_alert", withoutTypedArgs(args)));
       if (error) throw Object.assign(new Error(error.message), { code: error.code });
       return data as unknown as SendResult;
     },
     onSuccess: (r) => setResult(r),
   });
 
+  function ask() {
+    if (!type) {
+      setNeedType(true);
+      return;
+    }
+    setNeedType(false);
+    send.mutate(type);
+  }
+
+  const invalid = (send.error as { code?: string } | null)?.code === "22023";
   const notOpen = (send.error as { code?: string } | null)?.code === "55000" || (setConsent.error as { code?: string } | null)?.code === "55000";
   const on = consent.data === true;
   return (
@@ -79,10 +109,44 @@ export function HelpAlertCard({ patientId, locale }: { patientId: string; locale
       <CardHeader><CardTitle>{t("circle.help.title", locale)}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <p>{t("circle.help.intro", locale)}</p>
+        <p className="text-sm font-medium">{t("circlehelp.not_emergency", locale)}</p>
         {alertsPaused ? <p className="text-sm font-medium">{t("circlep1.help.paused_warning", locale)}</p> : null}
-        <Button className={`${TOUCH} w-full sm:w-auto`} disabled={send.isPending} onClick={() => send.mutate()}>{t("circle.help.button", locale)}</Button>
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">{t("circlehelp.type.label", locale)}</legend>
+          {HELP_REQUEST_TYPES.map((k) => (
+            <label key={k} className={`${TOUCH} flex items-center gap-3 text-sm`}>
+              <input
+                type="radio"
+                name={`help-type-${patientId}`}
+                value={k}
+                checked={type === k}
+                onChange={() => {
+                  setType(k);
+                  setNeedType(false);
+                }}
+                className="h-4 w-4 accent-brand-green"
+              />
+              {t(helpRequestTypeLabelKey(k), locale)}
+            </label>
+          ))}
+          {needType ? <p role="alert" className="text-sm">{t("circlehelp.type.required", locale)}</p> : null}
+        </fieldset>
+        <div className="space-y-1">
+          <Label htmlFor={`help-note-${patientId}`}>{t("circlehelp.note.label", locale)}</Label>
+          <Textarea
+            id={`help-note-${patientId}`}
+            value={note}
+            maxLength={HELP_NOTE_MAX}
+            rows={2}
+            aria-describedby={`help-note-hint-${patientId}`}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <p id={`help-note-hint-${patientId}`} className="text-xs">{t("circlehelp.note.hint", locale)}</p>
+        </div>
+        <Button className={`${TOUCH} w-full sm:w-auto`} disabled={send.isPending} onClick={ask}>{t("circle.help.button", locale)}</Button>
         {notOpen ? <p role="status">{t("circle.help.not_open", locale)}</p> : null}
-        {send.isError && !notOpen ? <p role="alert">{t("circle.help.error", locale)}</p> : null}
+        {invalid ? <p role="alert">{t("circlehelp.invalid", locale)}</p> : null}
+        {send.isError && !notOpen && !invalid ? <p role="alert">{t("circle.help.error", locale)}</p> : null}
         {result ? (
           <div role="status" className="space-y-1">
             <p>
