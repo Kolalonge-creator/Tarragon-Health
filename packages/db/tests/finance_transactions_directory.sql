@@ -9,7 +9,9 @@
 --     named by an open reconciliation break is 'exception', others 'awaiting_settlement',
 --     failed payments and employer invoices 'not_applicable';
 --   * a member who holds only finance.view can browse but not export; finance can export,
---     and every export writes one audit_log row;
+--     every export writes one audit_log row, and every browse read is audited as 'listed';
+--   * % in a search is matched literally, not as a wildcard;
+--   * the refundable balance is the price less refunds (the card fee is not refundable);
 --   * finance_transaction_detail returns the payment, its refunds, its refundable balance
 --     and a timeline, writes an audit_log row naming the beneficiary, and never returns a
 --     webhook's raw body;
@@ -92,6 +94,7 @@ insert into ftd_out select 'sponsors', public.finance_transactions_list('2020-02
 insert into ftd_out select 'exceptions', public.finance_transactions_list('2020-02-01', '2020-02-29', p_settlement => array['exception']);
 insert into ftd_out select 'search', public.finance_transactions_list('2020-02-01', '2020-02-29', p_search => 'quartermaine');
 insert into ftd_out select 'search_ref', public.finance_transactions_list('2020-02-01', '2020-02-29', p_search => 'FTDREF0002');
+insert into ftd_out select 'search_wild', public.finance_transactions_list('2020-02-01', '2020-02-29', p_search => '%');
 insert into ftd_out select 'page2', public.finance_transactions_list('2020-02-01', '2020-02-29', p_limit => 2, p_offset => 2);
 insert into ftd_out select 'export', public.finance_transactions_list('2020-02-01', '2020-02-29', p_for_export => true);
 insert into ftd_out select 'detail', public.finance_transaction_detail('order', (select v from ftd_fix where k = 'o1'));
@@ -174,7 +177,8 @@ begin
   if ((select v from ftd_out where k = 'sponsors') ->> 'total')::int <> 1
      or ((select v from ftd_out where k = 'exceptions') ->> 'total')::int <> 1
      or ((select v from ftd_out where k = 'search') ->> 'total')::int <> 3
-     or ((select v from ftd_out where k = 'search_ref') ->> 'total')::int <> 1 then
+     or ((select v from ftd_out where k = 'search_ref') ->> 'total')::int <> 1
+     or ((select v from ftd_out where k = 'search_wild') ->> 'total')::int <> 0 then
     raise exception 'FAIL filters or search';
   end if;
   if jsonb_array_length((select v from ftd_out where k = 'page2') -> 'rows') <> 2
@@ -190,11 +194,15 @@ begin
   if ((select v from ftd_out where k = 'viewer_list') ->> 'total')::int <> 5 then
     raise exception 'FAIL: a finance.view member cannot browse';
   end if;
-  insert into ftd_checks values ('PASS: finance.view browses; finance exports and the export is audited');
+  if not exists (select 1 from public.audit_log where action = 'finance.transactions.listed'
+                   and actor_id = (select v from ftd_fix where k = 'viewer')) then
+    raise exception 'FAIL: a browse read of named rows was not audited';
+  end if;
+  insert into ftd_checks values ('PASS: finance.view browses (audited as listed); finance exports and the export is audited');
 
   if (d -> 'event' ->> 'amount_minor')::bigint <> 10150000
      or jsonb_array_length(d -> 'refunds') <> 1
-     or (d ->> 'refundable_minor')::bigint <> 6150000
+     or (d ->> 'refundable_minor')::bigint <> 6000000
      or jsonb_array_length(d -> 'webhooks') < 1
      or jsonb_array_length(d -> 'settlement') <> 1
      or jsonb_array_length(d -> 'timeline') < 4 then

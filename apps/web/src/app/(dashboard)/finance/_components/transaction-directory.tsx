@@ -173,6 +173,8 @@ export function TransactionDirectory() {
   const [shown, setShown] = useState<ColumnKey[]>(COLUMNS.map((c) => c.key));
   const [saved, setSaved] = useState<SavedFilter[]>([]);
   const [showColumns, setShowColumns] = useState(false);
+  const [naming, setNaming] = useState(false);
+  const [saveName, setSaveName] = useState("");
   const [exportState, setExportState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
 
   // Browser storage is read after the first render (it does not exist on the server), from a callback rather than
@@ -185,11 +187,14 @@ export function TransactionDirectory() {
     return () => clearTimeout(id);
   }, []);
 
-  // When the URL's search changes from outside the box (a saved filter, Clear filters, back button), follow it.
-  const [lastUrlSearch, setLastUrlSearch] = useState(filters.search);
-  if (lastUrlSearch !== filters.search) {
-    setLastUrlSearch(filters.search);
+  // When the URL changes from outside the boxes (a saved filter, Clear filters, the back button), follow it.
+  const urlInputs = `${filters.search}\u0000${filters.minNaira}\u0000${filters.maxNaira}`;
+  const [lastUrlInputs, setLastUrlInputs] = useState(urlInputs);
+  if (lastUrlInputs !== urlInputs) {
+    setLastUrlInputs(urlInputs);
     setSearchText(filters.search);
+    setMinText(filters.minNaira);
+    setMaxText(filters.maxNaira);
   }
 
   function apply(next: Partial<TransactionFilters>, keepPage = false) {
@@ -214,13 +219,15 @@ export function TransactionDirectory() {
     writeStorage(COLUMNS_KEY, next);
   }
 
-  function saveCurrent() {
-    const name = window.prompt("Name this filter");
-    if (!name?.trim()) return;
+  function saveCurrent(name: string) {
+    const clean = name.trim().slice(0, 40);
+    if (!clean) return;
     const query = params.toString();
-    const next = [...saved.filter((s) => s.name !== name.trim()), { name: name.trim().slice(0, 40), query }].slice(-12);
+    const next = [...saved.filter((s) => s.name !== clean), { name: clean, query }].slice(-12);
     setSaved(next);
     writeStorage(SAVED_KEY, next);
+    setNaming(false);
+    setSaveName("");
   }
 
   function removeSaved(name: string) {
@@ -319,9 +326,38 @@ export function TransactionDirectory() {
                 Clear filters ({activeFilterCount(filters)})
               </Button>
             )}
-            <Button type="button" size="sm" variant="outline" onClick={saveCurrent}>
-              <Bookmark className="h-4 w-4" aria-hidden /> Save filter
-            </Button>
+            {naming ? (
+              <form
+                className="flex items-center gap-1.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveCurrent(saveName);
+                }}
+              >
+                <label className="sr-only" htmlFor="saved-filter-name">
+                  Name for this filter
+                </label>
+                <Input
+                  id="saved-filter-name"
+                  autoFocus
+                  className="h-9 w-40"
+                  maxLength={40}
+                  placeholder="Name this filter"
+                  value={saveName}
+                  onChange={(e) => setSaveName(e.target.value)}
+                />
+                <Button type="submit" size="sm" disabled={!saveName.trim()}>
+                  Save
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setNaming(false)}>
+                  Cancel
+                </Button>
+              </form>
+            ) : (
+              <Button type="button" size="sm" variant="outline" onClick={() => setNaming(true)}>
+                <Bookmark className="h-4 w-4" aria-hidden /> Save filter
+              </Button>
+            )}
             <Button type="button" size="sm" variant="outline" onClick={() => setShowColumns((s) => !s)} aria-expanded={showColumns}>
               <Columns3 className="h-4 w-4" aria-hidden /> Columns
             </Button>
@@ -378,7 +414,16 @@ export function TransactionDirectory() {
             </p>
           </div>
           {data.rows.length === 0 ? (
-            <CenterNote>No transactions match these filters in this period.</CenterNote>
+            data.total > 0 ? (
+              <CenterNote>
+                This page is past the end of the list.{" "}
+                <button type="button" className="ml-1 font-medium text-brand-green hover:underline" onClick={() => apply({ page: 0 }, true)}>
+                  Go to the first page
+                </button>
+              </CenterNote>
+            ) : (
+              <CenterNote>No transactions match these filters in this period.</CenterNote>
+            )
           ) : (
             <>
               {/* Table on wider screens */}

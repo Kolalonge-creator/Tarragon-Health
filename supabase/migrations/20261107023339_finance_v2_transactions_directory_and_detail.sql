@@ -7,7 +7,9 @@
 --                                    view, each with a settlement status and the amount
 --                                    refunded against it. With p_for_export = true the
 --                                    caller must also hold finance.export (or be finance /
---                                    admin), and the export is written to audit_log.
+--                                    admin). Every call that returns rows is written to audit_log
+--                                    (finance.transactions.listed, or .exported in export mode), so
+--                                    paging through browse mode is as traceable as an export.
 -- public.finance_transaction_detail  one payment, failed payment or refund with everything
 --                                    finance needs to explain it: payer and beneficiary (names
 --                                    only), the Membership it bought, refunds, Paystack webhook
@@ -83,6 +85,7 @@ set search_path to ''
 as $$
 declare
   v_search text := nullif(btrim(coalesce(p_search, '')), '');
+  v_pattern text;
   v_limit integer := least(greatest(coalesce(p_limit, 50), 1), case when p_for_export then 5000 else 200 end);
   v_offset integer := greatest(coalesce(p_offset, 0), 0);
   v_desc boolean := lower(coalesce(p_sort_dir, 'desc')) <> 'asc';
@@ -106,10 +109,15 @@ begin
   if v_search is not null and char_length(v_search) > 100 then
     raise exception 'finance_transactions_list: search is limited to 100 characters' using errcode = '22023';
   end if;
+  -- Typed text is matched literally: % and _ are not wildcards.
+  v_pattern := '%' || replace(replace(replace(v_search, '\', '\\'), '%', '\%'), '_', '\_') || '%';
 
   with ev as (
+    -- Settlement status costs three lookups a row, so it is worked out for every row only when it is a filter;
+    -- otherwise only for the page shown (below).
     select e.*,
-           private.finance_settlement_status(e.event_kind, e.record_type, e.record_id, e.reference) as settlement_status
+           case when p_settlement is not null
+                then private.finance_settlement_status(e.event_kind, e.record_type, e.record_id, e.reference) end as settlement_status
       from private.finance_money_events e
      where (e.occurred_at at time zone 'Africa/Lagos')::date between p_from and p_to
        and (p_event_kinds is null or e.event_kind = any (p_event_kinds))
@@ -125,11 +133,7 @@ begin
                 then coalesce((select o.name from public.organisations o where o.id = ev.organisation_id), 'Employer')
                 else coalesce(nullif(trim(pp.full_name), ''), 'Member') end as payer_label,
            case when ev.beneficiary_profile_id is null or ev.beneficiary_profile_id = ev.payer_profile_id then null
-                else coalesce(nullif(trim(bp.full_name), ''), 'Member') end as beneficiary_label,
-           case when ev.event_kind = 'payment' and ev.record_type = 'order'
-                then (select coalesce(sum(r.amount_kobo), 0) from public.refunds r
-                       where r.order_id = ev.record_id and r.state = 'completed' and not r.is_test)
-                else 0 end::bigint as refunded_minor
+                else coalesce(nullif(trim(bp.full_name), ''), 'Member') end as beneficiary_label
       from ev
       left join public.profiles pp on pp.id = ev.payer_profile_id
       left join public.profiles bp on bp.id = ev.beneficiary_profile_id
@@ -138,12 +142,12 @@ begin
     select * from labelled l
      where (p_settlement is null or l.settlement_status = any (p_settlement))
        and (v_search is null
-            or l.reference ilike '%' || v_search || '%'
-            or l.payer_label ilike '%' || v_search || '%'
-            or coalesce(l.beneficiary_label, '') ilike '%' || v_search || '%'
+            or l.reference ilike v_pattern escape '\'
+            or l.payer_label ilike v_pattern escape '\'
+            or coalesce(l.beneficiary_label, '') ilike v_pattern escape '\'
             or l.record_id::text = lower(v_search))
   ),
-  page as (
+  ordered as (
     select * from filtered f
      order by
        case when p_sort = 'amount' and not v_desc then f.amount_minor end asc nulls last,
@@ -152,6 +156,16 @@ begin
        f.occurred_at desc nulls last,
        f.event_id
      limit v_limit offset v_offset
+  ),
+  page as (
+    select o.*,
+           coalesce(o.settlement_status,
+                    private.finance_settlement_status(o.event_kind, o.record_type, o.record_id, o.reference)) as settlement_now,
+           case when o.event_kind = 'payment' and o.record_type = 'order'
+                then (select coalesce(sum(r.amount_kobo), 0) from public.refunds r
+                       where r.order_id = o.record_id and r.state = 'completed' and not r.is_test)
+                else 0 end::bigint as refunded_minor
+      from ordered o
   )
   select jsonb_build_object(
     'total', (select count(*) from filtered),
@@ -174,7 +188,7 @@ begin
                'record_id', p.record_id,
                'is_renewal', p.is_renewal,
                'processing_error', p.processing_error,
-               'settlement_status', p.settlement_status,
+               'settlement_status', p.settlement_now,
                'refunded_minor', p.refunded_minor,
                'payer_label', p.payer_label,
                'beneficiary_label', p.beneficiary_label)
@@ -186,9 +200,13 @@ begin
                p.event_id), '[]'::jsonb) from page p)
   ) into v_result;
 
-  if p_for_export then
+  -- Every read of named rows is audited, not only exports: otherwise a view-only member could page through
+  -- browse mode and rebuild an export with no trace. Browse reads are 'listed', exports 'exported'.
+  if jsonb_array_length(v_result -> 'rows') > 0 or p_for_export then
     insert into public.audit_log (organisation_id, actor_id, action, entity_type, event)
-    values (private.caller_org(), (select auth.uid()), 'finance.transactions.exported', 'finance_transactions',
+    values (private.caller_org(), (select auth.uid()),
+            case when p_for_export then 'finance.transactions.exported' else 'finance.transactions.listed' end,
+            'finance_transactions',
             jsonb_build_object('from', p_from, 'to', p_to, 'rows', jsonb_array_length(v_result -> 'rows'),
                                'offset', v_offset, 'search', v_search is not null,
                                'filters', jsonb_strip_nulls(jsonb_build_object(
@@ -360,8 +378,11 @@ begin
                                                              'decided_at', r.decided_at, 'decided_by', r.decided_by_name,
                                                              'completed_at', r.completed_at, 'last_error_code', r.last_error_code)
                                           order by r.created_at), '[]'::jsonb) from refunds_list r),
+    -- The refund flow refunds the price, not the card fee (request_order_refund uses orders.amount_kobo), so
+    -- the refundable balance is the price less every refund not rejected or failed.
     'refundable_minor', case when v_order_id is null or e.event_kind <> 'payment' then null
-                             else greatest(e.amount_minor - (select coalesce(sum(r.amount_kobo), 0) from refunds_list r
+                             else greatest((select o.amount_kobo from public.orders o where o.id = v_order_id)
+                                           - (select coalesce(sum(r.amount_kobo), 0) from refunds_list r
                                                               where r.state in ('pending', 'approved', 'processing', 'completed')), 0) end,
     'webhooks', (select coalesce(jsonb_agg(to_jsonb(w) order by w.received_at), '[]'::jsonb) from webhooks w),
     'settlement', (select coalesce(jsonb_agg(to_jsonb(s) order by s.settled_at), '[]'::jsonb) from settlement s),

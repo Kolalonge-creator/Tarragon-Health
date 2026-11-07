@@ -194,6 +194,8 @@ export function useTransactions(from: string, to: string, f: TransactionFilters)
   return useQuery({
     queryKey: ["finance", "transactions", from, to, f],
     placeholderData: keepPreviousData,
+    // Each read that returns named rows is audited; do not re-read just because the window regained focus.
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await createClient().rpc("finance_transactions_list", {
         ...rpcArgs(from, to, f),
@@ -222,6 +224,11 @@ export class ExportTooLargeError extends Error {
  */
 export async function fetchAllTransactionsForExport(from: string, to: string, f: TransactionFilters): Promise<TransactionRow[]> {
   const supabase = createClient();
+  // Count first, in browse mode, so an over-ceiling export is refused before any export page is read (and audited).
+  const head = await supabase.rpc("finance_transactions_list", { ...rpcArgs(from, to, f), p_limit: 1, p_offset: 0 });
+  if (head.error) throw head.error;
+  const expected = transactionsPageSchema.parse(head.data).total;
+  if (expected > EXPORT_ROW_CEILING) throw new ExportTooLargeError(expected);
   const rows: TransactionRow[] = [];
   let total = Infinity;
   for (let offset = 0; offset < total; offset += EXPORT_PAGE) {

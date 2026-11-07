@@ -112,27 +112,35 @@ describe("fetchAllTransactionsForExport", () => {
 
   it("pages in export mode until every row is read", async () => {
     mockRpc
+      .mockResolvedValueOnce({ data: page([row()], 5002), error: null })
       .mockResolvedValueOnce({ data: page(Array.from({ length: 5000 }, (_, i) => row({ event_id: `e${i}` })), 5002), error: null })
       .mockResolvedValueOnce({ data: page([row({ event_id: "x" }), row({ event_id: "y" })], 5002, 5000), error: null });
     const rows = await fetchAllTransactionsForExport("2026-11-01", "2026-11-07", EMPTY_FILTERS);
     expect(rows).toHaveLength(5002);
-    expect(mockRpc).toHaveBeenCalledTimes(2);
-    expect(mockRpc.mock.calls[0][1]).toMatchObject({ p_for_export: true, p_offset: 0 });
-    expect(mockRpc.mock.calls[1][1]).toMatchObject({ p_for_export: true, p_offset: 5000 });
+    expect(mockRpc).toHaveBeenCalledTimes(3);
+    expect(mockRpc.mock.calls[0][1]).toMatchObject({ p_limit: 1 });
+    expect(mockRpc.mock.calls[0][1].p_for_export).toBeUndefined();
+    expect(mockRpc.mock.calls[1][1]).toMatchObject({ p_for_export: true, p_offset: 0 });
+    expect(mockRpc.mock.calls[2][1]).toMatchObject({ p_for_export: true, p_offset: 5000 });
   });
 
-  it("refuses an export larger than the ceiling instead of cutting it short", async () => {
+  it("refuses an export larger than the ceiling before reading any export page", async () => {
     mockRpc.mockResolvedValueOnce({ data: page([row()], EXPORT_ROW_CEILING + 1), error: null });
     await expect(fetchAllTransactionsForExport("a", "b", EMPTY_FILTERS)).rejects.toBeInstanceOf(ExportTooLargeError);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc.mock.calls[0][1].p_for_export).toBeUndefined();
   });
 
   it("refuses a short read rather than saving a partial file", async () => {
-    mockRpc.mockResolvedValueOnce({ data: page([row()], 3), error: null }).mockResolvedValueOnce({ data: page([], 3, 5000), error: null });
+    mockRpc
+      .mockResolvedValueOnce({ data: page([row()], 3), error: null })
+      .mockResolvedValueOnce({ data: page([row()], 3), error: null })
+      .mockResolvedValueOnce({ data: page([], 3, 5000), error: null });
     await expect(fetchAllTransactionsForExport("a", "b", EMPTY_FILTERS)).rejects.toThrow(/nothing was saved/);
   });
 
   it("surfaces a refused export (no finance.export) as an error", async () => {
-    mockRpc.mockResolvedValueOnce({ data: null, error: { code: "42501", message: "exporting finance data needs the finance.export permission" } });
+    mockRpc.mockResolvedValueOnce({ data: page([row()], 1), error: null }).mockResolvedValueOnce({ data: null, error: { code: "42501", message: "exporting finance data needs the finance.export permission" } });
     await expect(fetchAllTransactionsForExport("a", "b", EMPTY_FILTERS)).rejects.toMatchObject({ code: "42501" });
   });
 });
