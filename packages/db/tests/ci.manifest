@@ -1960,3 +1960,5 @@ dw03_escalation_working_states.sql
 dw07_dw08_audited_onboarding_and_care_circle_reads.sql
 # DW follow-ups (2026-11-07): a returned monitoring case tells its doctor in-app (only the escalation id), an unheld one tells the CMO, a not-yet-due one tells nobody; no staff account (doctor or coordinator) can delete an escalation. Sabotage: the old org-staff delete policy lets a coordinator delete.
 dw_followups_monitoring_notice_and_no_escalation_delete.sql
+# SUP-1..SUP-3 (2026-11-07): the support desk gate (clinician refused, coordinator and support.agent in), the work-items view with SLA state, no clinical read for a support coordinator, assignment rules, finance hand-off ownership, draft-then-approve reply templates, the generic reply notice, restricted attachments. Sabotage: an open gate lets the clinician in; no trigger, no notice.
+sup_support_desk.sql

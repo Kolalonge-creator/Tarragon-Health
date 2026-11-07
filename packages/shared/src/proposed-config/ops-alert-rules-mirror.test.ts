@@ -32,8 +32,9 @@ describe("ops.alert_rules mirrors the migration seed", () => {
   it("is identical, so the registry and ops_alert_rules cannot drift", () => {
     expect(seeded()).toEqual(getProposedConfig("ops.alert_rules").value);
   });
-  it("covers the 14 rules of the plan plus ai_call_failures", () => {
-    expect(Object.keys(seeded())).toHaveLength(15);
+  it("covers the 14 rules of the plan plus ai_call_failures and support_sla_breach", () => {
+    expect(Object.keys(seeded())).toHaveLength(16);
     expect(seeded()).toHaveProperty("ai_call_failures");
+    expect(seeded()).toHaveProperty("support_sla_breach");
   });
 });
