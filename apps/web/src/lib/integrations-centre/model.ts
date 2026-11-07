@@ -37,13 +37,12 @@ export type IntegrationStatus = z.infer<typeof statusSchema>;
 export type ActivityKey = Exclude<keyof IntegrationStatus, "computed_at" | "since">;
 
 export interface ProviderDef {
+  /** Also the key in providerKeysPresent() (lib/status/check-dependencies.ts), which says whether its key is set. */
   key: ActivityKey | "maps";
   name: string;
   category: "Payments" | "Communication" | "Appointments and video" | "AI" | "Location" | "Infrastructure";
   /** What the provider does for Tarragon, in a line. */
   role: string;
-  /** Environment variables whose presence means the key is set. Only presence is ever read, never the value. */
-  envKeys: readonly string[];
   /** Where to look deeper. */
   detailHref: string;
   /** What "ok" and "failed" count for this provider, shown under its figures. */
@@ -56,7 +55,6 @@ export const PROVIDERS: readonly ProviderDef[] = [
     name: "Paystack",
     category: "Payments",
     role: "Card and bank payments in naira, refunds and payouts.",
-    envKeys: ["PAYSTACK_SECRET_KEY"],
     detailHref: "/admin/ops/providers",
     measures: "Confirmed payments and payment events; failed means an event we could not process. A declined card is the customer's bank, not a Paystack failure.",
   },
@@ -65,7 +63,6 @@ export const PROVIDERS: readonly ProviderDef[] = [
     name: "Resend (email)",
     category: "Communication",
     role: "Email notifications and delivery reports.",
-    envKeys: ["RESEND_API_KEY"],
     detailHref: "/admin/ops/automation-health",
     measures: "Emails sent and emails that failed; webhooks are Resend's delivery reports.",
   },
@@ -74,7 +71,6 @@ export const PROVIDERS: readonly ProviderDef[] = [
     name: "Push notifications",
     category: "Communication",
     role: "Phone and browser push (Expo and web push).",
-    envKeys: ["NEXT_PUBLIC_VAPID_PUBLIC_KEY"],
     detailHref: "/admin/ops/automation-health",
     // The private signing key lives in the edge function's environment, which the web app cannot see; only the public
     // key is checked here, so the 7-day evidence, not "Key set", is what says whether push works.
@@ -85,7 +81,6 @@ export const PROVIDERS: readonly ProviderDef[] = [
     name: "Termii (SMS)",
     category: "Communication",
     role: "Phone verification codes only. No clinical message is ever sent by SMS.",
-    envKeys: ["TERMII_API_KEY"],
     detailHref: "/admin/security",
     measures: "Codes Termii sent and codes it failed to send. Our own rate limiting is not a failure.",
   },
@@ -94,7 +89,6 @@ export const PROVIDERS: readonly ProviderDef[] = [
     name: "Zoom",
     category: "Appointments and video",
     role: "Video consultations.",
-    envKeys: ["ZOOM_ACCOUNT_ID", "ZOOM_CLIENT_ID", "ZOOM_CLIENT_SECRET"],
     detailHref: "/admin/consultations",
     measures: "Consultations given a Zoom meeting. A failed meeting set-up is not recorded per meeting; Zoom's webhooks show the other side.",
   },
@@ -103,7 +97,6 @@ export const PROVIDERS: readonly ProviderDef[] = [
     name: "Anthropic (AI)",
     category: "AI",
     role: "The AI features registered in AI governance.",
-    envKeys: ["ANTHROPIC_API_KEY"],
     detailHref: "/admin/ops/ai-monitoring",
     measures: "AI calls that completed, and calls that failed or fell back because the model did not answer. A guardrail block is neither.",
   },
@@ -112,7 +105,6 @@ export const PROVIDERS: readonly ProviderDef[] = [
     name: "ClamAV (virus scanning)",
     category: "Infrastructure",
     role: "Scans every uploaded file before anyone can open it.",
-    envKeys: ["SCANNER_SERVICE_URL"],
     detailHref: "/admin/security",
     measures: "Files the scanner answered for (clean or infected), and scans it could not do.",
   },
@@ -121,7 +113,6 @@ export const PROVIDERS: readonly ProviderDef[] = [
     name: "Google Maps",
     category: "Location",
     role: "Maps and places for testing-day and lab locations.",
-    envKeys: ["NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"],
     detailHref: "/admin/ops/diagnostic-directory",
     measures: "Maps load in the person's browser, so the platform keeps no record of calls.",
   },

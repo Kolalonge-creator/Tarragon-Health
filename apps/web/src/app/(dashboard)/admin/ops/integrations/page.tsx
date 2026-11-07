@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
-import { checkDependencies } from "@/lib/status/check-dependencies";
+import { checkDependencies, providerKeysPresent } from "@/lib/status/check-dependencies";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { Badge } from "@/components/ui/badge";
@@ -24,11 +24,6 @@ const HEALTH_BADGE: Record<HealthState, "green" | "amber" | "red" | "grey"> = {
 const lagos = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
-/** Whether every environment variable a provider needs is present. Only presence is read; a value never leaves here. */
-function keySet(def: ProviderDef): boolean {
-  return def.envKeys.every((name) => Boolean(process.env[name]));
-}
-
 const CATEGORY_ORDER: ProviderDef["category"][] = ["Payments", "Communication", "Appointments and video", "AI", "Location", "Infrastructure"];
 
 /**
@@ -47,12 +42,14 @@ export default async function IntegrationsCentrePage() {
   const parsed = statusRes.error ? null : statusSchema.safeParse(statusRes.data);
   const status = parsed?.success ? parsed.data : null;
 
+  // Presence of each provider's key, read in the status module; a value is never read here.
+  const keys = providerKeysPresent();
   const lines = PROVIDERS.map((def) => {
     const activity = status && def.key !== "maps" ? status[def.key] : null;
     // Without the status read, a provider with a record of calls must not be judged on its key alone.
     const line = !status && def.key !== "maps"
       ? { state: "unknown" as const, evidence: "Its activity could not be loaded." }
-      : providerLine(activity, keySet(def), lagos);
+      : providerLine(activity, keys[def.key], lagos);
     return { def, line, activity };
   });
   const database = healthLine(deps.supabase, lagos);
@@ -111,7 +108,7 @@ export default async function IntegrationsCentrePage() {
                     <p className="text-charcoal-ink/80">{line.evidence}</p>
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-charcoal-ink/70">
                       <dt>Key set</dt>
-                      <dd>{keySet(def) ? "Yes" : "No"}</dd>
+                      <dd>{keys[def.key] ? "Yes" : "No"}</dd>
                       {activity?.last_failed_at ? (
                         <>
                           <dt>Last failure</dt>
