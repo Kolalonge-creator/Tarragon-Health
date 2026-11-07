@@ -205,7 +205,7 @@ export function buildKpis(data: MoneyOverview): KpiTile[] {
       term: "active_paid_memberships",
       value: formatNumber(data.active_paid_memberships),
       delta: compareDelta(data.active_paid_memberships, data.active_paid_memberships_previous, true),
-      href: null, // Phase C: /finance/memberships
+      href: "/finance/memberships",
     },
     {
       key: "successful",

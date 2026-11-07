@@ -56908,6 +56908,7 @@ export type Database = {
         Returns: undefined
       }
       finance_employer_billing_summary: { Args: never; Returns: Json }
+      finance_employer_revenue: { Args: never; Returns: Json }
       finance_fraud_signals: { Args: { p_status?: string }; Returns: Json }
       finance_import_settlement: {
         Args: {
@@ -56958,6 +56959,21 @@ export type Database = {
           p_settlement_id: string
         }
         Returns: string
+      }
+      finance_membership_revenue: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      finance_memberships_list: {
+        Args: {
+          p_expiring_within_days?: number
+          p_limit?: number
+          p_offset?: number
+          p_payer_types?: string[]
+          p_search?: string
+          p_states?: string[]
+        }
+        Returns: Json
       }
       finance_money_overview: {
         Args: {
@@ -57028,6 +57044,10 @@ export type Database = {
       finance_run_revenue_recognition: { Args: never; Returns: number }
       finance_set_period_status: {
         Args: { p_month: string; p_status: string }
+        Returns: Json
+      }
+      finance_sponsorships: {
+        Args: { p_from: string; p_limit?: number; p_offset?: number; p_to: string }
         Returns: Json
       }
       finance_tax_rates_list: { Args: never; Returns: Json }

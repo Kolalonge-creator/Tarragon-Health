@@ -951,8 +951,11 @@ export function getNavSections(
         {
           label: "Revenue",
           items: [
-            { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
+            { label: "Membership revenue", href: "/finance/memberships", icon: "members" },
+            { label: "Family sponsorships", href: "/finance/sponsorships", icon: "members" },
+            { label: "Employer revenue", href: "/finance/employers", icon: "billing" },
             { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
+            { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
           ],
         },
         {

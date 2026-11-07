@@ -114,7 +114,7 @@ describe("buildKpis", () => {
 
   it("links no tile to a page that does not exist yet", () => {
     for (const tile of buildKpis(overview())) {
-      if (tile.href) expect(["/finance/transactions", "/finance/revenue", "/finance/reconciliation"]).toContain(tile.href);
+      if (tile.href) expect(["/finance/transactions", "/finance/revenue", "/finance/reconciliation", "/finance/memberships"]).toContain(tile.href);
     }
   });
 });
