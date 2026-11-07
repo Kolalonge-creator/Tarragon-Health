@@ -56,7 +56,8 @@ export function LearningItemFooter({
       <div className="space-y-0.5 text-xs text-charcoal-ink/60 dark:text-night-ink/65" data-testid="trust-line">
         {line.author && <p>{t("learn.trust.author", "en", { name: line.author })}</p>}
         {line.reviewedBy && <p>{t("learn.trust.reviewed_by", "en", { name: line.reviewedBy })}</p>}
-        {line.reviewedOn && <p>{t("learn.trust.reviewed_on", "en", { date: line.reviewedOn })}</p>}
+        {/* P20: a review date is only meaningful next to a named reviewer; with no reviewer record nothing about review is shown */}
+        {line.reviewedBy && line.reviewedOn && <p>{t("learn.trust.reviewed_on", "en", { date: line.reviewedOn })}</p>}
         {line.changeNote && <p data-testid="change-note">{t("learn.trust.changed", "en", { note: line.changeNote })}</p>}
         {line.nextReview && <p>{t("learn.trust.next_review", "en", { date: line.nextReview })}</p>}
         {line.sources && <p>{t("learn.trust.sources", "en", { sources: line.sources })}</p>}

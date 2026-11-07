@@ -507,9 +507,9 @@ begin
     case when r like 'ERR:%' then 'ERR:23514' else 'accepted' end);
 
   -- (c) the red_alerts filter removed from the one-tap alert
-  select pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer)'::regprocedure) into d;
+  select pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer, text, text)'::regprocedure) into d;
   d := replace(d, '''red_alerts'' = any (m.permissions)', 'true');
-  if d = pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer)'::regprocedure) then raise exception 'sabotage (c) did not change the function'; end if;
+  if d = pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer, text, text)'::regprocedure) then raise exception 'sabotage (c) did not change the function'; end if;
   execute d;
   delete from public.care_circle_help_alerts where patient_id = v_pat;   -- clear the per-day cap and the cooldown
   perform pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert()::text$q$);
@@ -517,9 +517,9 @@ begin
   insert into results values ('sabotaged', 'a member without red_alerts gets no one-tap alert', '0', n::text);
 
   -- (d) the consent test removed from the one-tap alert
-  select pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer)'::regprocedure) into d;
+  select pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer, text, text)'::regprocedure) into d;
   d := replace(d, 'v_share := coalesce(v_consent, false) and', 'v_share := true and');
-  if d = pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer)'::regprocedure) then raise exception 'sabotage (d) did not change the function'; end if;
+  if d = pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer, text, text)'::regprocedure) then raise exception 'sabotage (d) did not change the function'; end if;
   execute d;
   delete from public.care_circle_help_alerts where patient_id = v_pat;
   perform pg_temp.q_as(v_pat, $q$select public.send_circle_help_alert(6.45, 3.39, 20)::text$q$);

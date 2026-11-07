@@ -6,6 +6,7 @@ import { loadInviteOnly, loadInvites } from "@/lib/signup-invites/load";
 import { asNotice } from "@/lib/signup-invites/model";
 import { revokeInviteAction, setInviteOnlyAction } from "@/lib/signup-invites/actions";
 import { InviteCreateForm } from "./invite-create-form";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Sign-up invites" };
 export const dynamic = "force-dynamic";
@@ -27,10 +28,7 @@ export default async function SignupInvitesPage({ searchParams }: { searchParams
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">{t("signupinv.title")}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("signupinv.intro")}</p>
-      </div>
+      <PageHeader title={t("signupinv.title")} description={t("signupinv.intro")} />
       {notice && <FlashClean />}
       {notice && (
         <p role={bad ? "alert" : "status"} className={`rounded-xl border p-3 text-sm ${bad ? "border-red-300 bg-red-50 text-red-900" : "border-emerald-300 bg-emerald-50 text-emerald-900"}`}>

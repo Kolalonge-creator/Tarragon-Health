@@ -1,4 +1,4 @@
-import type { WorklistCountKey } from "./worklist-counts";
+import type { ClinicalWorklistCountKey } from "./worklist-counts";
 
 /**
  * A founder-commissioned launch-scope audit's core clinician-side ask: reduce
@@ -11,14 +11,14 @@ import type { WorklistCountKey } from "./worklist-counts";
  * classification of the existing worklist-counts.ts keys so a summary view
  * can group them, and a page-link for each so that summary is clickable.
  *
- * `Record<WorklistCountKey, ...>` rather than three plain arrays: TypeScript
+ * `Record<ClinicalWorklistCountKey, ...>` rather than three plain arrays: TypeScript
  * itself refuses to compile if a key is missing from this map, which is the
  * actual guarantee that matters here — a worklist silently left out of every
  * bucket would be invisible from the launch summary with no error anywhere.
  */
 export type LaunchWorklistBucket = "urgent" | "paidWorkDue" | "followUp";
 
-export const LAUNCH_WORKLIST_BUCKET: Record<WorklistCountKey, LaunchWorklistBucket> = {
+export const LAUNCH_WORKLIST_BUCKET: Record<ClinicalWorklistCountKey, LaunchWorklistBucket> = {
   // Urgent now — time-critical clinical risk: emergencies, safety, abnormal
   // results, the tightest SLAs on the platform.
   escalations: "urgent",
@@ -86,7 +86,7 @@ export const LAUNCH_WORKLIST_BUCKET_LABEL: Record<LaunchWorklistBucket, string> 
 /** Every item's own worklist page — same hrefs as navigation.ts, kept as a
  * flat lookup here rather than importing navigation.ts's full nav-section
  * tree into a client component for one field. */
-export const WORKLIST_HREF: Record<WorklistCountKey, string> = {
+export const WORKLIST_HREF: Record<ClinicalWorklistCountKey, string> = {
   escalations: "/clinician/escalations",
   pendingEcRequests: "/clinician/sexual-health",
   openSafetyIncidents: "/clinician/safety-incidents",
@@ -129,7 +129,7 @@ export const WORKLIST_HREF: Record<WorklistCountKey, string> = {
 
 /** Human label for each worklist item, for the summary's breakdown list —
  * same wording as navigation.ts's own nav-item labels. */
-export const WORKLIST_LABEL: Record<WorklistCountKey, string> = {
+export const WORKLIST_LABEL: Record<ClinicalWorklistCountKey, string> = {
   escalations: "Escalations",
   pendingEcRequests: "Emergency contraception requests",
   openSafetyIncidents: "Safety incidents",
@@ -169,8 +169,8 @@ export const WORKLIST_LABEL: Record<WorklistCountKey, string> = {
   recordChangeRequestsWaiting: "Record changes",
 };
 
-const ALL_KEYS = Object.keys(LAUNCH_WORKLIST_BUCKET) as WorklistCountKey[];
+const ALL_KEYS = Object.keys(LAUNCH_WORKLIST_BUCKET) as ClinicalWorklistCountKey[];
 
-export function worklistKeysInBucket(bucket: LaunchWorklistBucket): WorklistCountKey[] {
+export function worklistKeysInBucket(bucket: LaunchWorklistBucket): ClinicalWorklistCountKey[] {
   return ALL_KEYS.filter((key) => LAUNCH_WORKLIST_BUCKET[key] === bucket);
 }

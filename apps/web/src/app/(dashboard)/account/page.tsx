@@ -210,7 +210,12 @@ export default async function AccountPage({
 
       <ChangePasswordForm />
       <ChangePhoneCard />
-      {!mfaRequiredNow && <MfaSettingsCard verifiedFactorId={verifiedFactorId} required={mfaRequirement === true} />}
+      {/* The anchor the patient Profile page links to (P21); a plain wrapper, no visual change. */}
+      {!mfaRequiredNow && (
+        <div id="two-step-sign-in" className="scroll-mt-24">
+          <MfaSettingsCard verifiedFactorId={verifiedFactorId} required={mfaRequirement === true} />
+        </div>
+      )}
       {isPatient && <PasskeysCard />}
       <SignOutOtherDevicesCard />
     </div>

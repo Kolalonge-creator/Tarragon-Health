@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 
 import { LearningItemFooter } from "@/components/learning/learning-item-footer";
+import { ReviewedByLine } from "@/components/learning/reviewed-by-line";
 import { useHealthEducationItemTrust } from "@/lib/queries/learning-centre";
 import { WeeklyLessonCard } from "@/components/learning/weekly-lesson-card";
 import { RecordLessonCard } from "@/components/learning/record-lesson-card";
@@ -458,7 +459,8 @@ function EducationItem({
 
       <div className="flex flex-wrap items-center gap-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         {item.estimated_minutes ? <span>{item.estimated_minutes} min read</span> : null}
-        {item.clinician_reviewed && <span>Reviewed by our clinical team</span>}
+        {/* P20: a named reviewer from the record, or nothing (never a generic "reviewed" claim). The date and sources are on the item. */}
+        <ReviewedByLine name={item.reviewed_by_name} />
       </div>
 
       {!href && open && (
@@ -963,6 +965,7 @@ export function TopicDetailView({
   conditionLanguagePreference?: string | null;
 }) {
   const { data: item, isLoading, isError } = useHealthEducationContentDetail(code);
+  const { data: trust } = useHealthEducationItemTrust(code);
   const mark = useMarkContentProgress(patientId, organisationId);
   const markedSeen = useRef(false);
 
@@ -1008,7 +1011,8 @@ export function TopicDetailView({
         {item.summary && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{item.summary}</p>}
         <div className="flex flex-wrap items-center gap-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
           {item.estimated_minutes ? <span>{item.estimated_minutes} min read</span> : null}
-          {item.clinician_reviewed && <span>Reviewed by our clinical team</span>}
+          {/* P20: reviewer and review date from the item's record (the same read the footer uses), or nothing. */}
+          <ReviewedByLine name={trust?.reviewed_by_name ?? item.reviewed_by_name} reviewedAt={trust?.reviewed_by_name ? trust.reviewed_at : null} />
         </div>
       </CardHeader>
       <CardContent>

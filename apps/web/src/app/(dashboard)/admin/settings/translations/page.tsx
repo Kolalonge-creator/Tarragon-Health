@@ -6,6 +6,7 @@ import { FlashClean } from "@/components/go-live/flash-clean";
 import { loadTranslations } from "@/lib/translations/load";
 import { asNotice, nextSteps, type TranslationState } from "@/lib/translations/model";
 import { reviewTranslationAction } from "@/lib/translations/actions";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Translations" };
 export const dynamic = "force-dynamic";
@@ -29,10 +30,7 @@ export default async function TranslationsPage({ searchParams }: { searchParams:
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">{t("xlat.title", locale)}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("xlat.intro", locale)}</p>
-      </div>
+      <PageHeader title={t("xlat.title", locale)} description={t("xlat.intro", locale)} />
       {notice && <FlashClean />}
       {notice && (
         <p role={bad ? "alert" : "status"} className={`rounded-xl border p-3 text-sm ${bad ? "border-red-300 bg-red-50 text-red-900" : "border-emerald-300 bg-emerald-50 text-emerald-900"}`}>

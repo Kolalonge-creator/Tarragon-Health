@@ -6,6 +6,7 @@ import { FlashClean } from "@/components/go-live/flash-clean";
 import { loadAutomations } from "@/lib/automation-health/load";
 import { asNotice, groupByHealth, OWNER_ROLES, type AutomationRow, type Health } from "@/lib/automation-health/model";
 import { setAutomationOwnerAction } from "@/lib/automation-health/actions";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Automations" };
 export const dynamic = "force-dynamic";
@@ -39,10 +40,7 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">{t("auto.title", locale)}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("auto.intro", locale)}</p>
-      </div>
+      <PageHeader title={t("auto.title", locale)} description={t("auto.intro", locale)} />
       {notice && <FlashClean />}
       {notice && (
         <p role={bad ? "alert" : "status"} className={`rounded-xl border p-3 text-sm ${bad ? "border-red-300 bg-red-50 text-red-900" : "border-emerald-300 bg-emerald-50 text-emerald-900"}`}>

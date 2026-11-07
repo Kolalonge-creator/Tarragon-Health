@@ -5,6 +5,7 @@ import { DEFAULT_UI_LANGUAGE } from "@tarragon/shared";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { lookupLabels } from "@/lib/admin-patients/labels";
 import { PatientLookup } from "./patient-lookup";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Find a patient" };
 export const dynamic = "force-dynamic";
@@ -23,14 +24,16 @@ export default async function AdminPatientsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">{t("adminpatients.title", locale)}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("adminpatients.intro", locale)}</p>
-        <p className="mt-2 flex gap-4 text-sm">
-          <Link className="underline" href="/admin/patients/duplicates">{t("adminpatients.links.duplicates", locale)}</Link>
-          <Link className="underline" href="/admin/patients/merge">{t("adminpatients.links.merge", locale)}</Link>
-        </p>
-      </div>
+      <PageHeader
+        title={t("adminpatients.title", locale)}
+        description={t("adminpatients.intro", locale)}
+        actions={
+          <p className="flex gap-4 text-sm">
+            <Link className="underline" href="/admin/patients/duplicates">{t("adminpatients.links.duplicates", locale)}</Link>
+            <Link className="underline" href="/admin/patients/merge">{t("adminpatients.links.merge", locale)}</Link>
+          </p>
+        }
+      />
       <PatientLookup labels={lookupLabels(locale)} />
     </div>
   );

@@ -5,6 +5,8 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { loadAiCost } from "@/lib/ai-cost/load";
 import { addAiModelPriceAction } from "@/lib/ai-cost/actions";
 import { asNotice, defaultWindow, formatCost } from "@/lib/ai-cost/model";
+import { PageHeader } from "@/components/ui/page-header";
+import { DataTable, type DataTableColumn, type DataTableRow } from "@/components/ui/data-table";
 
 export const metadata = { title: "AI cost" };
 export const dynamic = "force-dynamic";
@@ -28,13 +30,32 @@ export default async function AiCostPage({ searchParams }: { searchParams: Promi
   const loaded = await loadAiCost(from, to);
   if (!loaded.ok && loaded.denied) redirect("/admin");
   const bad = notice !== null && notice !== "added";
+  // Cost is not sortable: rows can be in different currencies, so ordering them by amount would compare unlike sums.
+  const columns: DataTableColumn[] = [
+    { header: t("aicost.feature", "en"), sortable: true },
+    { header: t("aicost.model", "en"), sortable: true },
+    { header: t("aicost.calls", "en"), sortable: true, defaultDir: "desc", align: "right" },
+    { header: t("aicost.tokens", "en"), align: "right" },
+    { header: t("aicost.cost", "en"), align: "right" },
+  ];
+  const rows: DataTableRow[] = loaded.ok
+    ? loaded.data.map((r) => ({
+        key: `${r.system_code}:${r.model_identifier}:${r.currency ?? "none"}`,
+        searchText: `${r.system_name} ${r.system_code} ${r.model_identifier}`,
+        sort: [r.system_name, r.model_identifier, r.interactions, null, null],
+        cells: [
+          <span key="f">{r.system_name} <span className="text-xs text-charcoal-ink/50">{r.system_code}</span></span>,
+          r.model_identifier,
+          r.interactions,
+          `${r.input_tokens.toLocaleString("en-GB")} / ${r.output_tokens.toLocaleString("en-GB")}`,
+          `${formatCost(r.cost_millionths_minor, r.currency)}${r.currency !== null && r.priced_interactions < r.interactions ? ` (${r.priced_interactions} of ${r.interactions} priced)` : ""}`,
+        ],
+      }))
+    : [];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">{t("aicost.title", "en")}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">{t("aicost.intro", "en")}</p>
-      </div>
+      <PageHeader title={t("aicost.title", "en")} description={t("aicost.intro", "en")} />
       {notice && (
         <p role={bad ? "alert" : "status"} className={`rounded-xl border p-3 text-sm ${bad ? "border-red-300 bg-red-50 text-red-900" : "border-emerald-300 bg-emerald-50 text-emerald-900"}`}>
           {t(`aicost.notice.${notice}`, "en")}
@@ -47,27 +68,14 @@ export default async function AiCostPage({ searchParams }: { searchParams: Promi
       </form>
       {!loaded.ok ? (
         <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{t("aicost.load_error", "en")}</p>
-      ) : loaded.data.length === 0 ? (
-        <p className="text-sm text-charcoal-ink/70">{t("aicost.empty", "en")}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="text-xs text-charcoal-ink/60">
-              <tr><th className="py-1 pr-3">{t("aicost.feature", "en")}</th><th className="pr-3">{t("aicost.model", "en")}</th><th className="pr-3">{t("aicost.calls", "en")}</th><th className="pr-3">{t("aicost.tokens", "en")}</th><th>{t("aicost.cost", "en")}</th></tr>
-            </thead>
-            <tbody>
-              {loaded.data.map((r) => (
-                <tr key={`${r.system_code}:${r.model_identifier}:${r.currency ?? "none"}`} className="border-t border-charcoal-ink/10">
-                  <td className="py-1 pr-3">{r.system_name} <span className="text-xs text-charcoal-ink/50">{r.system_code}</span></td>
-                  <td className="pr-3">{r.model_identifier}</td>
-                  <td className="pr-3">{r.interactions}</td>
-                  <td className="pr-3">{r.input_tokens.toLocaleString("en-GB")} / {r.output_tokens.toLocaleString("en-GB")}</td>
-                  <td>{formatCost(r.cost_millionths_minor, r.currency)}{r.currency !== null && r.priced_interactions < r.interactions ? ` (${r.priced_interactions} of ${r.interactions} priced)` : ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          caption={t("aicost.title", "en")}
+          columns={columns}
+          rows={rows}
+          searchLabel="Search by feature or model"
+          emptyMessage={t("aicost.empty", "en")}
+        />
       )}
       <section aria-labelledby="add-price" className="space-y-3 rounded-xl border border-charcoal-ink/10 bg-white p-4 dark:border-night-ink/15 dark:bg-night-card">
         <h2 id="add-price" className="font-heading text-lg font-semibold text-charcoal-ink">{t("aicost.add_title", "en")}</h2>

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Linking, Platform, View } from "react-native";
 import { anchorPhrase, asLocale, t, type MessageKey } from "@tarragon/i18n";
-import { DOSE_REASONS, shouldOfferPharmacy, resolveTakenTime, isDoubleTap, lagosLocalDate, slotKey, windowEndTime, type AdherenceResult, type ReminderIssue, type SlotState } from "@tarragon/medicines";
+import { DOSE_REASONS, shouldOfferPharmacy, resolveTakenTime, isDoubleTap, lagosLocalDate, slotKey, windowEndTime, type AdherenceResult, type DoseHistory, type ReminderIssue, type SlotState } from "@tarragon/medicines";
 import { useUiLanguage } from "@/lib/ui-language";
 import { readMirrorLastPulledAt } from "@/lib/offline-store";
 import { FreshnessNote } from "@/ui/freshness-note";
 import {
   dosesOn,
+  loadDoseHistory,
   loadTodaysDoses,
   loadWeeklyAdherence,
   logDose,
@@ -15,7 +16,9 @@ import {
   undoDose,
   type DoseChecklistItem,
   type LoggableStatus,
+  type QueryResult,
 } from "@/lib/medications";
+import { DosesTakenCard } from "@/screens/sections/doses-taken-card";
 import { loadAsNeededMedicines, logAsNeededDose, type AsNeededMedicine } from "@/lib/prn-doses";
 import { exactAlarmsAllowed, openExactAlarmSettings } from "@/lib/exact-alarms";
 import { androidManufacturer, keepStepsFor, openAppSettings, openBatterySettings } from "@/lib/keep-reminders";
@@ -127,6 +130,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
   const [panel, setPanel] = useState<{ key: string; kind: "earlier" | "skip" | "change" } | null>(null);
   const [panelNote, setPanelNote] = useState<string | null>(null);
   const [adherence, setAdherence] = useState<AdherenceResult | null>(null);
+  // The doses-taken chart (2026-11-06): null while loading; a failed read is kept so the card says it could not load.
+  const [doseHistory, setDoseHistory] = useState<QueryResult<DoseHistory> | null>(null);
   const [issues, setIssues] = useState<ReminderIssue[]>([]);
   const [asNeeded, setAsNeeded] = useState<AsNeededMedicine[]>([]);
   // The notice stays on screen after "I took one" until the next tap: a toast would be gone before it is read.
@@ -140,8 +145,9 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
 
   const refreshSide = useCallback(
     async (replanned?: ReplanResult) => {
-      const week = await loadWeeklyAdherence(patientId);
+      const [week, history] = await Promise.all([loadWeeklyAdherence(patientId), loadDoseHistory(patientId)]);
       setAdherence(week.ok ? week.data : null);
+      setDoseHistory(history);
       if (ownsReminders) setIssues(await checkReminderHealth(patientId, Date.now(), replanned));
     },
     [patientId, ownsReminders]
@@ -616,6 +622,8 @@ export function MedicationsScreen({ patientId, organisationId, subjectName, onNa
           )}
         </Card>
       ) : null}
+
+      <DosesTakenCard history={doseHistory} />
 
       {ownsReminders ? (
         <Card padded={false}>

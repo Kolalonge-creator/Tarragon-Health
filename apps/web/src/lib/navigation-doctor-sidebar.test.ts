@@ -80,3 +80,34 @@ describe("Governance home stays lit on the pages it leads to", () => {
     expect(itemIsActive("/clinician", governanceHome)).toBe(false);
   });
 });
+
+describe("Chief Medical Officer menu (CMO command centre, 2026-11-07)", () => {
+  it("leads with the Leadership overview for the CMO and keeps their own clinical day one click away", () => {
+    const top = getNavSections("clinician", null, { cmo: true })[0]?.items ?? [];
+    expect(top.map((i) => [i.label, i.href])).toEqual([
+      ["Leadership overview", "/clinician/leadership"],
+      ["My clinical day", "/clinician"],
+    ]);
+  });
+
+  it("changes nothing for any other doctor", () => {
+    expect(sidebarItems.some((i) => i.href === "/clinician/leadership")).toBe(false);
+    expect(sidebar[0]?.items.map((i) => i.label)).toEqual(["Today"]);
+  });
+
+  it("puts the overview in the CMO's search index", () => {
+    expect(clinicianSearchSections().flatMap((s) => s.items).some((i) => i.href === "/clinician/leadership")).toBe(true);
+  });
+});
+
+describe("CMO Clinical operations group (2026-11-07)", () => {
+  it("gives the CMO an operations group with the overview and patient journey, after the top group", () => {
+    const sections = getNavSections("clinician", null, { cmo: true });
+    expect(sections[1]?.label).toBe("Clinical operations");
+    expect(sections[1]?.items.map((i) => i.href)).toEqual(["/clinician/operations", "/clinician/operations/journey"]);
+  });
+
+  it("is not shown to other doctors", () => {
+    expect(sidebarItems.some((i) => i.href === "/clinician/operations" || i.href.startsWith("/clinician/operations/"))).toBe(false);
+  });
+});
