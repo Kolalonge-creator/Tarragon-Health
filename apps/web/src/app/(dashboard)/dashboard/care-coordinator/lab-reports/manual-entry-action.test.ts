@@ -7,6 +7,7 @@
 
 const rpc = jest.fn();
 const profileRows = new Map<string, unknown>();
+const staffRows = new Map<string, unknown>();
 const storeResultDocument = jest.fn();
 const removeResultDocument = jest.fn();
 const renderManualEntryPdf = jest.fn();
@@ -16,14 +17,24 @@ jest.mock("@/lib/supabase/server", () => ({
   getCurrentUser: jest.fn().mockResolvedValue({ id: "coord-1" }),
   createClient: jest.fn().mockImplementation(async () => ({
     rpc,
-    from: () => ({
-      select: () => ({
-        eq: (_c: string, id: string) => ({
-          single: async () => ({ data: profileRows.get(id) ?? null, error: null }),
-          maybeSingle: async () => ({ data: profileRows.get(id) ?? null, error: null }),
-        }),
-      }),
-    }),
+    from: (table: string) =>
+      table === "clinical_staff"
+        ? {
+            // CC-1: a doctor's staff row decides whether they cover coordination (actions.ts mayUpload)
+            select: () => ({
+              eq: (_c: string, id: string) => ({
+                eq: () => ({ maybeSingle: async () => ({ data: staffRows.get(id) ?? null, error: null }) }),
+              }),
+            }),
+          }
+        : {
+            select: () => ({
+              eq: (_c: string, id: string) => ({
+                single: async () => ({ data: profileRows.get(id) ?? null, error: null }),
+                maybeSingle: async () => ({ data: profileRows.get(id) ?? null, error: null }),
+              }),
+            }),
+          },
   })),
 }));
 jest.mock("@/lib/lab-results/store-file", () => ({
@@ -62,6 +73,7 @@ function form(over: Record<string, string> = {}, file?: File): FormData {
 beforeEach(() => {
   jest.clearAllMocks();
   profileRows.clear();
+  staffRows.clear();
   profileRows.set("coord-1", { role: "care_coordinator", organisation_id: "org-1", full_name: "Ada Coordinator" });
   profileRows.set(PATIENT, { id: PATIENT, role: "patient", organisation_id: "org-1", full_name: "Ngozi Okafor" });
   profileRows.set(LAB, { name: "Synlab Nigeria" });
@@ -135,8 +147,21 @@ describe("enterResultsByHand", () => {
     expect(rpc).toHaveBeenCalledWith("coordinator_submit_manual_results", expect.objectContaining({ p_original_attached: true }));
   });
 
-  it("stores nothing for an account that is not a coordinator", async () => {
+  it("stores nothing for a doctor who does not cover coordination (a contracted partner specialist)", async () => {
     profileRows.set("coord-1", { role: "clinician", organisation_id: "org-1", full_name: "Dr X" });
+    staffRows.set("coord-1", { doctor_tier: "senior_medical_officer", employment_type: "contracted", active: true });
+    await expect(enterResultsByHand(undefined, form())).resolves.toEqual({ error: "You do not have access to that." });
+    expect(storeResultDocument).not.toHaveBeenCalled();
+  });
+
+  it("lets an employed doctor covering coordination enter results (CC-1)", async () => {
+    profileRows.set("coord-1", { role: "clinician", organisation_id: "org-1", full_name: "Dr X" });
+    staffRows.set("coord-1", { doctor_tier: "senior_medical_officer", employment_type: "employed", active: true });
+    await expect(enterResultsByHand(undefined, form())).resolves.toEqual({ success: true });
+  });
+
+  it("stores nothing for a patient account", async () => {
+    profileRows.set("coord-1", { role: "patient", organisation_id: "org-1", full_name: "P" });
     await expect(enterResultsByHand(undefined, form())).resolves.toEqual({ error: "You do not have access to that." });
     expect(storeResultDocument).not.toHaveBeenCalled();
   });
