@@ -9,6 +9,7 @@ import { rpcParsed } from "@/lib/credentialing/rpc";
 import { queueSchema } from "@/lib/credentialing/schemas";
 import { APPLICATION_STATE_LABEL } from "@/lib/credentialing/labels";
 import { TASK_TYPE_LABEL, taskTypeSearchWords } from "@/lib/queue/task-types";
+import { searchRecords } from "@/lib/admin-search-records";
 
 /**
  * The people half of the search box (the pages half runs in the browser). For the admin and the Chief Medical
@@ -97,12 +98,18 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   if (isAdmin) {
-    const patients = await createServiceRoleClient()
-      .from("profiles")
-      .select("full_name, patient_number, phone, city")
-      .eq("role", "patient")
-      .or(`full_name.ilike.%${term}%,patient_number.ilike.%${term}%,phone.ilike.%${term}%`)
-      .limit(6);
+    // Records (employers, sponsor programmes, labs and imaging, incidents, orders by Paystack reference) are read
+    // through the admin's own session, so the database's row rules decide what comes back (lib/admin-search-records.ts).
+    const [patients, records] = await Promise.all([
+      createServiceRoleClient()
+        .from("profiles")
+        .select("full_name, patient_number, phone, city")
+        .eq("role", "patient")
+        .or(`full_name.ilike.%${term}%,patient_number.ilike.%${term}%,phone.ilike.%${term}%`)
+        .limit(6),
+      searchRecords(supabase, term, needle),
+    ]);
+    if (records.failed) failed = true;
     if (patients.error) failed = true;
     for (const p of patients.data ?? []) {
       results.push({
@@ -112,6 +119,7 @@ export async function GET(request: Request): Promise<Response> {
         hint: [p.patient_number, p.city].filter(Boolean).join(" · "),
       });
     }
+    results.push(...records.results);
   }
 
   // `failed` tells the box a source was unavailable, so it can say so instead of showing a shorter list as if complete.

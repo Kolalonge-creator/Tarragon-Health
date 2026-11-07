@@ -93,6 +93,7 @@ export function DataTable({
   const busy = server?.busy ?? false;
 
   function pressHeader(column: number) {
+    setInteracted(true);
     const next = nextSort(sort, column, columns[column]?.defaultDir ?? "asc");
     if (server) server.onSort(next);
     else {
@@ -102,17 +103,21 @@ export function DataTable({
   }
 
   function goTo(page: number) {
+    setInteracted(true);
     if (server) server.onPage(page);
     else setClientPage(page);
   }
 
-  // The count line is read out only once typing pauses, not after every keystroke.
+  // The count line is read out only after the reader changes the view (search, sort, page), and only once typing
+  // pauses: never on page load, where a page with three tables would otherwise read out three counts unprompted.
   const countText = `${view.matching} ${view.matching === 1 ? noun.one : noun.many}${!server && query.trim() !== "" ? " match your search" : ""}${view.pageCount > 1 ? `. Page ${view.page + 1} of ${view.pageCount}.` : "."}`;
   const [announced, setAnnounced] = React.useState("");
+  const [interacted, setInteracted] = React.useState(false);
   React.useEffect(() => {
+    if (!interacted) return;
     const timer = setTimeout(() => setAnnounced(countText), 700);
     return () => clearTimeout(timer);
-  }, [countText]);
+  }, [countText, interacted]);
 
   const showSearch = !server && !!searchLabel;
   const searching = !server && query.trim() !== "";
@@ -134,6 +139,7 @@ export function DataTable({
                 placeholder={searchPlaceholder}
                 autoComplete="off"
                 onChange={(e) => {
+                  setInteracted(true);
                   setQuery(e.target.value);
                   setClientPage(0);
                 }}

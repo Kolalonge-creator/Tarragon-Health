@@ -55373,6 +55373,10 @@ export type Database = {
         Returns: Json
       }
       analytics_patient_search: { Args: { p_query: string }; Returns: Json }
+      analytics_platform_overview: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       analytics_population_dataset_preview: { Args: never; Returns: Json }
       analytics_population_summary: { Args: never; Returns: Json }
       analytics_programme_funnel: { Args: never; Returns: Json }
