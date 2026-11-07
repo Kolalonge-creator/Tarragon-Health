@@ -98,3 +98,39 @@ migration, and no founder decision reversed.
 
 Every phase ships with Jest tests and `packages/db/tests/` proofs (with a
 sabotage step), and `/code-review high` before the PR.
+
+## 6. Decisions taken (2026-11-07)
+
+SUP-1 to SUP-4 in `docs/DECISIONS.md`: one workspace over the existing stores; phases A to E in the first PR; the spec's
+first-response targets in staffed hours; an editable knowledge base later.
+
+## 7. What the first PR built
+
+| Piece | Where |
+|---|---|
+| `support.agent` (new) and `support.manage` (now gates the lead's actions); `private.is_support_staff` / `is_support_lead`; a "Customer support agent" preset | `20261107022501_sup_b_support_desk_permissions.sql`, `lib/auth/permissions.ts` (`getSupportDeskAccess`) |
+| SLA policies (versioned, change note), staffed hours, public holidays, the business-hours clock, `set_support_sla_policy` | `20261107022502_sup_c_support_sla_business_hours.sql`, `/clinician/support-desk/settings` |
+| Ops alert `support_sla_breach` (sev3, registry `ops.alert_rules` v4) | `20261107022506_sup_c_support_sla_breach_alert.sql` |
+| Hand-offs to finance, technical_ops, provider_ops, membership_ops, senior_management (no clinical destination by design); receiving team takes ownership and records the outcome and the customer wording; refund or incident link | `20261107022503_sup_e_support_handoffs.sql`, `components/support-desk/*`, `/clinician/support-desk/handoffs`, `/admin/support/handoffs`, panels on the ticket page and on help requests |
+| `support_work_items` view (security invoker, no clinical fields), `assign_support_work_item`, `list_support_desk_staff`, `support_desk_summary` | `20261107022504_sup_a_support_work_items.sql`, `/clinician/support-desk` and `/queue` |
+| Reply templates (draft until a lead approves the words), confirm step before a customer-visible reply, generic in-app notice on a staff reply, scanned ticket attachments with lead restriction | `20261107022505_sup_d_support_templates_notice_attachments.sql`, `lib/support/attachment-actions.ts`, ticket pages |
+| Proof | `packages/db/tests/sup_support_desk.sql` (39 checks, two sabotage steps) |
+
+## 8. Known limits (not hidden)
+
+1. **Pause does not extend the due time.** While an item waits on the customer it shows "Paused" and never counts as late,
+   but the time spent waiting is not added back to the resolution due time. Doing that needs status history on every
+   source (help requests and threads have none).
+2. **First response for a support message** is the first care-team message in the thread; for a help request it is the
+   first staff update (`acknowledged_at`), which may not be a reply the customer saw.
+3. **The old technical-ticket worklist still shows its own clock** from the PROPOSED `support.sla_targets`
+   (`lib/support/sla.ts`). The desk shows the SUP-3 targets. Moving that worklist onto the view is a small follow-up.
+4. **A support coordinator cannot flag a ticket for clinical review themselves**: `escalate_support_ticket_to_clinical`
+   is clinical-tier only (existing rule). The red-flag scan still pages on danger words, and the ticket page tells a
+   coordinator to ask the doctor on duty. Whether coordinators should get a "send to a doctor" route on tickets (as they
+   have on messages, `flag_care_thread_for_doctor`) is a CMO question.
+5. **Receiving teams reach `/admin/support/handoffs` through a custom role or a grant** (the existing `/admin` door rule).
+   A finance account with neither cannot open it.
+6. **Not built in this PR**: the knowledge base (SUP-4), AI assistance (needs `ai_systems` registration and
+   `runGovernedAi`), a customer directory page (view-as already covers account lookup), CSV export, and charts of volume
+   over time. The overview shows volume by type, category and priority for the chosen period.
