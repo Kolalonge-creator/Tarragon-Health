@@ -61,15 +61,18 @@ export function PageHero({
       </div>
       {image ? (
         <figure className="grid gap-2">
-          {/* Not `priority`: on a phone the photo stacks under the text, below
-              the fold, and a preload there competes with the headline. */}
+          {/* No preload (`priority`): the headline paints first with the swap font either way. The photo is often the page's LCP
+              (For families), so it gets fetch priority over scripts; on a phone the 280px hint picks a smaller file (750px on a
+              typical 2.6x Android, 1.8x density and side by side indistinguishable) instead of the full-width 1080 to 1200px one.
+              hero-photo-phone-size.test.tsx pins both. */}
           <Image
             src={image.src}
             alt={image.alt}
             width={image.width}
             height={image.height}
             loading="eager"
-            sizes="(min-width: 1024px) 480px, 100vw"
+            fetchPriority="high"
+            sizes="(min-width: 1024px) 480px, (max-width: 639px) 280px, 100vw"
             className="aspect-[4/3] w-full rounded-[28px] object-cover lg:aspect-[4/5]"
           />
           {/* W-10: library photos are never presented as real patients, Tarragon doctors or facilities. */}
