@@ -101,6 +101,8 @@ const ADDED_IN_REGROUP = [
   "/admin/account-recovery",
   "/admin/task-types",
   "/admin/refund-requests",
+  // Added after the regroup with the integrations centre (2d).
+  "/admin/ops/integrations",
 ] as const;
 
 const GROUPS = [

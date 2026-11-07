@@ -191,3 +191,22 @@ moved onto the shared frame with detail pages in tabs. Each is its own PR.
     patient), audit events (need the same curated admin-event list as the homepage's recent activity), and a direct name
     search for sponsor programmes and directory providers (today both small lists are read whole and filtered, fine at
     current size, worth an indexed lookup as they grow).
+- **2d integrations centre: done** (branch `feat/superadmin-integrations`, stacked on 2c). `/admin/ops/integrations`,
+  admin only, in Platform operations.
+  - New read-only admin-only function `admin_integration_status()` (migration
+    `20261107032335_admin_integration_status.sql`): per provider over the last 7 days, successes, failures, last
+    success and failure times, and webhook health for the three providers that call us (Paystack, Resend, Zoom).
+    Counts and timestamps only, never error text (it can carry an address or a name). Proof
+    `packages/db/tests/admin_integration_status.sql` (9 checks as differences, sabotage included), green on a fresh
+    local replay.
+  - What counts: a declined card is not a Paystack failure; our own SMS rate limiting is not a Termii failure; an AI
+    fallback counts against the AI, a guardrail block does not; a ClamAV "unavailable" counts against the scanner.
+  - States (tested in `lib/integrations-centre/model.ts`): no key and nothing recorded is Not configured; a key with
+    nothing to show is Unknown; only real successes make Operational; all failing is Failed; a 20% failure share is
+    Degraded; rejected webhooks degrade only when they outnumber good ones. On 2026-11-07 live, push reads Degraded
+    (26 of 53 failed), matching the known push problem.
+  - Providers: Paystack, Resend, push, Termii (phone codes only), Zoom, Anthropic, ClamAV, Google Maps (no server
+    record, shown as such), and the database's live check. No WhatsApp (removed, F-02) and no second payment provider.
+  - Deliberately no "test connection" button: no provider has a probe that is both safe and meaningful (a test charge
+    moves money; a test email or SMS reaches a person). Key presence is read on the server, never the value; keys are
+    changed in the hosting environment, not on the page.
