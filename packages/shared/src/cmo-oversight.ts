@@ -43,14 +43,17 @@ export function cmoOversightView(
     .sort((a, b) => a.rank - b.rank || a.index - b.index)
     .map(({ row }) => row);
 
+  // Keyed by the owner's profile id, so a doctor whose staff record and profile spell the name differently is one person, and two
+  // doctors who share a name stay two. The name is only the label; a row with no id falls back to grouping by name.
   const loads = new Map<string, DoctorLoad>();
   for (const row of team) {
     if (row.unassigned) continue;
     const name = row.assignedName ?? "Another clinician";
-    const load = loads.get(name) ?? { name, open: 0, overdue: 0 };
+    const key = row.assignedProfileId ? `id:${row.assignedProfileId}` : `name:${name}`;
+    const load = loads.get(key) ?? { name, open: 0, overdue: 0 };
     load.open += 1;
     if (isOverdue(row, now)) load.overdue += 1;
-    loads.set(name, load);
+    loads.set(key, load);
   }
 
   return {
