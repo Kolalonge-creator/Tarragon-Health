@@ -161,7 +161,7 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/admin/earnings", "fee fees schedule earnings earned pay paid payout ledger contracted clinician per task consultation share on call shift lead month minimum guarantee adjustment correction statement salary kobo naira"],
   ["/admin/earnings/disputes", "earnings question dispute disputed line hold held response overdue answer correction reject pilot minimum top up activity check release deny contracted clinician finance"],
   ["/finance/transactions", "transactions directory all payments failed refunds filter search export csv payer beneficiary sponsor employer settlement settled awaiting exception reference paystack ledger lookup"],
-  ["/finance/memberships", "membership revenue memberships paid active renewals renewal rate expiring lapsed ended cancelled auto renew sponsor employer granted new members"],
+  ["/finance/memberships", "membership revenue memberships paid active renewals renewal rate expiring lapsed ended cancelled automatic sponsor employer granted new members"],
   ["/finance/sponsorships", "family sponsorship sponsor sponsored gift diaspora abroad care voucher paid for someone else beneficiary"],
   ["/finance/employers", "employer revenue employers corporate contract seats invoiced paid outstanding overdue renewal company"],
   ["/finance/glossary", "finance glossary definitions definition gross payment volume gpv net collections recognised revenue refunds success rate memberships paid sponsor family employer what does this mean metric"],
