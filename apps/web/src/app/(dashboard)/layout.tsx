@@ -211,7 +211,7 @@ export default async function DashboardLayout({
         profileHref={profileHref}
         navSections={withoutHiddenNav(
           withCommunityNav(
-            getNavSections(profile?.role, profile?.receives_care, { communityOpen }),
+            getNavSections(profile?.role, profile?.receives_care, { communityOpen, cmo: isChiefMedicalOfficer }),
             profile?.role,
             communityStaff,
           ),
