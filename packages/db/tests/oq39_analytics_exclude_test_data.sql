@@ -144,7 +144,12 @@ create function pg_temp.oq39_table_extras(p_tbl regclass) returns jsonb language
     ('safeguarding_concerns','concern_category','other'),('clinical_rule_events','source','cron'),('clinical_rules','specificity','50'),
     ('clinical_staff','active','true'),('clinical_staff','license_verified_at',now()::text),
     ('complaints','category','other'),('vitals_readings','vital_type','blood_pressure'),('vitals_readings','systolic','120'),('vitals_readings','diastolic','80'),('patient_risk_scores','score_type','bp_control'),('patient_timeline','trust_tier','system'),
-    ('clinical_rule_action_records','status','awaiting_oversight')
+    ('clinical_rule_action_records','status','awaiting_oversight'),
+    -- analytics_platform_overview (superadmin homepage, 2026-11-07) reads analytics_clean.patient_memberships, orders and
+    -- payments. A Paystack reference is 8 to 100 safe characters and unique, so each seeded order gets its own.
+    ('orders','paystack_reference','oq39ref' || substr(md5(random()::text), 1, 12)),
+    ('patient_memberships','source','purchase'),('patient_memberships','state','active'),
+    ('payments','source','webhook'),('payments','status','success')
   ) s(tbl, attname, val) where 'public.' || s.tbl = p_tbl::text or s.tbl = p_tbl::text $$;
 
 create function pg_temp.oq39_seed(p_tbl regclass, p_col text, p_person uuid, p_extra jsonb default '{}', p_depth int default 0, p_owner uuid default null, p_istest boolean default false, p_fresh boolean default false) returns void language plpgsql as $$

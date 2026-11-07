@@ -17,6 +17,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { CARE_PLAN_CATEGORY_ORDER, isCarePlanActionCategory, type CarePlanActionCategory } from "@/lib/care-plan/plan-view";
+import { CARE_PLAN_CATEGORY_LABEL } from "@/lib/care-plan/patient-copy";
+import { CarePlanReviewPanel, actionDetailLine } from "./care-plan-review-panel";
 
 const STATUS_BADGE: Record<CarePlanRow["status"], { label: string; variant: BadgeProps["variant"] }> = {
   draft: { label: "Draft (needs approval)", variant: "amber" },
@@ -132,6 +136,9 @@ function CarePlanCard({ plan, organisationId }: { plan: CarePlanRow; organisatio
 
         {showHistory && <VersionHistory carePlanId={plan.id} />}
 
+        {/* PD-06: review dates and "what changed" notes the patient sees. */}
+        <CarePlanReviewPanel plan={plan} />
+
         <GoalsList carePlanId={plan.id} organisationId={organisationId} patientId={plan.patient_id} />
         <InterventionsList carePlanId={plan.id} organisationId={organisationId} patientId={plan.patient_id} />
       </CardContent>
@@ -236,6 +243,10 @@ function InterventionsList({
   const removeIntervention = useRemoveCarePlanIntervention();
   const [newDescription, setNewDescription] = useState("");
   const [newFrequency, setNewFrequency] = useState("");
+  const [newCategory, setNewCategory] = useState<CarePlanActionCategory | "">("");
+  const [newWhy, setNewWhy] = useState("");
+  const [newWhen, setNewWhen] = useState("");
+  const [newHow, setNewHow] = useState("");
 
   const active = (interventions ?? []).filter((i) => i.status === "active");
 
@@ -251,6 +262,9 @@ function InterventionsList({
                 {intervention.description}
                 {intervention.frequency && (
                   <span className="text-charcoal-ink/50"> · {intervention.frequency}</span>
+                )}
+                {actionDetailLine(intervention) && (
+                  <span className="block text-xs text-charcoal-ink/50">{actionDetailLine(intervention)}</span>
                 )}
               </span>
               <button
@@ -277,6 +291,40 @@ function InterventionsList({
           placeholder="Frequency (optional)"
           className="h-8 w-40 text-xs"
         />
+        <Select
+          aria-label="Category the patient sees"
+          value={newCategory}
+          onChange={(event) => setNewCategory(isCarePlanActionCategory(event.target.value) ? event.target.value : "")}
+          className="h-8 w-44 text-xs"
+        >
+          <option value="">Category (optional)</option>
+          {CARE_PLAN_CATEGORY_ORDER.map((c) => (
+            <option key={c} value={c}>
+              {CARE_PLAN_CATEGORY_LABEL[c]}
+            </option>
+          ))}
+        </Select>
+        <Input
+          value={newWhy}
+          onChange={(event) => setNewWhy(event.target.value)}
+          placeholder="Why, in plain words (optional)"
+          maxLength={500}
+          className="h-8 w-full text-xs"
+        />
+        <Input
+          value={newWhen}
+          onChange={(event) => setNewWhen(event.target.value)}
+          placeholder="When, e.g. every morning before breakfast (optional)"
+          maxLength={300}
+          className="h-8 w-full text-xs"
+        />
+        <Input
+          value={newHow}
+          onChange={(event) => setNewHow(event.target.value)}
+          placeholder="How, e.g. sit quietly for five minutes first (optional)"
+          maxLength={500}
+          className="h-8 w-full text-xs"
+        />
         <Button
           type="button"
           size="sm"
@@ -290,11 +338,19 @@ function InterventionsList({
                 patientId,
                 description: newDescription.trim(),
                 frequency: newFrequency.trim() || null,
+                category: newCategory || null,
+                whyText: newWhy.trim() || null,
+                whenText: newWhen.trim() || null,
+                howText: newHow.trim() || null,
               },
               {
                 onSuccess: () => {
                   setNewDescription("");
                   setNewFrequency("");
+                  setNewCategory("");
+                  setNewWhy("");
+                  setNewWhen("");
+                  setNewHow("");
                 },
               },
             )
