@@ -94,6 +94,10 @@ test.describe("E6: a booking makes the round trip across patient and doctor scre
     // 4. The patient cancels from "Your upcoming appointments".
     await gotoRoute(patientPage, "/patient/appointments");
     await patientPage.getByRole("button", { name: "Cancel", exact: true }).first().click();
+    // P15: Cancel now asks "Cancel this appointment?" first; nothing is cancelled until the patient confirms.
+    const confirm = patientPage.getByRole("dialog", { name: "Cancel this appointment?" });
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole("button", { name: "Yes, cancel it" }).click();
     await expect
       .poll(() => psql(`select status::text from public.appointments where patient_id = '${patient.userId}'`), { timeout: 30_000 })
       .toMatch(/cancelled/);
