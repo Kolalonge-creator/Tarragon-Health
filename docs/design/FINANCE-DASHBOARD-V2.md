@@ -104,3 +104,10 @@ Decisions taken in C1 (for the founder to confirm):
 Follow-ups:
 - Nobody is notified when a refund is waiting for a second approver; the workspace highlights it and the sidebar badge counts it. A notification to other approvers is worth adding once there is more than one.
 - The admin-only retry/settle panel still loads the old pending list it no longer shows (one wasted query per admin visit).
+
+## 11. Phase C2 notes and follow-ups
+
+- Memberships redeemed from a Care Voucher are counted apart, not as paid, on both the overview and the Membership page (the voucher may be a reward). A bought voucher's money is counted when the voucher is paid for.
+- **Employer invoices are not split by what they bill.** `employer_invoices` has no item type, so a screening-day invoice and a Membership-seat invoice both count as employer Membership revenue. The Membership page labels the line "Employer invoices paid". Fix: add an invoice purpose (seats / screening / other) when employer billing next changes.
+- The new Membership, sponsorship and employer reads are not limited to the caller's organisation: an employer Membership belongs to the employer's organisation, so a caller-organisation filter would hide it. Revisit if a second Tarragon tenant ever exists.
+- Employer revenue repeats a renewal-date lookup per employer; fine at today's handful of employers.
