@@ -111,4 +111,22 @@ HR-5 (phase order after A) is still open.
 - Not in Phase A: staff self-service (viewing their own record, editing their own contact and address; the database
   already allows both), training, leave, supervision, onboarding checklists, reports and export.
 
-Found in passing, still open: credentialing uploads to `clinician-documents` are not run through the ClamAV scan.
+Found in passing: credentialing uploads to `clinician-documents` were not run through the ClamAV scan. Fixed in a
+separate PR (#1823).
+
+## 8. Phase B as built (2026-11-07): training
+
+- Migration `20261107035358_hr_people_phase_b_training.sql`: `staff_training_courses` (mandatory or professional, optional
+  renewal period), `staff_training_requirements` (everyone, a role or a department; due a set number of days after the later
+  of the person's start date and the day the rule was added; removed rules are kept), `staff_training_completions`
+  (never edited or deleted, voided with a reason; counts only once verified by an admin who is not the person), and
+  `people_training_records()`. Proof: `packages/db/tests/hr_people_phase_b_training.sql`.
+- Status per person and course (`lib/people/training.ts`): Compliant, Due soon (30 days before renewal, or not yet done
+  and not yet due), Overdue, Pending verification. An unverified completion is never compliant. Headline figure is a
+  plain "x of y mandatory requirements met", never a blended score.
+- Pages: `/admin/people/training` (figures, who has done what, requirements, catalogue), a Training tab on each profile
+  (required courses, record a completion, history with verify and void), a Training column in the directory, and overdue or
+  unverified training in the overview's attention list.
+- Nothing is seeded: which courses are mandatory, and for whom, is entered on the page.
+- Not in Phase B: certificate file upload (a new storage path that must go through the malware scan), staff recording their
+  own training, reminders before a course is due.

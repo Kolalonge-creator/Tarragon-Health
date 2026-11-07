@@ -219,6 +219,7 @@ export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Security", href: "/admin/security", group: "Security and privacy", hint: "Failed sign-ins, open security alerts, staff two-step sign-in, dormant accounts, privileged changes and exports." },
   { label: "Staff directory", href: "/admin/people/directory", group: "People and HR", hint: "Every staff member, their job title, department, line manager, status and credential state." },
   { label: "Departments", href: "/admin/people/departments", group: "People and HR", hint: "Tarragon's own departments and who heads each one." },
+  { label: "Staff training", href: "/admin/people/training", group: "People and HR", hint: "Mandatory and professional training: courses, who must do them, who is overdue and what needs verifying." },
   { label: "Staff access review", href: "/admin/staff-access-review", group: "Security and privacy", hint: "Every quarter, confirm each staff account still needs its access; keep, change or remove." },
   { label: "Providers", href: "/admin/ops/providers", group: "Operations", hint: "Whether Paystack, Zoom and Resend are answering, settlement breaks against the ledger, and the webhook inbox with replay." },
   { label: "Event bus", href: "/admin/ops/event-bus", group: "Operations", hint: "Every event the platform recorded, who handled it, what is stuck, and replay." },

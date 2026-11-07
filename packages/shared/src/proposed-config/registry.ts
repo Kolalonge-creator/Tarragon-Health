@@ -1593,6 +1593,17 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "apps/web/src/lib/people/attention.ts; HR Phase A 2026-11-07",
   },
   {
+    key: "hr.attention_windows",
+    // HR Phase B (2026-11-07): adds training. A verified course shows "due soon" 30 days before it needs renewing. The other
+    // three windows are unchanged from version 1. PROPOSED, owner Founder.
+    value: { licence_warn_days: 90, indemnity_warn_days: 60, contract_warn_days: 60, training_warn_days: 30 },
+    owner: "Founder",
+    status: "proposed",
+    version: 2,
+    effectiveFrom: "2026-11-07",
+    source: "apps/web/src/lib/people/attention.ts, apps/web/src/lib/people/training.ts; HR Phase B 2026-11-07",
+  },
+  {
     key: "security.rules",
     // Security thresholds (S39). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
     // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named): how many failed lookups on a
