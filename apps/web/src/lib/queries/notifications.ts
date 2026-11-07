@@ -63,6 +63,36 @@ export function useInAppNotifications() {
   });
 }
 
+const CENTRE_PAGE_SIZE = 25;
+
+/** P19: the notification centre's full in-app history, newest first, paged. Same filters as the bell (own rows only, in_app only, never
+ * the relabelled failed/suppressed WhatsApp rows). Its key sits under inAppNotificationsKey, so marking one read refreshes both. */
+export function useInAppNotificationHistory() {
+  return useInfiniteQuery({
+    queryKey: [...inAppNotificationsKey, "history"] as const,
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }): Promise<{ rows: InAppNotification[]; hasMore: boolean }> => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return { rows: [], hasMore: false };
+      const from = pageParam * CENTRE_PAGE_SIZE;
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("id, status, template, payload, created_at, priority, response_options, responded_at, response_value")
+        .eq("recipient_id", user.id)
+        .eq("channel", "in_app")
+        .not("status", "in", "(failed,suppressed)")
+        .order("created_at", { ascending: false })
+        .range(from, from + CENTRE_PAGE_SIZE - 1);
+      if (error) throw error;
+      return { rows: data ?? [], hasMore: (data?.length ?? 0) === CENTRE_PAGE_SIZE };
+    },
+    getNextPageParam: (lastPage, allPages) => (lastPage.hasMore ? allPages.length : undefined),
+  });
+}
+
 export type CommunicationHistoryRow = Pick<
   Tables<"notifications">,
   | "id"
