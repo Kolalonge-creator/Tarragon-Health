@@ -90,8 +90,8 @@ begin
 
   -- 2. The rules -----------------------------------------------------------------------------------------------
   -- 19 since 2026-11-05: the 14 SR5 rules, the four security rules (*_security_sign_in_logging_and_alerts.sql) and
-  -- ai_call_failures (*_ops_alert_ai_call_failures.sql).
-  perform pg_temp.rec('19 rules', '19', (select count(*)::text from public.ops_alert_rules));
+  -- ai_call_failures (*_ops_alert_ai_call_failures.sql); 20 since 2026-11-07 with support_sla_breach (*_sup_c_support_sla_breach_alert.sql).
+  perform pg_temp.rec('20 rules', '20', (select count(*)::text from public.ops_alert_rules));
   perform pg_temp.rec('every rule has a check function', '0',
     (select count(*)::text from public.ops_alert_rules r where to_regproc('private.ops_check_' || r.code) is null));
   perform pg_temp.rec('the three rules with no feed ship off, each with a reason', '3|3',

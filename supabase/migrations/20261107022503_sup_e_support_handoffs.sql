@@ -78,6 +78,15 @@ grant execute on function private.can_receive_support_handoff(text) to authentic
 select private.classify_minor_dependant_table('support_handoffs', 'exempt',
   'support desk hand-off: staff operational record, written only by staff RPCs, never by a patient or guardian');
 
+-- Data registry (S39d): the same class as the support item it is about (support_tickets, navigation_requests, complaints).
+-- In the subject's export: the reason and outcome are about them. Class set by the migration author, not yet reviewed.
+insert into public.data_registry (table_name, patient_expr, retention_class, end_of_retention, in_export, reviewed, notes)
+values ('support_handoffs', 'patient_id', 'clinical_record', 'review', true, false,
+        'Support desk hand-off to Finance, Technical Ops, Provider Ops, Membership Ops or senior management (SUP-2): the reason support wrote, '
+        'the receiving team''s outcome and the wording for the customer. Same class as the support item it is about. Class assigned by the '
+        'migration author, not yet reviewed by the CMO and DPO.')
+on conflict (table_name) do nothing;
+
 alter table public.support_handoffs enable row level security;
 
 create policy support_handoffs_read on public.support_handoffs
