@@ -1,14 +1,7 @@
-import type { DoseDay } from "@/lib/medicines/dose-history";
+import { doseDayText, type DoseDay } from "@tarragon/medicines";
 
-function dayLabel(date: string): string {
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", weekday: "short", day: "numeric", month: "short" });
-}
-
-/** Words for one day, used for the hover label and the screen-reader table. */
-export function doseDayText(day: DoseDay): string {
-  if (day.due === 0) return `${dayLabel(day.date)}: nothing was due`;
-  return `${dayLabel(day.date)}: ${day.taken} of ${day.due} marked taken`;
-}
+/** Words for one day (hover label and screen-reader table); shared with the phone app. */
+export { doseDayText };
 
 /**
  * Doses per day as bars (2026-11-06, chosen in a prompt). Each bar's full height is the doses due that day; the filled part is

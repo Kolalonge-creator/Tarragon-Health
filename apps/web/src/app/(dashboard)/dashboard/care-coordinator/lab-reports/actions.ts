@@ -10,6 +10,7 @@ import { renderManualEntryPdf } from "@/lib/clinical-documents/manual-entry-pdf"
 import { criticalReasonFor } from "@/lib/lab-reports/escalation-bridge";
 import { DUPLICATE_DOCUMENT_MESSAGE, isDuplicateDocumentError } from "@/lib/clinical-documents/duplicate";
 import { describeDocumentRefusal } from "@/lib/clinical-documents/status";
+import { canCoordinate } from "@/lib/care-coordinator/access";
 
 /**
  * Clinical document engine step 2 (decision CDE-03): a Care Coordinator uploads a lab report for a patient, usually one a
@@ -19,6 +20,19 @@ import { describeDocumentRefusal } from "@/lib/clinical-documents/status";
  */
 
 const UPLOADER_ROLES = new Set(["care_coordinator", "lab_liaison"]);
+
+/** CC-1: a doctor covering coordination (employed Senior Medical Officer, or the CMO) may upload too; private.cde_uploader_org agrees. */
+async function mayUpload(supabase: ServerClient, userId: string, role: string): Promise<boolean> {
+  if (UPLOADER_ROLES.has(role)) return true;
+  if (role !== "clinician") return false;
+  const { data: staff } = await supabase
+    .from("clinical_staff")
+    .select("doctor_tier, employment_type, active")
+    .eq("profile_id", userId)
+    .eq("active", true)
+    .maybeSingle();
+  return canCoordinate(role, staff);
+}
 
 /** A Postgres refusal carries a five-character SQLSTATE; a network failure or timeout does not. */
 function isDatabaseRefusal(error: { code?: string }): boolean {
@@ -93,7 +107,7 @@ async function checkUploader(
   patientId: string,
 ): Promise<{ meName: string; patientName: string; patientSex: string | null; patientDob: string | null } | { error: string }> {
   const { data: me } = await supabase.from("profiles").select("role, organisation_id, full_name").eq("id", userId).single();
-  if (!me || !UPLOADER_ROLES.has(me.role) || !me.organisation_id) return { error: "You do not have access to that." };
+  if (!me || !me.organisation_id || !(await mayUpload(supabase, userId, me.role))) return { error: "You do not have access to that." };
   const { data: patient } = await supabase
     .from("profiles")
     .select("id, organisation_id, role, full_name, sex, date_of_birth")

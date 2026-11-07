@@ -161,6 +161,8 @@ const EXTRA_KEYWORDS: ReadonlyArray<readonly [string, string]> = [
   ["/clinician/payout-approvals", "payout payouts approve approval approvals weekly draft pay clinician contracted cmo chief medical officer money"],
   ["/admin/earnings", "fee fees schedule earnings earned pay paid payout ledger contracted clinician per task consultation share on call shift lead month minimum guarantee adjustment correction statement salary kobo naira"],
   ["/admin/earnings/disputes", "earnings question dispute disputed line hold held response overdue answer correction reject pilot minimum top up activity check release deny contracted clinician finance"],
+  ["/finance/transactions", "transactions directory all payments failed refunds filter search export csv payer beneficiary sponsor employer settlement settled awaiting exception reference paystack ledger lookup"],
+  ["/finance/glossary", "finance glossary definitions definition gross payment volume gpv net collections recognised revenue refunds success rate memberships paid sponsor family employer what does this mean metric"],
   ["/finance/money-reconciliation", "money reconciliation mismatch mismatches disagree one money truth paystack payment order entitlement refund stuck reversal consultation share earnings payout ledger journal 2000 4900 5200 finance read only"],
   ["/finance/settlement-tieout", "settlement tie-out tieout paystack settlement settled matched missing in ledger missing at paystack exceptions daily reconcile break finance read only"],
   ["/admin/payouts", "payout payouts weekly draft approve send paystack transfer bank account verified retry failed reversed clinician pay finance"],

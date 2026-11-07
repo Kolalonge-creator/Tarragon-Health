@@ -14,6 +14,10 @@ import { CommunicationPreferencesForm } from "@/app/(dashboard)/patient/communic
 import { GlucoseUnitForm } from "@/app/(dashboard)/patient/glucose-unit-form";
 import { MeasurementUnitsForm } from "@/app/(dashboard)/patient/measurement-units-form";
 import { CommunicationHistoryCard } from "@/app/(dashboard)/patient/communication-history-card";
+import Link from "next/link";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SignOutOtherDevicesCard } from "@/components/account/sign-out-other-devices-card";
+import { IdentityChangeCard } from "./identity-change-card";
 
 /**
  * One settings group as a collapsible section (design audit P3). "About you" starts open because it holds the emergency contact;
@@ -43,7 +47,7 @@ function SettingsGroup({
 }
 
 export default async function PatientProfilePage() {
-  const { profile, measurementUnits } = await getPatientDashboardContext();
+  const { profile, measurementUnits, acting } = await getPatientDashboardContext();
 
   return (
     <DashboardSection
@@ -59,6 +63,7 @@ export default async function PatientProfilePage() {
       )}
       <SettingsGroup id="about-you" title="About you" description="Your photo, height and who we call in an emergency." defaultOpen>
         <AvatarUploadForm fullName={profile.full_name ?? "Account"} avatarUrl={profile.avatar_url} />
+        <IdentityChangeCard fullName={profile.full_name} dateOfBirth={profile.date_of_birth} acting={!!acting} />
         <HeightForm initial={{ height_cm: profile.height_cm }} />
         <EmergencyContactForm
           initial={{
@@ -88,11 +93,24 @@ export default async function PatientProfilePage() {
         />
       </SettingsGroup>
 
-      <SettingsGroup id="sign-in-security" title="Sign-in & security" description="Password, phone, backup codes and passkeys.">
+      <SettingsGroup id="sign-in-security" title="Sign-in & security" description="Password, phone, backup codes, passkeys, two-step sign-in and your other devices.">
         <ChangePasswordForm />
         <ChangePhoneCard />
         <BackupCodesCard />
         <PasskeysCard />
+        {/* P21: two-step sign-in is set up on the account page (one place, shared with every role); this is the way there. */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Two-step sign-in</CardTitle>
+            <CardDescription>Add a code from an authenticator app each time you sign in, for extra protection.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/account#two-step-sign-in" className="text-sm font-medium text-brand-green underline">
+              Set up or manage two-step sign-in
+            </Link>
+          </CardContent>
+        </Card>
+        <SignOutOtherDevicesCard confirmFirst />
       </SettingsGroup>
 
       <Disclosure title="Messages we have sent you" hint="A record of reminders and notices">

@@ -112,11 +112,11 @@ function timeAgo(iso: string): string {
 
 /** Reads the `notifications` table's in_app channel — see lib/queries/notifications.ts
  * for why this exists (the channel and its RLS predate any UI that showed it). */
-export function NotificationBell() {
+export function NotificationBell({ allHref }: { allHref?: string } = {}) {
   const [open, setOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const { data } = useInAppNotifications();
+  const { data, isError } = useInAppNotifications();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const respond = useRespondToNotification();
@@ -180,7 +180,12 @@ export function NotificationBell() {
             )}
           </div>
           <div className="max-h-80 overflow-y-auto">
-            {items.length === 0 ? (
+            {isError && items.length === 0 ? (
+              // A failed read is not an empty inbox: say so instead of "No notifications yet".
+              <p role="alert" className="px-4 py-6 text-center text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+                Couldn&apos;t load your notifications. Please try again.
+              </p>
+            ) : items.length === 0 ? (
               <p className="px-4 py-6 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">
                 No notifications yet.
               </p>
@@ -267,6 +272,22 @@ export function NotificationBell() {
               </ul>
             )}
           </div>
+          {/* P19: the full history lives on the patient notification centre. Staff consoles pass no href and get no link. */}
+          {allHref && (
+            <div className="border-t border-charcoal-ink/10 px-4 py-2.5 text-center dark:border-night-ink/15">
+              <a
+                href={allHref}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setOpen(false);
+                  router.push(allHref);
+                }}
+                className="text-xs font-medium text-brand-green hover:underline dark:text-brand-green-bright"
+              >
+                See all notifications
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>

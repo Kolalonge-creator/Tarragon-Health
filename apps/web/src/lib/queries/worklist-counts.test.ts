@@ -28,9 +28,15 @@ function stubClient(result: CountResult): Client {
     builder[method] = () => builder;
   }
   // list_second_opinion_worklist returns the open requests themselves (an array), not a number; the counter takes its length.
+  // finance_open_item_counts returns one object with a count per finance badge.
   builder.rpc = (fn: string) =>
     Promise.resolve({
-      data: fn === "list_second_opinion_worklist" && result.count !== null ? Array.from({ length: result.count }) : result.count,
+      data:
+        fn === "list_second_opinion_worklist" && result.count !== null
+          ? Array.from({ length: result.count })
+          : fn === "finance_open_item_counts" && result.count !== null
+            ? { reconciliation: result.count, fraud: result.count, approvals: result.count }
+            : result.count,
       error: result.error,
     });
   return builder as unknown as Client;
@@ -39,8 +45,8 @@ function stubClient(result: CountResult): Client {
 const KEYS = Object.keys(COUNTERS) as WorklistCountKey[];
 
 describe("worklist counters", () => {
-  it("covers every worklist the clinician dashboard counts", () => {
-    expect(KEYS.length).toBe(37);
+  it("covers every worklist the clinician dashboard counts, plus the three finance badges", () => {
+    expect(KEYS.length).toBe(40);
   });
 
   it.each(KEYS)("%s returns the live count when the query succeeds", async (key) => {
@@ -90,7 +96,8 @@ describe("worklist counters exclude test patients (INV-13)", () => {
 
   const TABLE_BACKED = KEYS.filter((key) => {
     const filters: Filter[] = [];
-    void COUNTERS[key](recordingClient(filters), []);
+    // Only the filters matter here; an RPC-backed counter may reject the stub's bare number, which is fine.
+    void COUNTERS[key](recordingClient(filters), []).catch(() => undefined);
     return filters.some((f) => f.method === "from");
   });
 
