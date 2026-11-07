@@ -2,9 +2,9 @@
 -- period and the equal-length period before it, plus a live snapshot.
 --
 -- Read-only (STABLE), SECURITY DEFINER, analyst/admin only. A refused caller gets SQLSTATE 42501, never an empty
--- object, so the page can never draw a refused read as zeros. Test data is left out the same way every analytics_*
--- reader does it (analytics_clean views), and explicitly on the two tables read directly (patient_memberships.is_test,
--- payment_transactions.is_test).
+-- object, so the page can never draw a refused read as zeros. Test data is left out the way every analytics_* reader
+-- does it: only analytics_clean views are read (the OQ-39 rule, enforced by oq39_analytics_exclude_test_data.sql). This
+-- migration registers three new ones in private.analytics_clean_view_sources: patient_memberships, orders and payments.
 --
 -- Definitions, shown on the page beside each figure:
 --   registrations           patient profiles created in the window.
@@ -28,8 +28,19 @@
 -- Snapshot (now): active memberships by source (state active, started, not past ends_at), registered patients, patients
 -- with no active membership (Free), memberships ending in the next 30 days.
 --
--- No row is written, nothing is switched on, no existing function is changed. ROLLBACK: drop function
--- public.analytics_platform_overview(timestamptz, timestamptz).
+-- No data row is written, nothing is switched on, no existing function is changed. ROLLBACK: drop the two functions,
+-- delete the three view sources, drop views analytics_clean.patient_memberships/orders/payments.
+
+-- Test-filtered views for the three tables this reader needs (rebuilt by the registry, security_invoker, no grants).
+insert into private.analytics_clean_view_sources (view_name, source_rel, definition) values
+  ('patient_memberships', 'public.patient_memberships', $def$
+  select t.* from public.patient_memberships t where not t.is_test and not exists (select 1 from public.profiles tp where tp.id = t.patient_id and tp.is_test)$def$),
+  ('orders', 'public.orders', $def$
+  select t.* from public.orders t where not t.is_test and not exists (select 1 from public.profiles tp where tp.id in (t.buyer_profile_id, t.beneficiary_patient_id) and tp.is_test)$def$),
+  ('payments', 'public.payments', $def$
+  select t.* from public.payments t where not t.is_test and not exists (select 1 from public.orders o where o.id = t.order_id and o.is_test)$def$)
+  on conflict (view_name) do update set source_rel = excluded.source_rel, definition = excluded.definition;
+select private.rebuild_analytics_clean_views();
 
 create or replace function public.analytics_platform_overview(p_from timestamptz, p_to timestamptz)
  returns jsonb
@@ -43,7 +54,7 @@ begin
   if not private.is_analyst() then
     raise exception 'analytics_platform_overview_not_authorised' using errcode = '42501';
   end if;
-  if p_from is null or p_to is null or p_from >= p_to or p_to - p_from > interval '400 days' then
+  if p_from is null or p_to is null or p_from >= p_to or p_to - p_from > interval '1500 days' then
     raise exception 'analytics_platform_overview_bad_range' using errcode = '22023';
   end if;
   v_prev_from := p_from - (p_to - p_from);
@@ -55,7 +66,7 @@ begin
     'snapshot', (
       with active as (
         select m.source
-          from public.patient_memberships m
+          from analytics_clean.patient_memberships m
           join analytics_clean.real_patient_ids rp on rp.patient_id = m.patient_id
          where not m.is_test and m.state = 'active' and m.starts_at <= now() and (m.ends_at is null or m.ends_at > now())
       ), patients as (
@@ -70,12 +81,12 @@ begin
           select count(*) from analytics_clean.profiles p
            where p.role = 'patient'
              and not exists (
-               select 1 from public.patient_memberships m
+               select 1 from analytics_clean.patient_memberships m
                 where m.patient_id = p.id and not m.is_test and m.state = 'active' and m.starts_at <= now()
                   and (m.ends_at is null or m.ends_at > now()))
         ),
         'ending_next_30d', (
-          select count(*) from public.patient_memberships m
+          select count(*) from analytics_clean.patient_memberships m
             join analytics_clean.real_patient_ids rp on rp.patient_id = m.patient_id
            where not m.is_test and m.state = 'active' and m.ends_at > now() and m.ends_at <= now() + interval '30 days'
         )
@@ -94,7 +105,7 @@ create or replace function private.platform_overview_window(p_from timestamptz, 
 as $function$
   with started as (
     select m.source
-      from public.patient_memberships m
+      from analytics_clean.patient_memberships m
       join analytics_clean.real_patient_ids rp on rp.patient_id = m.patient_id
      where not m.is_test and m.starts_at >= p_from and m.starts_at < p_to and m.starts_at <= now() and m.state <> 'scheduled'
   ), money as (
@@ -104,7 +115,7 @@ as $function$
        and t.currency = 'NGN'
   ), order_paid as (
     select p.total_kobo::bigint amount
-      from public.payments p
+      from analytics_clean.payments p
      where not p.is_test and p.status = 'success' and p.verified_at >= p_from and p.verified_at < p_to
   )
   select jsonb_build_object(
@@ -112,7 +123,7 @@ as $function$
     'memberships_started', (select count(*) from started),
     'started_by_source', (select coalesce(jsonb_object_agg(source, n), '{}'::jsonb) from (select source, count(*) n from started group by source) s),
     'memberships_ended', (
-      select count(*) from public.patient_memberships m
+      select count(*) from analytics_clean.patient_memberships m
         join analytics_clean.real_patient_ids rp on rp.patient_id = m.patient_id
        where not m.is_test and m.state in ('ended', 'lapsed')
          and coalesce(m.ended_at, m.ends_at) >= p_from and coalesce(m.ended_at, m.ends_at) < p_to
@@ -127,7 +138,7 @@ as $function$
        where not t.is_test and t.event_type::text in ('charge.failed', 'invoice.payment_failed')
          and t.created_at >= p_from and t.created_at < p_to
     ) + (
-      select count(*) from public.orders o
+      select count(*) from analytics_clean.orders o
        where not o.is_test and o.state = 'failed' and o.updated_at >= p_from and o.updated_at < p_to
     ),
     'notifications_sent', (select count(*) from analytics_clean.notifications where sent_at >= p_from and sent_at < p_to),
