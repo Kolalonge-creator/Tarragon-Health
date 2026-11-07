@@ -4,7 +4,6 @@ import { useVitalsReadings } from "@/lib/queries/vitals";
 import { buildLatestBpHero } from "@/lib/vitals/latest-bp-hero";
 import { HeroMetric } from "@/components/ui/hero-metric";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
@@ -27,6 +26,7 @@ export function LatestBpHero({ patientId }: { patientId: string }) {
   if (isError) return null; // the history card below already reports the failure; no second alarm here
   const hero = buildLatestBpHero(data ?? []);
 
+  // Empty: no button here. The page already has one "+ Log a reading" button at the top (founder choice, 2026-11-07).
   if (!hero) {
     return (
       <div className="rounded-2xl bg-white dark:bg-night-card">
@@ -34,7 +34,6 @@ export function LatestBpHero({ patientId }: { patientId: string }) {
           icon={SEMANTIC_ICON.bp}
           title="No readings yet"
           body="Log your first blood pressure below. It takes under a minute."
-          action={<Button asChild><a href="#log-reading">Log a reading</a></Button>}
         />
       </div>
     );
