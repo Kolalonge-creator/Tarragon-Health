@@ -112,7 +112,7 @@ function timeAgo(iso: string): string {
 
 /** Reads the `notifications` table's in_app channel — see lib/queries/notifications.ts
  * for why this exists (the channel and its RLS predate any UI that showed it). */
-export function NotificationBell() {
+export function NotificationBell({ allHref }: { allHref?: string } = {}) {
   const [open, setOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -267,6 +267,22 @@ export function NotificationBell() {
               </ul>
             )}
           </div>
+          {/* P19: the full history lives on the patient notification centre. Staff consoles pass no href and get no link. */}
+          {allHref && (
+            <div className="border-t border-charcoal-ink/10 px-4 py-2.5 text-center dark:border-night-ink/15">
+              <a
+                href={allHref}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setOpen(false);
+                  router.push(allHref);
+                }}
+                className="text-xs font-medium text-brand-green hover:underline dark:text-brand-green-bright"
+              >
+                See all notifications
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>

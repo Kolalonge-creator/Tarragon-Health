@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ensureAppointmentVideoConsultation } from "@/app/(dashboard)/patient/appointments/video-actions";
 import { confirmAppointmentAndSetupVideo } from "@/lib/appointments/confirm-with-video-setup";
 import type { Tables, Enums } from "@tarragon/shared";
+import { HISTORY_STATUSES, type AppointmentHistoryView } from "@/lib/appointments/appointment-views";
 import { toConsultSlots, type BookableConsultSlotRow } from "@/lib/consultations/slots";
 
 export type Appointment = Tables<"appointments">;
@@ -37,6 +38,7 @@ const CONSULT_ROLE_BY_TYPE: Record<string, "doctor" | "dietitian" | "pharmacist"
 export const appointmentKeys = {
   availableSlots: (params: Record<string, unknown>) => ["appointments", "available-slots", params] as const,
   myUpcoming: (patientId: string) => ["appointments", "my-upcoming", patientId] as const,
+  myHistory: (patientId: string, view: string) => ["appointments", "my-history", patientId, view] as const,
   clinicianUpcoming: (clinicianId: string) => ["appointments", "clinician-upcoming", clinicianId] as const,
   myWaitingList: (patientId: string) => ["appointments", "waiting-list", "mine", patientId] as const,
   availabilityRules: (clinicianId: string) => ["appointments", "availability-rules", clinicianId] as const,
@@ -107,6 +109,26 @@ export function useMyUpcomingAppointments(patientId: string) {
         .eq("patient_id", patientId)
         .in("status", UPCOMING_STATUSES)
         .order("scheduled_for", { ascending: true });
+      if (error) throw error;
+      return data as (Appointment & { clinician: { full_name: string | null } | null })[];
+    },
+  });
+}
+
+/** P15: past, cancelled or missed appointments, newest first (HISTORY_STATUSES). RLS decides who may read them, a supporter included. */
+export function useMyAppointmentHistory(patientId: string, view: AppointmentHistoryView, enabled = true) {
+  return useQuery({
+    queryKey: appointmentKeys.myHistory(patientId, view),
+    enabled: enabled && !!patientId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("*, clinician:profiles!appointments_clinician_id_fkey(full_name)")
+        .eq("patient_id", patientId)
+        .in("status", HISTORY_STATUSES[view] as AppointmentStatus[])
+        .order("scheduled_for", { ascending: false })
+        .limit(50);
       if (error) throw error;
       return data as (Appointment & { clinician: { full_name: string | null } | null })[];
     },

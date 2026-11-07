@@ -821,7 +821,7 @@ export function AppShell({
               {adminSearch && adminSearch.length > 0 && <AdminSearch entries={adminSearch} kind={searchKind} />}
               <DeviceHeartbeat />
               <PushSubscribePrompt />
-              <NotificationBell />
+              <NotificationBell allHref={surface === "warm" ? "/patient/notifications" : undefined} />
               <ProfileMenu
                 userName={userName}
                 avatarUrl={avatarUrl}
