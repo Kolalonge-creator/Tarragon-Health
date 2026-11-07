@@ -67,7 +67,8 @@ export async function loadStaffCandidates(): Promise<Loaded<StaffCandidate[]>> {
   const { data, error } = await supabase
     .from("profiles")
     .select("id, full_name, role")
-    .in("role", ["care_coordinator", "clinician"])
+    // the same list as private.community_internal_staff_role(): any internal staff account can be given a Community role (COM-31)
+    .in("role", ["admin", "clinician", "care_coordinator", "analyst", "finance"])
     .eq("is_active", true)
     .order("full_name", { ascending: true });
   if (error || !data) return { ok: false };

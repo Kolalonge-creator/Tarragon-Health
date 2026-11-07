@@ -24,8 +24,8 @@ export function GrantStaffForm({ candidates, groups }: { candidates: Candidate[]
         <input id="gs-paste" name="profile_id_pasted" aria-describedby="gs-paste-help" autoComplete="off" className={field} />
         <p id="gs-paste-help" className={help}>
           {candidates && candidates.length > 0
-            ? "Only needed if the person is not in the list. Only care coordinator and clinician accounts can be given a permission. If both are given, the pasted id is used."
-            : "The list of staff could not be loaded, so paste the id of an active care coordinator or clinician account."}
+            ? "Only needed if the person is not in the list. Any active staff account (admin, clinician, care coordinator, analyst or finance) can be given a permission. If both are given, the pasted id is used."
+            : "The list of staff could not be loaded, so paste the id of an active staff account."}
         </p>
       </div>
       <fieldset>
@@ -39,6 +39,10 @@ export function GrantStaffForm({ candidates, groups }: { candidates: Candidate[]
             <input id="gs-safe" type="radio" name="scope" value="safety_reviewer" className="mt-1" />
             <label htmlFor="gs-safe">Safety reviewer: sees posts flagged for emergency or self-harm language.</label>
           </div>
+          <div className="flex items-start gap-2">
+            <input id="gs-senior" type="radio" name="scope" value="senior_moderator" className="mt-1" />
+            <label htmlFor="gs-senior">Senior moderator: everything a moderator does, plus the harder cases other moderators pass up. Covers every group and includes the moderator permission.</label>
+          </div>
         </div>
       </fieldset>
       <div>
@@ -47,7 +51,7 @@ export function GrantStaffForm({ candidates, groups }: { candidates: Candidate[]
           <option value="">All groups</option>
           {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
         </select>
-        <p className={help}>Leave blank to cover every group.</p>
+        <p className={help}>Leave blank to cover every group. Safety reviewer and senior moderator always cover every group.</p>
       </div>
     </ActionForm>
   );

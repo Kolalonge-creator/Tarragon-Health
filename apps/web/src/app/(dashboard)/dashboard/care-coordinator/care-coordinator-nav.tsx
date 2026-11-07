@@ -24,7 +24,7 @@ const TABS = [
  * per lib/navigation.ts). */
 export function CareCoordinatorNav({ showCommunity = false }: { showCommunity?: boolean }) {
   const pathname = usePathname();
-  const tabs = showCommunity ? [...TABS, { href: "/dashboard/care-coordinator/community", label: "Community", exact: false }] : TABS;
+  const tabs = showCommunity ? [...TABS, { href: "/community-desk", label: "Community desk", exact: false }] : TABS;
   return (
     <nav className="flex flex-wrap gap-1 border-b border-charcoal-ink/10">
       {tabs.map((tab) => {

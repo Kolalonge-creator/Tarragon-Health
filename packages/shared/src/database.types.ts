@@ -53480,6 +53480,7 @@ export type Database = {
       community_cmo_load_starter_safety_rules: { Args: never; Returns: Json }
       community_coverage: { Args: never; Returns: Json }
       community_delete_own_post: { Args: { p_post_id: string }; Returns: Json }
+      community_desk_overview: { Args: { p_days?: number }; Returns: Json }
       community_dpo_candidates: { Args: never; Returns: Json }
       community_edit_post: { Args: { p_post_id: string; p_body: string }; Returns: Json }
       community_feed: { Args: { p_group_id: string; p_before?: string; p_limit?: number; p_sort?: string }; Returns: Json }

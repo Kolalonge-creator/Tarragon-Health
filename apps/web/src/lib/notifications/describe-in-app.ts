@@ -1,4 +1,5 @@
 import { t, type MessageKey } from "@tarragon/i18n";
+import { communityDeskQueueHref } from "@/components/community/community-nav";
 /** The two fields the copy depends on. `InAppNotification` (lib/queries/notifications.ts) satisfies it, and keeping it
  * structural lets the INV-07 lint in packages/notifications render every case without loading the web app. */
 export interface InAppNotificationInput {
@@ -1207,14 +1208,12 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
   return { text: "You have an update", href: "/patient" };
 }
 
-/** The console page a staff reader opens for Community work. `area` is stamped by the database from the reader's role; a clinician is the default. */
-function communityStaffHref(area: unknown, kind: "safety" | "queue"): string {
-  const tab = kind === "safety" ? "safety" : "moderation";
-  if (area === "coordinator") return `/dashboard/care-coordinator/community?tab=${tab}`;
-  if (area === "analyst") return `/analytics/community?tab=${tab}`;
-  if (area === "finance") return `/finance/community?tab=${tab}`;
-  if (area === "admin") return `/admin/community/moderation?tab=${tab}`;
-  return `/clinician/community/moderation?tab=${tab}`;
+/**
+ * The page a staff reader opens for Community work: the shared Community desk (COM-31), whatever their role. `area` is still stamped
+ * by the database and no longer changes the address; older notices that carry it land in the same place.
+ */
+function communityStaffHref(_area: unknown, kind: "safety" | "queue"): string {
+  return communityDeskQueueHref(kind === "safety" ? "safety" : "moderation");
 }
 
 function communityNotice(title: MessageKey, body: MessageKey, href: string): { text: string; href: string } {

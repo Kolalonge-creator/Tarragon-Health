@@ -702,6 +702,8 @@ export function getNavSections(
             { label: "Symptom checker safety", href: "/admin/symptom-safety", icon: "governance" },
             // Community groups, topics, moderators, filter rules, the recorded member lookup.
             { label: "Community", href: "/admin/community", icon: "messages" },
+            // The shared moderation desk every Community role holder uses (COM-31); an admin always has it.
+            { label: "Community desk", href: "/community-desk", icon: "messages" },
             // Grant or end a Membership by hand until checkout exists (S22b).
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // What can be bought, its price and its history; switch an item on or off (S25).

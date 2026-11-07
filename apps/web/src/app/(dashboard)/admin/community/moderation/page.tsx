@@ -1,19 +1,9 @@
-import { ModerationDesk } from "@/components/community/moderation-desk";
-import { CommunityNav } from "../community-nav";
-import { requireAdmin } from "../load";
-import { h1 } from "../ui";
+import { redirect } from "next/navigation";
+import { communityDeskQueueHref } from "@/components/community/community-nav";
 
-export const metadata = { title: "Community moderation" };
 export const dynamic = "force-dynamic";
 
-/** The moderation and safety desk for an admin account. Every internal staff account holds a moderator grant automatically (COM-28). */
-export default async function AdminCommunityModerationPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  await requireAdmin();
-  return (
-    <div className="space-y-6">
-      <h1 className={h1}>Community moderation</h1>
-      <CommunityNav />
-      <ModerationDesk requestedTab={(await searchParams).tab} basePath="/admin/community/moderation" />
-    </div>
-  );
+/** Moved to the shared Community desk (decision COM-31, 2026-11-07). Kept so old links, bookmarks and notices still land. */
+export default async function MovedToCommunityDesk({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  redirect(communityDeskQueueHref((await searchParams).tab));
 }

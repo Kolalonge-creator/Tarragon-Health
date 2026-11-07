@@ -403,8 +403,12 @@ export const staffContextSchema = z.object({
   is_admin: z.boolean(),
   is_cmo: z.boolean(),
   is_moderator: z.boolean(),
+  // COM-31 (2026-11-07). Defaults keep an older database reply readable during a deploy; false is always the safe answer.
+  is_senior_moderator: z.boolean().default(false),
   is_safety_reviewer: z.boolean(),
   is_clinician: z.boolean(),
+  /** May open the shared Community desk: a moderation or safety grant, the CMO, or an admin. */
+  has_desk: z.boolean().default(false),
 });
 export type StaffContext = z.infer<typeof staffContextSchema>;
 
@@ -446,7 +450,7 @@ export const adminTopicsSchema = z.object({ topics: z.array(adminTopicSchema) })
 
 export const staffGrantSchema = z.object({
   id: z.string(),
-  scope: z.enum(["moderator", "safety_reviewer"]),
+  scope: z.enum(["moderator", "safety_reviewer", "senior_moderator"]),
   group_id: z.string().nullable(),
   group_name: z.string().nullable(),
   profile_role: z.string(),
@@ -538,6 +542,8 @@ const STAFF_REFUSED: Readonly<Record<string, string>> = {
   not_ready: "The text filters are not ready, so this cannot be saved yet. Ask the Chief Medical Officer to check the live rule set.",
   own_post: "This is your own post, so another moderator needs to decide it.",
   safety_reviewer_is_global: "A safety reviewer covers every group, so this permission cannot be limited to one group.",
+  senior_moderator_is_global: "A senior moderator covers every group, so this permission cannot be limited to one group.",
+  already_granted: "This person already holds that permission.",
   your_own_decision: "You made this decision, so another moderator needs to check it.",
   already_reviewed: "This has already been checked.",
   choose_one: "Please choose whether you agree.",
@@ -644,7 +650,7 @@ export const shiftsAdminSchema = z.object({
     z.object({
       staff_id: z.string(),
       name: z.string().nullable(),
-      scope: z.enum(["moderator", "safety_reviewer"]),
+      scope: z.enum(["moderator", "safety_reviewer", "senior_moderator"]),
       all_groups: z.boolean(),
       shifts: z.array(z.object({ weekday: z.number().int(), start_hour: z.number().int(), end_hour: z.number().int() })),
     }),

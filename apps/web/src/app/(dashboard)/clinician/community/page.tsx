@@ -193,7 +193,7 @@ export default async function ClinicianCommunityPage({ searchParams }: { searchP
       </div>
       <nav aria-label="More community pages" className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
         {(ctx.is_moderator || ctx.is_safety_reviewer) && (
-          <Link href="/clinician/community/moderation" className="font-medium text-brand-green underline">
+          <Link href="/community-desk/queue" className="font-medium text-brand-green underline">
             Moderation and safety desk
           </Link>
         )}

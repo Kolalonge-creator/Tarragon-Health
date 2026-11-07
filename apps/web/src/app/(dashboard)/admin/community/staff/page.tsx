@@ -7,7 +7,9 @@ import { card, h1, h2, link } from "../ui";
 export const metadata = { title: "Community moderators" };
 export const dynamic = "force-dynamic";
 
-const SCOPE = { moderator: "Moderator", safety_reviewer: "Safety reviewer" } as const;
+const SCOPE = { moderator: "Moderator", safety_reviewer: "Safety reviewer", senior_moderator: "Senior moderator" } as const;
+/** Every internal staff account can be given a Community role (COM-31); the database refuses anyone else. */
+const STAFF_ROLE_LABEL: Readonly<Record<string, string>> = { admin: "Admin", clinician: "Clinician", care_coordinator: "Care coordinator", analyst: "Analyst", finance: "Finance" };
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
 
 export default async function CommunityStaffPage() {
@@ -40,7 +42,7 @@ export default async function CommunityStaffPage() {
               {staff.data.staff.map((s) => (
                 <tr key={s.id} className="border-b border-charcoal-ink/10 align-top">
                   <th scope="row" className="py-2 pr-3 font-medium">{s.staff_name ?? "Unnamed"}</th>
-                  <td className="py-2 pr-3">{s.profile_role === "care_coordinator" ? "Care coordinator" : s.profile_role === "clinician" ? "Clinician" : s.profile_role}</td>
+                  <td className="py-2 pr-3">{STAFF_ROLE_LABEL[s.profile_role] ?? s.profile_role}</td>
                   <td className="py-2 pr-3">{SCOPE[s.scope]}</td>
                   <td className="py-2 pr-3">{s.group_name ?? "All groups"}</td>
                   <td className="py-2 pr-3">{when(s.granted_at)}</td>

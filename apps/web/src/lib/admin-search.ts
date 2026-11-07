@@ -224,6 +224,7 @@ export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
 
 /** The same, for the Chief Medical Officer, whose account role cannot open /admin. */
 export const CMO_EXTRA_PAGES: AdminSearchEntry[] = [
+  { label: "Community desk", href: "/community-desk", group: "Community", hint: "The shared moderation desk: safety and attention, key figures, group health, moderator workload, the moderation worklist and safety alerts (COM-31)." },
   { label: "Care operations", href: "/clinician/care-operations", group: "Clinical queue", hint: "What is waiting: support and clinical messages, threads that need a doctor, past the reply target, open emergency alerts, monthly meetings, and who holds each conversation (care_operations_summary)." },
   { label: "Consultations log", href: "/clinician/consultations-log", group: "Clinical governance", hint: "Every consultation in the organisation: time, doctor, patient, status, doctor minutes and Zoom connected minutes, with a CSV download (consultations_log)." },
   { label: "AI monitoring", href: "/clinician/ai-monitoring", group: "Clinical governance", hint: "The monthly AI review sample, answers patients reported as wrong, and how often doctors agreed with the automatic grade." },
