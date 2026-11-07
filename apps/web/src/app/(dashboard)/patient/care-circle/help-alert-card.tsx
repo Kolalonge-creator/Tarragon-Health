@@ -108,7 +108,7 @@ export function HelpAlertCard({ patientId, locale }: { patientId: string; locale
     <Card>
       <CardHeader><CardTitle>{t("circle.help.title", locale)}</CardTitle></CardHeader>
       <CardContent className="space-y-3">
-        <p>{t("circle.help.intro", locale)}</p>
+        <p>{t("circle.help.introTyped", locale)}</p>
         <p className="text-sm font-medium">{t("circlehelp.not_emergency", locale)}</p>
         {alertsPaused ? <p className="text-sm font-medium">{t("circlep1.help.paused_warning", locale)}</p> : null}
         <fieldset className="space-y-2">

@@ -5,6 +5,7 @@
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { t } from "@tarragon/i18n";
 
 let sendError: { code: string; message: string } | null = null;
 let missingTyped = false;
@@ -51,8 +52,9 @@ describe("HelpAlertCard typed requests", () => {
       expect(screen.getByRole("radio", { name })).toBeTruthy();
     }
     expect(screen.getByText(/This is not an emergency service\. If you need care now, go to the nearest hospital\./)).toBeTruthy();
-    // founder-approved intro, 2026-11-07 (replaces "One tap tells...")
-    expect(screen.getByText("Ask the people in your Care Circle for help. Pick what you need and they get a message.")).toBeTruthy();
+    // founder-approved web intro, 2026-11-07, under its own key circle.help.introTyped (the phone keeps circle.help.intro, "One tap tells...")
+    expect(screen.getByText(t("circle.help.introTyped", "en"))).toBeTruthy();
+    expect(t("circle.help.introTyped", "en")).toBe("Ask the people in your Care Circle for help. Pick what you need and they get a message.");
     expect(screen.queryByText(/One tap/)).toBeNull();
   });
 
