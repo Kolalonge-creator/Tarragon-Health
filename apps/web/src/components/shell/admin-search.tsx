@@ -15,8 +15,10 @@ type PersonResult = { label: string; href: string; group: string; hint: string }
  * so the keyboard (arrows, Enter, Escape) and a mouse do the same thing.
  */
 export function AdminSearch({ entries, kind = "admin" }: { entries: AdminSearchEntry[]; kind?: "admin" | "patient" }) {
-  // Patients search pages only: the people lookup is a staff tool and is never called for them.
+  // Patients never reach the staff people lookup: their box looks up their own record (results, medicines, messages)
+  // through /api/patient/search instead (gap P23), which reads only through their session and their grant.
   const isPatient = kind === "patient";
+  const lookupUrl = isPatient ? "/api/patient/search" : "/api/admin/search";
   const scope = isPatient ? "Tarragon" : "the admin console";
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -68,11 +70,11 @@ export function AdminSearch({ entries, kind = "admin" }: { entries: AdminSearchE
   // is typed, so a slow or stale answer can never appear under a newer query.
   const trimmed = query.trim();
   React.useEffect(() => {
-    if (isPatient || !open || trimmed.length < 2) return;
+    if (!open || trimmed.length < 2) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/admin/search?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal });
+        const res = await fetch(`${lookupUrl}?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal });
         if (!res.ok) throw new Error(String(res.status));
         const body = (await res.json()) as { results?: PersonResult[]; failed?: boolean };
         setLookup({ q: trimmed, results: body.results ?? [], failed: Boolean(body.failed) });
@@ -85,11 +87,13 @@ export function AdminSearch({ entries, kind = "admin" }: { entries: AdminSearchE
       clearTimeout(timer);
       controller.abort();
     };
-  }, [trimmed, open, isPatient]);
+  }, [trimmed, open, lookupUrl]);
 
   const current = open && trimmed.length >= 2 && lookup?.q === trimmed ? lookup : null;
   const people = current?.results ?? [];
   const peopleFailed = current?.failed ?? false;
+  // A record lookup still on its way: the box says so rather than "Nothing matches" before the answer is in.
+  const lookupPending = isPatient && open && trimmed.length >= 2 && lookup?.q !== trimmed;
 
   const pages = React.useMemo(() => searchAdminEntries(entries, query, 8), [entries, query]);
   const rows: (AdminSearchEntry | PersonResult)[] = [...pages, ...people];
@@ -159,8 +163,16 @@ export function AdminSearch({ entries, kind = "admin" }: { entries: AdminSearchE
             </div>
             <ul id="admin-search-results" role="listbox" className="max-h-[60vh] overflow-y-auto py-1">
               {rows.length === 0 ? (
-                <li className="px-4 py-6 text-center text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-                  {query.trim() ? isPatient ? "Nothing matches that. Try another word, like a page name or a health topic." : "Nothing matches that. Try another word, like a page name or a doctor's name." : "Start typing to search."}
+                <li role={isPatient && peopleFailed ? "alert" : undefined} className="px-4 py-6 text-center text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+                  {!query.trim()
+                    ? "Start typing to search."
+                    : isPatient && peopleFailed
+                      ? "We couldn't search your record just now. Please try again in a moment."
+                      : lookupPending
+                        ? "Searching your record..."
+                        : isPatient
+                          ? "Nothing matches that. Try another word, like a medicine, a test or a page name."
+                          : "Nothing matches that. Try another word, like a page name or a doctor's name."}
                 </li>
               ) : null}
               {rows.map((row, i) => {
@@ -195,8 +207,12 @@ export function AdminSearch({ entries, kind = "admin" }: { entries: AdminSearchE
                   </React.Fragment>
                 );
               })}
-              {peopleFailed ? (
-                <li className="px-4 py-2 text-xs text-amber-700 dark:text-amber-300">The people lookup is not available right now, so only pages are shown.</li>
+              {peopleFailed && (rows.length > 0 || !isPatient) ? (
+                <li role="alert" className="px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
+                  {isPatient
+                    ? "We couldn't search your results, medicines and messages just now, so some matches may be missing."
+                    : "The people lookup is not available right now, so only pages are shown."}
+                </li>
               ) : null}
             </ul>
             <div className="flex justify-between border-t border-charcoal-ink/10 px-4 py-2 text-[11px] text-charcoal-ink/50 dark:border-night-ink/15">

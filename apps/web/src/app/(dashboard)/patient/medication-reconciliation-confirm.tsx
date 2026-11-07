@@ -22,6 +22,9 @@ export function MedicationReconciliationConfirm({ patientId }: { patientId: stri
   const { data: open } = useOpenMedicationReconciliation(patientId);
   const confirm = useConfirmMedicationList(patientId);
   const [note, setNote] = useState("");
+  // P16: "I'm not sure" leaves the list unconfirmed (confirming means "this list is accurate", which a patient who is
+  // unsure cannot say). Nothing is written and no care-team task is raised: that routing is a CMO decision.
+  const [unsure, setUnsure] = useState(false);
   const errorId = fieldErrorId("reconciliation_note");
 
   if (open?.patient_confirmed_at) {
@@ -65,6 +68,16 @@ export function MedicationReconciliationConfirm({ patientId }: { patientId: stri
         >
           {confirm.isPending ? "Confirming…" : "Confirm this list is accurate"}
         </Button>
+        <Button size="sm" variant="ghost" disabled={confirm.isPending} onClick={() => setUnsure(true)}>
+          I&apos;m not sure
+        </Button>
+        {unsure ? (
+          <p role="status" className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+            That&apos;s fine. Your list stays unconfirmed for now. If a medicine on it looks wrong, use &quot;Report a
+            problem&quot; beside it, or bring your medicine packs to your next consultation so the doctor can go through
+            them with you.
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

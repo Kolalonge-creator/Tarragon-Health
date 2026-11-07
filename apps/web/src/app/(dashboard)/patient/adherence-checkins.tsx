@@ -11,6 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+/** The stored answer when the patient picks "Not sure". */
+export const NOT_SURE_ANSWER = "Not sure";
+
 function CheckinRow({ checkin, patientId }: { checkin: AdherenceCheckinWithDrug; patientId: string }) {
   const respond = useRespondToCheckin(patientId);
   const [answer, setAnswer] = useState("");
@@ -34,6 +37,17 @@ function CheckinRow({ checkin, patientId }: { checkin: AdherenceCheckinWithDrug;
           onClick={() => respond.mutate({ checkinId: checkin.id, response: answer.trim() })}
         >
           {respond.isPending ? "Sending…" : "Send"}
+        </Button>
+        {/* P16: "Not sure" is a real answer, not a blank. It is recorded on the check-in like any other answer. No
+            care-team task is raised from a check-in answer today (that routing is a CMO decision), so nothing here
+            promises a follow-up. */}
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={respond.isPending}
+          onClick={() => respond.mutate({ checkinId: checkin.id, response: NOT_SURE_ANSWER })}
+        >
+          Not sure
         </Button>
       </div>
       {respond.isError && (
