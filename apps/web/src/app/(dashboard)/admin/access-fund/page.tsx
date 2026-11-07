@@ -6,6 +6,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { formatPatientDate } from "@/lib/format-date";
 import { ApproveGrantForm, CancelGrantForm, ConfirmDonationForm, ExpiryButton } from "./forms";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Community Access Fund" };
 export const dynamic = "force-dynamic";
@@ -42,7 +43,7 @@ export default async function AdminAccessFundPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-semibold">{t("fund.title", "en")}</h1>
+      <PageHeader title={t("fund.title", "en")} />
       {!ov ? <p role="status">The fund overview could not be loaded.</p> : (
         <>
           <p role="status" className={MUTED}>{ov.open ? "The fund is open." : "The fund is closed: its go-live guard is off, so only test people can use it."}</p>

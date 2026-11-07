@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { MonitoringView } from "@/components/ai/monitoring-view";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "AI monitoring" };
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export default async function AiMonitoringPage() {
   if (profile.role !== "admin") redirect("/admin");
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink sm:text-3xl">AI monitoring</h1>
+      <PageHeader title="AI monitoring" />
       <MonitoringView links={{ cost: "/admin/ops/ai-cost", review: "/clinician/ai-review", signoff: "/clinician/clinical-signoff" }} />
     </div>
   );

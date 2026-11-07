@@ -2,6 +2,7 @@
 
 import { useLearningSearchGaps } from "@/lib/queries/learning-centre";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/ui/data-table";
 
 export function SearchGapsManager() {
   const { data, isLoading, isError } = useLearningSearchGaps();
@@ -17,26 +18,25 @@ export function SearchGapsManager() {
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load the report.</p>}
-        {data && data.length === 0 && <p className="text-sm text-charcoal-ink/60">Nothing to show yet. The log is switched off until the founder and the DPO confirm it (see the open question on the zero-result search log), and a phrase shows only after enough searches.</p>}
-        {data && data.length > 0 && (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-charcoal-ink/10 text-xs text-charcoal-ink/50">
-                <th className="py-2 pr-3">Phrase</th>
-                <th className="py-2 pr-3">Searches</th>
-                <th className="py-2 pr-3">Last seen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((g) => (
-                <tr key={g.query_norm} className="border-b border-charcoal-ink/5">
-                  <td className="py-2 pr-3 font-medium">{g.query_norm}</td>
-                  <td className="py-2 pr-3 tabular-nums">{g.hit_count}</td>
-                  <td className="py-2 pr-3 text-charcoal-ink/60">{g.last_seen}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {data && (
+          <DataTable
+            caption="Searches that found nothing"
+            columns={[
+              { header: "Phrase", sortable: true },
+              { header: "Searches", sortable: true, defaultDir: "desc", align: "right" },
+              { header: "Last seen", sortable: true, defaultDir: "desc" },
+            ]}
+            rows={data.map((g) => ({
+              key: g.query_norm,
+              searchText: g.query_norm,
+              sort: [g.query_norm, g.hit_count, g.last_seen],
+              cells: [<span key="q" className="font-medium">{g.query_norm}</span>, g.hit_count, <span key="seen" className="text-charcoal-ink/60">{g.last_seen}</span>],
+            }))}
+            searchLabel="Search phrases"
+            initialSort={{ column: 1, dir: "desc" }}
+            emptyMessage="Nothing to show yet. The log is switched off until the founder and the DPO confirm it (see the open question on the zero-result search log), and a phrase shows only after enough searches."
+            noun={{ one: "phrase", many: "phrases" }}
+          />
         )}
       </CardContent>
     </Card>

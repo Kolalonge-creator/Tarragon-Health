@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { readClinicalSignoffChecklist } from "@/lib/clinical/read-clinical-signoff-checklist";
 import { SignoffChecklist } from "./signoff-checklist";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Clinical sign-off" };
 
@@ -42,15 +43,17 @@ export default async function ClinicalSignoffPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-xl font-semibold text-charcoal-ink">Clinical sign-off</h1>
-        <p className="mt-1 max-w-3xl text-sm text-charcoal-ink/70">
-          Everything on the platform that needs a Clinical Director&apos;s signature before it may act
-          on a patient, and the one action that signs it. You are signing that the rule matches a
-          protocol you stand behind — not writing the rule, which is already fixed and cannot be
-          edited here.
-        </p>
-      </div>
+      <PageHeader
+        title="Clinical sign-off"
+        description={
+          <>
+            Everything on the platform that needs a Clinical Director&apos;s signature before it may act
+            on a patient, and the one action that signs it. You are signing that the rule matches a
+            protocol you stand behind — not writing the rule, which is already fixed and cannot be
+            edited here.
+          </>
+        }
+      />
 
       <SignoffChecklist
         unsignedRules={data.unsignedRules}
