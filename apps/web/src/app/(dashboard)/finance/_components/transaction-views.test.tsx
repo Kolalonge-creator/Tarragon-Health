@@ -140,6 +140,7 @@ const DETAIL: TransactionDetail = {
   },
   membership: [{ id: "m1", tier: "evergreen", state: "active", source: "purchase", starts_at: "2026-11-02T09:00:00Z", ends_at: "2027-11-02T09:00:00Z", auto_renew: true, renewal_cancelled_at: null }],
   refunds: [{ id: "r1", amount_minor: 4000000, state: "completed", reason: "Duplicate charge", provider_reference: null, requested_at: "2026-11-04T09:00:00Z", decided_at: "2026-11-04T10:00:00Z", decided_by: "Ada Finance", completed_at: "2026-11-05T09:00:00Z", last_error_code: null }],
+  other_refunds: [],
   refundable_minor: 6000000,
   webhooks: [{ event_type: "charge.success", status: "processed", received_at: "2026-11-02T09:00:01Z", processed_at: "2026-11-02T09:00:02Z", attempt_count: 1, last_error: null, signature_verified: true }],
   settlement: [],

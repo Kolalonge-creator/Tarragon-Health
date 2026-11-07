@@ -364,6 +364,19 @@ export const transactionDetailSchema = z.object({
       last_error_code: z.string().nullable(),
     })
   ),
+  /** Confirmed refunds of this charge from the lab, pharmacy, doctor-service and Care Voucher refund tables. */
+  other_refunds: z
+    .array(
+      z.object({
+        event_id: z.string(),
+        record_type: z.string(),
+        record_id: z.string(),
+        amount_minor: minor,
+        occurred_at: z.string().nullable(),
+        stream: z.string(),
+      })
+    )
+    .default([]),
   refundable_minor: minor.nullable(),
   webhooks: z.array(
     z.object({
