@@ -354,7 +354,7 @@ export default async function ClinicianPage() {
   const attention = await attentionPromise;
   const oversight = await oversightPromise;
   const openHandovers = await handoversPromise;
-  const offeredToMe = handoversOfferedTo(openHandovers ?? [], profile?.id ?? null);
+  const offeredToMe = openHandovers === null ? null : handoversOfferedTo(openHandovers, profile?.id ?? null);
 
   const attentionTop = sortWorklist(attention.rows, now).slice(0, 8);
 

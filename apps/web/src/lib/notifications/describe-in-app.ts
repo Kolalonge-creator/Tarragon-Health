@@ -987,7 +987,8 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     n.template === "escalation_handover_offered" ||
     n.template === "escalation_handover_accepted" ||
     n.template === "escalation_handover_declined" ||
-    n.template === "escalation_handover_cancelled"
+    n.template === "escalation_handover_cancelled" ||
+    n.template === "escalation_handover_superseded"
   ) {
     // G10 (DW-16..19): public.request/respond/cancel_escalation_handover. Fixed wording, no patient, nothing clinical (INV-07);
     // the link opens the case, where the handover card shows the reason and what is still to do.
@@ -996,7 +997,8 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
       escalation_handover_offered: "A doctor wants to hand a case to you",
       escalation_handover_accepted: "Your handover was accepted; the case has moved",
       escalation_handover_declined: "Your handover was declined; the case is still yours",
-      escalation_handover_cancelled: "A handover offered to you was cancelled",
+      escalation_handover_cancelled: "A handover was cancelled; the case has not moved",
+      escalation_handover_superseded: "A case offered to you no longer needs your answer",
     }[n.template];
     return { text, href: id ? `/clinician/escalations/${id}` : "/clinician/worklist" };
   }

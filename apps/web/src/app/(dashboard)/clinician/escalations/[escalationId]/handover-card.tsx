@@ -57,6 +57,8 @@ export function HandoverCard({
   isCmo: boolean;
 }) {
   const { data: handovers, isLoading, isError } = useEscalationHandovers(escalationId);
+  // Kept here, not in PendingHandover: once the list refetches, the waiting handover is gone and that block unmounts.
+  const [supersededNotice, setSupersededNotice] = useState(false);
   const pending = handovers?.find((h) => h.status === "pending") ?? null;
   const history = (handovers ?? []).filter((h) => h.status !== "pending");
 
@@ -66,12 +68,23 @@ export function HandoverCard({
         <CardTitle>Handover</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {supersededNotice && (
+          <p className="text-sm text-charcoal-ink/80" role="status">
+            That handover no longer applies: the case was closed or reassigned while it was waiting. Nothing changed.
+          </p>
+        )}
         {isLoading ? (
           <p className="text-sm text-charcoal-ink/60">Loading…</p>
         ) : isError ? (
           <p className="text-sm text-red-600">Could not load handovers. Refresh to try again.</p>
         ) : pending ? (
-          <PendingHandover escalationId={escalationId} handover={pending} viewerProfileId={viewerProfileId} isCmo={isCmo} />
+          <PendingHandover
+            escalationId={escalationId}
+            handover={pending}
+            viewerProfileId={viewerProfileId}
+            isCmo={isCmo}
+            onSuperseded={() => setSupersededNotice(true)}
+          />
         ) : canRequest && assignedProfileId ? (
           <RequestForm escalationId={escalationId} assignedProfileId={assignedProfileId} />
         ) : (
@@ -114,11 +127,13 @@ function PendingHandover({
   handover,
   viewerProfileId,
   isCmo,
+  onSuperseded,
 }: {
   escalationId: string;
   handover: EscalationHandover;
   viewerProfileId: string | null;
   isCmo: boolean;
+  onSuperseded: () => void;
 }) {
   const router = useRouter();
   const respond = useRespondHandover();
@@ -126,7 +141,6 @@ function PendingHandover({
   const [declining, setDeclining] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
   const [declineProblem, setDeclineProblem] = useState<string | null>(null);
-  const [superseded, setSuperseded] = useState(false);
 
   const isTarget = viewerProfileId !== null && viewerProfileId === handover.to_profile_id;
   const canCancel =
@@ -160,12 +174,6 @@ function PendingHandover({
         </p>
       </div>
 
-      {superseded && (
-        <p className="text-sm text-charcoal-ink/80" role="status">
-          This handover no longer applies: the case was closed or reassigned while it was waiting. Nothing changed.
-        </p>
-      )}
-
       {isTarget && !declining && (
         <div className="flex flex-wrap gap-2">
           <Button
@@ -175,7 +183,7 @@ function PendingHandover({
                 { escalationId, handoverId: handover.id, accept: true },
                 {
                   onSuccess: (status) => {
-                    if (status === "superseded") setSuperseded(true);
+                    if (status === "superseded") onSuperseded();
                     router.refresh();
                   },
                 },
@@ -217,7 +225,7 @@ function PendingHandover({
                   { escalationId, handoverId: handover.id, accept: false, declineReason },
                   {
                     onSuccess: (status) => {
-                      if (status === "superseded") setSuperseded(true);
+                      if (status === "superseded") onSuperseded();
                       router.refresh();
                     },
                   },

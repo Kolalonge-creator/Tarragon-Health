@@ -12,7 +12,15 @@ function patientLabel(h: OpenHandover): string {
 }
 
 /** G10: cases another doctor wants to hand to the viewer. Shown on every doctor's home while any are waiting. */
-export function HandoversOfferedSection({ handovers, now }: { handovers: OpenHandover[]; now: Date }) {
+export function HandoversOfferedSection({ handovers, now }: { handovers: OpenHandover[] | null; now: Date }) {
+  if (handovers === null) {
+    // Unknown is not zero: a failed read must not look like "nobody is handing you anything".
+    return (
+      <p className="rounded-2xl bg-white p-4 text-sm text-red-600" role="alert">
+        Could not check for cases offered to you. Reload the page.
+      </p>
+    );
+  }
   if (handovers.length === 0) return null;
   return (
     <section aria-labelledby="handovers-offered-heading" className="space-y-2">

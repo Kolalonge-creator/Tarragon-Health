@@ -9,8 +9,9 @@
 --  5  only one waiting handover per case; only the new doctor can answer it
 --  6  a decline needs a reason, leaves the case where it was, and tells the old doctor
 --  7  an accept moves the case to the new doctor and tells the old doctor
---  8  the CMO can hand over someone else's case, and cancelling tells the new doctor and moves nothing
---  9  resolving the case while a handover waits supersedes it, and answering it then moves nothing
+--  8  the CMO can hand over someone else's case, and cancelling tells the new doctor and the holder and moves nothing
+--  9  resolving the case while a handover waits supersedes it and tells the new doctor; answering it then reports
+--     'superseded' and moves nothing
 -- 10  the table is not directly readable by a signed-in user; the read functions return the record
 -- SABOTAGE: let a non-holder request (drop the holder check) and check 1 fails.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures in a fresh organisation.
@@ -175,8 +176,9 @@ begin
   v_err := pg_temp.as_user('cmo', format('select public.cancel_escalation_handover(%L)', v_h));
   if v_err is not null then raise exception 'FAIL 8c: cancel refused: %', v_err; end if;
   if (select assigned_doctor_id from public.escalations where id = v_esc2) <> v_b
-     or not exists (select 1 from public.notifications where source_id = v_h and template = 'escalation_handover_cancelled' and recipient_id = v_c) then
-    raise exception 'FAIL 8d: cancel moved the case or did not tell the new doctor';
+     or not exists (select 1 from public.notifications where source_id = v_h and template = 'escalation_handover_cancelled' and recipient_id = v_c)
+     or not exists (select 1 from public.notifications where source_id = v_h and template = 'escalation_handover_cancelled' and recipient_id = v_b) then
+    raise exception 'FAIL 8d: cancel moved the case or did not tell the new doctor and the holder';
   end if;
 
   -- 9. resolving supersedes a waiting handover
@@ -198,9 +200,12 @@ begin
   alter table public.escalations enable trigger escalations_enforce_identity_confirm;
   alter table public.escalations enable trigger escalations_enforce_emergency_authority;
   if (select status from public.escalation_handovers where id = v_h) <> 'superseded' then raise exception 'FAIL 9b: resolving did not supersede the handover'; end if;
-  v_err := pg_temp.as_user('doc_c', format('select public.respond_escalation_handover(%L, true)', v_h));
-  if v_err is null or (select assigned_doctor_id from public.escalations where id = v_esc3) <> v_a then
-    raise exception 'FAIL 9c: a superseded handover could still be accepted (%)', coalesce(v_err, 'no error');
+  if not exists (select 1 from public.notifications where source_id = v_h and template = 'escalation_handover_superseded' and recipient_id = v_c) then
+    raise exception 'FAIL 9c: the new doctor was not told the offer lapsed';
+  end if;
+  v_err := pg_temp.as_user('doc_c', format('insert into ids select ''r4'', null where public.respond_escalation_handover(%L, true) = ''superseded''', v_h));
+  if v_err is not null or not exists (select 1 from ids where k = 'r4') or (select assigned_doctor_id from public.escalations where id = v_esc3) <> v_a then
+    raise exception 'FAIL 9d: answering a superseded handover did not report superseded, or moved the case (%)', coalesce(v_err, 'no error');
   end if;
 
   -- 10. no direct table read; read functions work

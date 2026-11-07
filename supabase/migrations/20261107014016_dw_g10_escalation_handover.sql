@@ -193,8 +193,12 @@ begin
   if not found or v_uid is null or v_handover.to_profile_id <> v_uid then
     raise exception 'Only the doctor this case is being handed to can answer the handover.' using errcode = '42501';
   end if;
+  if v_handover.status = 'superseded' then
+    -- The case closed or changed hands while this waited (private.supersede_escalation_handovers); nothing moves.
+    return 'superseded';
+  end if;
   if v_handover.status <> 'pending' then
-    raise exception 'This handover was already %.', v_handover.status using errcode = '23514';
+    raise exception 'This handover has already been answered or cancelled.' using errcode = '23514';
   end if;
   if p_accept is null then
     raise exception 'Choose accept or decline.' using errcode = '23514';
@@ -252,11 +256,12 @@ begin
     raise exception 'Only the doctor handing the case over, whoever asked, or the Chief Medical Officer can cancel this handover.' using errcode = '42501';
   end if;
   if v_handover.status <> 'pending' then
-    raise exception 'This handover was already %.', v_handover.status using errcode = '23514';
+    raise exception 'This handover has already been answered, cancelled, or no longer applies.' using errcode = '23514';
   end if;
   update public.escalation_handovers set status = 'cancelled', responded_at = now(), responded_by = v_uid
    where id = v_handover.id returning * into v_handover;
-  perform private.notify_escalation_handover(v_handover, 'escalation_handover_cancelled', array[v_handover.to_profile_id]);
+  perform private.notify_escalation_handover(v_handover, 'escalation_handover_cancelled',
+                                             array[v_handover.to_profile_id, v_handover.from_profile_id, v_handover.requested_by]);
 end;
 $function$;
 
@@ -267,12 +272,20 @@ language plpgsql
 security definer
 set search_path to ''
 as $function$
+declare
+  v_handover public.escalation_handovers;
 begin
   if (new.status in ('resolved', 'referred') and old.status is distinct from new.status)
      or new.assigned_doctor_id is distinct from old.assigned_doctor_id then
-    update public.escalation_handovers
-       set status = 'superseded', responded_at = now(), responded_by = (select auth.uid())
-     where escalation_id = new.id and status = 'pending';
+    for v_handover in
+      update public.escalation_handovers
+         set status = 'superseded', responded_at = now(), responded_by = (select auth.uid())
+       where escalation_id = new.id and status = 'pending'
+      returning *
+    loop
+      -- The new doctor was told a case was offered; tell them it no longer needs an answer.
+      perform private.notify_escalation_handover(v_handover, 'escalation_handover_superseded', array[v_handover.to_profile_id]);
+    end loop;
   end if;
   return null;
 end;

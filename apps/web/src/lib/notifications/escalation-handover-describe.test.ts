@@ -10,7 +10,8 @@ suite("escalation handover notices (G10)", () => {
     ["escalation_handover_offered", "A doctor wants to hand a case to you"],
     ["escalation_handover_accepted", "Your handover was accepted; the case has moved"],
     ["escalation_handover_declined", "Your handover was declined; the case is still yours"],
-    ["escalation_handover_cancelled", "A handover offered to you was cancelled"],
+    ["escalation_handover_cancelled", "A handover was cancelled; the case has not moved"],
+    ["escalation_handover_superseded", "A case offered to you no longer needs your answer"],
   ])("%s has fixed wording with no patient or clinical detail and opens the case", (template, text) => {
     const out = describe(note(template, { escalation_id: id, handover_id: "x" }));
     expect(out.text).toBe(text);
