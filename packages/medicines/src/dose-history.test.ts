@@ -1,9 +1,12 @@
 /**
  * Doses-taken charts (2026-11-06): completed Lagos days only (today's open dose never counts as missed), the shared
- * adherence formula for every figure, and one entry per day.
+ * adherence formula for every figure, and one entry per day. Shared by the web dashboard and the phone app.
  */
-import { groupLogsBySlot, specFromLegacyTimes, type AdherenceMedicine } from "@tarragon/medicines";
-import { buildDoseHistory } from "./dose-history";
+import { expect, it } from "@jest/globals";
+import { groupLogsBySlot } from "./adherence";
+import { specFromLegacyTimes } from "./schedule";
+import type { AdherenceMedicine } from "./adherence";
+import { buildDoseHistory, doseDayText } from "./dose-history";
 
 const cfg = { windowDays: 7, minDoses: 3, missedAfterMinutes: 120, thresholdPercent: 80 };
 // 2026-11-06 12:00 Lagos.
@@ -35,4 +38,9 @@ it("says nothing was due before a medicine was added", () => {
   const h = buildDoseHistory([m], NOW, cfg);
   expect(h.days.at(-3)).toEqual({ date: "2026-11-03", due: 0, taken: 0 });
   expect(h.last7.percent).toBeNull(); // 2 due, below the minimum of 3
+});
+
+it("puts each day in words, so the chart never depends on colour", () => {
+  expect(doseDayText({ date: "2026-11-05", due: 2, taken: 1 })).toBe("Thu 5 Nov: 1 of 2 marked taken");
+  expect(doseDayText({ date: "2026-11-05", due: 0, taken: 0 })).toBe("Thu 5 Nov: nothing was due");
 });
