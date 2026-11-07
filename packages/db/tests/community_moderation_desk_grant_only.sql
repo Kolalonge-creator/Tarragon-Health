@@ -123,6 +123,28 @@ begin
   perform pg_temp.rec('a safety reviewer sees safety details', 'true', pg_temp.asj(v_doc, 'select public.community_desk_overview(7)') ->> 'sees_safety');
   perform pg_temp.rec('the safety reviewer opens the safety queue', 'true', (pg_temp.asj(v_doc, 'select public.community_safety_queue()') ? 'items')::text);
 
+  -- 5b. the active CMO is paged by tier and can act by tier, with no grant (founder, 2026-11-07)
+  declare v_cmo uuid;
+  begin
+    v_cmo := pg_temp.mkreal(v_org, 'cmo', 'clinician');
+    insert into public.clinical_staff (organisation_id, profile_id, full_name, credential_type, credential_number, active, status,
+        license_verified_at, license_expires_at, verified_by, doctor_tier, employment_type, credentialing_level, indemnity_exempt, indemnity_exempt_by,
+        indemnity_insurer, indemnity_policy_number, indemnity_expires_at, is_test, languages, specialty)
+    values (v_org, v_cmo, 'CMD cmo', 'MDCN', 'CMDC-' || substr(v_cmo::text, 1, 8), true, 'active', now() - interval '5 days', now() + interval '1 year', v_admin,
+        'chief_medical_officer', 'employed', 2, false, null, 'Test insurer', 'POL-' || substr(v_cmo::text, 1, 8), now() + interval '1 year', false, array['en'], 'General practice');
+    perform pg_temp.rec('the CMO holds no community grant', '', pg_temp.grants(v_cmo));
+    perform pg_temp.rec('the CMO has the desk', 'true', pg_temp.asj(v_cmo, 'select public.community_staff_context()') ->> 'has_desk');
+    perform pg_temp.rec('the CMO counts as a safety reviewer by tier', 'true', pg_temp.asj(v_cmo, 'select public.community_staff_context()') ->> 'is_safety_reviewer');
+    perform pg_temp.rec('the CMO opens the safety queue with no grant', 'true', (pg_temp.asj(v_cmo, 'select public.community_safety_queue()') ? 'items')::text);
+    perform pg_temp.rec('the CMO is not a moderator by tier', '42501', pg_temp.asj(v_cmo, 'select public.community_mod_queue(null)') ->> 'error');
+    update public.clinical_staff set doctor_tier = 'senior_medical_officer' where profile_id = v_cmo;
+    perform pg_temp.rec('a doctor who is no longer CMO loses it', '42501', pg_temp.asj(v_cmo, 'select public.community_safety_queue()') ->> 'error');
+  end;
+
+  -- 5c. the day-by-day series is labelled by the Lagos calendar day
+  perform pg_temp.rec('the last series day is today in Lagos', to_char(now() at time zone 'Africa/Lagos', 'YYYY-MM-DD'),
+    pg_temp.asj(v_fin, 'select public.community_desk_overview(7)') -> 'series' -> -1 ->> 'day');
+
   -- 6. privileges
   perform pg_temp.rec('anon cannot run the overview', 'false', has_function_privilege('anon', 'public.community_desk_overview(integer)', 'EXECUTE')::text);
   perform pg_temp.rec('anon cannot read the staff context', 'false', has_function_privilege('anon', 'public.community_staff_context()', 'EXECUTE')::text);

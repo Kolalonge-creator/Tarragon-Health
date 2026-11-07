@@ -6,7 +6,9 @@
 --    Counted live before writing this: 9 live grants, 7 automatic (finance 1, analyst 1, admin 1, clinician moderator 2, clinician
 --    safety reviewer 2) and 2 given by an admin by hand (both kept). The rows are revoked, never deleted (community_staff_guard), with
 --    revoked_by left null because no person withdrew them; a 'staff_revoked' event with reason 'grant_only_com31' records each one.
---    The Chief Medical Officer keeps every safety page regardless (community_alert_staff adds the CMO by doctor tier, not by grant).
+--    The Chief Medical Officer keeps every safety page regardless (community_alert_staff adds the CMO by doctor tier, not by grant), and
+--    now also keeps the means to act on it: private.community_is_safety_reviewer() admits the active CMO by tier (founder, 2026-11-07).
+--    Before this, the CMO's only route into the safety queue was the automatic grant this migration withdraws.
 -- 2. A Senior Moderator grant ('senior_moderator'). It is always global and always comes WITH a moderator grant (the grant RPC adds the
 --    moderator grant if the person has none), so every existing check on scope = 'moderator' keeps working unchanged and the senior grant
 --    only ever adds powers. It never confers safety review. No account role is added (CLAUDE.md: never re-split the account role).
@@ -120,6 +122,28 @@ end $function$;
 revoke all on function public.community_admin_revoke_staff(uuid) from public, anon;
 grant execute on function public.community_admin_revoke_staff(uuid) to authenticated;
 
+-- The active Chief Medical Officer is paged on every safety signal by tier; they can open and act on the safety queue the same way
+-- (one fixed exception to grant-only, decided by the founder 2026-11-07). Body from the live definition plus the CMO clause.
+create or replace function private.community_is_safety_reviewer()
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to ''
+as $function$
+  select exists (
+    select 1
+      from public.community_staff s
+      join public.profiles p on p.id = s.profile_id and p.is_active and private.community_internal_staff_role(p.role)
+     where s.profile_id = (select auth.uid())
+       and s.scope = 'safety_reviewer' and s.revoked_at is null)
+  or exists (
+    select 1
+      from public.clinical_staff cs
+      join public.profiles p on p.id = cs.profile_id and p.is_active and private.community_internal_staff_role(p.role)
+     where cs.profile_id = (select auth.uid())
+       and cs.active and cs.status = 'active' and cs.doctor_tier = 'chief_medical_officer')
+$function$;
+
 -- ---------------------------------------------------------------------------------------------------------------------------------
 -- 3. Who the caller is, and the desk's Overview
 -- ---------------------------------------------------------------------------------------------------------------------------------
@@ -170,6 +194,8 @@ declare
   v_t timestamptz;
   v_last_drill record;
   v_job record;
+  v_series jsonb;
+  v_response record;
 begin
   if v_uid is null then raise exception 'sign in required' using errcode = '28000'; end if;
   v_admin := private.is_admin();
@@ -285,6 +311,47 @@ begin
       'next_action', 'Run the safety drill', 'href', 'drills'));
   end if;
 
+  -- Day-by-day activity: one grouped pass per table, bucketed by the Lagos calendar day (a Lagos midnight is 23:00 UTC the day before,
+  -- so the label is formatted from the Lagos-local timestamp, never from the timestamptz in the UTC session).
+  with days as (select (d at time zone 'Africa/Lagos') as ld from generate_series(v_since, v_today, interval '1 day') d),
+  ev as (
+    select date_trunc('day', e.created_at at time zone 'Africa/Lagos') as ld,
+           count(*) filter (where e.action = 'blocked') as blocked,
+           count(*) filter (where e.action = 'held') as held,
+           count(*) filter (where e.action = 'auto_hidden') as auto_hidden,
+           count(*) filter (where e.action = 'approved' and e.actor_id is not null) as approved,
+           count(*) filter (where e.action = 'removed' and e.actor_id is not null) as removed
+      from public.community_moderation_events e where e.created_at >= v_since group by 1),
+  po as (select date_trunc('day', p.created_at at time zone 'Africa/Lagos') as ld, count(*) as n from public.community_posts p where p.created_at >= v_since group by 1),
+  re as (select date_trunc('day', r.created_at at time zone 'Africa/Lagos') as ld, count(*) as n from public.community_reports r where r.created_at >= v_since group by 1),
+  sg as (select date_trunc('day', x.created_at at time zone 'Africa/Lagos') as ld, count(*) as n from public.community_safety_signals x where x.created_at >= v_since group by 1)
+  select jsonb_agg(jsonb_build_object(
+           'day', to_char(days.ld, 'YYYY-MM-DD'),
+           'posts', coalesce(po.n, 0), 'blocked', coalesce(ev.blocked, 0), 'held', coalesce(ev.held, 0), 'reported', coalesce(re.n, 0),
+           'auto_hidden', coalesce(ev.auto_hidden, 0), 'approved', coalesce(ev.approved, 0), 'removed', coalesce(ev.removed, 0),
+           'safety', coalesce(sg.n, 0)) order by days.ld)
+    into v_series
+    from days
+    left join ev on ev.ld = days.ld
+    left join po on po.ld = days.ld
+    left join re on re.ld = days.ld
+    left join sg on sg.ld = days.ld;
+
+  -- Response time: for each post that entered the queue (held or hidden after reports), minutes from entering it to the FIRST person's
+  -- approve or remove decision; decisions made in the period. Removing an old visible post is not a queue response and is not counted.
+  with queued as (
+    select e.subject_id, min(e.created_at) as entered
+      from public.community_moderation_events e where e.action in ('held', 'auto_hidden') and e.subject_id is not null group by e.subject_id),
+  first_decision as (
+    select distinct on (e.subject_id) e.subject_id, e.created_at as decided
+      from public.community_moderation_events e
+     where e.action in ('approved', 'removed') and e.actor_id is not null and e.subject_id is not null
+     order by e.subject_id, e.created_at)
+  select round((percentile_cont(0.5) within group (order by extract(epoch from (f.decided - q.entered)) / 60))::numeric, 0) as median, count(*) as n
+    into v_response
+    from first_decision f join queued q on q.subject_id = f.subject_id
+   where f.decided >= v_since and f.decided >= q.entered;
+
   return jsonb_build_object(
     'days', v_days,
     'generated_at', now(),
@@ -301,29 +368,11 @@ begin
       'awaiting_moderation', (select count(*) from public.community_posts where state in ('held', 'auto_hidden')),
       'open_reports', (select count(*) from public.community_reports where status = 'open'),
       'open_safety', (select count(*) from public.community_safety_signals where status in ('open', 'in_review')),
-      -- minutes from a held or hidden post's arrival to the first person's decision on it, decisions made in the period
-      'response_minutes_median', (
-        select round((percentile_cont(0.5) within group (order by extract(epoch from (e.created_at - p.created_at)) / 60))::numeric, 0)
-          from public.community_moderation_events e join public.community_posts p on p.id = e.subject_id
-         where e.action in ('approved', 'removed') and e.actor_id is not null and e.created_at >= v_since),
-      'response_decisions', (
-        select count(*) from public.community_moderation_events e
-         where e.action in ('approved', 'removed') and e.actor_id is not null and e.created_at >= v_since),
+      'response_minutes_median', v_response.median,
+      'response_decisions', coalesce(v_response.n, 0),
       'moderators_on_duty', v_mod_on,
       'safety_on_duty', v_safety_on),
-    'series', (
-      select jsonb_agg(jsonb_build_object(
-               'day', to_char(d, 'YYYY-MM-DD'),
-               'posts', (select count(*) from public.community_posts p where p.created_at >= d and p.created_at < d + interval '1 day'),
-               'blocked', (select count(*) from public.community_moderation_events e where e.action = 'blocked' and e.created_at >= d and e.created_at < d + interval '1 day'),
-               'held', (select count(*) from public.community_moderation_events e where e.action = 'held' and e.created_at >= d and e.created_at < d + interval '1 day'),
-               'reported', (select count(*) from public.community_reports r where r.created_at >= d and r.created_at < d + interval '1 day'),
-               'auto_hidden', (select count(*) from public.community_moderation_events e where e.action = 'auto_hidden' and e.created_at >= d and e.created_at < d + interval '1 day'),
-               'approved', (select count(*) from public.community_moderation_events e where e.action = 'approved' and e.actor_id is not null and e.created_at >= d and e.created_at < d + interval '1 day'),
-               'removed', (select count(*) from public.community_moderation_events e where e.action = 'removed' and e.actor_id is not null and e.created_at >= d and e.created_at < d + interval '1 day'),
-               'safety', (select count(*) from public.community_safety_signals sg where sg.created_at >= d and sg.created_at < d + interval '1 day'))
-             order by d)
-        from generate_series(v_since, v_today, interval '1 day') d),
+    'series', coalesce(v_series, '[]'::jsonb),
     'groups', coalesce((
       select jsonb_agg(jsonb_build_object(
                'id', g.id, 'slug', g.slug, 'name', g.name, 'status', g.status, 'images_allowed', g.images_allowed,

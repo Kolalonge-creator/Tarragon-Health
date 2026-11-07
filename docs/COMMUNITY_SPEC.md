@@ -716,7 +716,9 @@ Migration `20261107020600_community_moderation_desk_grant_only_and_overview.sql`
 the two COM-28 proofs). Section 19 no longer applies.
 - **Grant-only.** `private.community_auto_grant` and its triggers on `profiles` and `clinical_staff` are gone, as is the default-rota seeding
   for automatic grants. Live automatic grants were withdrawn (`revoked_by` null, event `staff_revoked` / `grant_only_com31`). An admin gives
-  roles on `/admin/community/staff` to any internal staff account. The CMO is still paged on every safety signal by doctor tier, grant or not.
+  roles on `/admin/community/staff` to any internal staff account. The CMO is still paged on every safety signal by doctor tier, grant or not,
+  and `private.community_is_safety_reviewer()` now admits the active CMO by tier so the page can be acted on (the one exception to grant-only).
+  All 49 earlier shifts belonged to automatic grants, so the rota is empty until shifts are entered for the people given roles.
 - **Senior moderator.** `community_staff.scope` gains `senior_moderator`. The grant is global, the grant RPC adds a global moderator grant if
   the person has none, and withdrawing the global moderator grant withdraws the senior one, so every existing `scope = 'moderator'` check is
   unchanged. `private.community_is_senior_moderator()` and `community_staff_context().is_senior_moderator` expose it; the powers it adds

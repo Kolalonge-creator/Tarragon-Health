@@ -137,7 +137,7 @@ export function KpiGrid({ data, ctx }: { data: DeskOverview; ctx: StaffContext }
         label="Typical moderation response"
         value={k.response_minutes_median === null ? null : formatMinutes(k.response_minutes_median)}
         hint="No decisions in this period"
-        help={k.response_decisions > 0 ? `Median of ${k.response_decisions} decision${k.response_decisions === 1 ? "" : "s"}, arrival to first decision` : undefined}
+        help={k.response_decisions > 0 ? `Median of ${k.response_decisions} decision${k.response_decisions === 1 ? "" : "s"}, time in the queue to first decision` : undefined}
       />
       <KpiCard
         label="Moderators on duty now"

@@ -126,7 +126,10 @@ export function sortAttention(items: readonly AttentionItem[]): AttentionItem[] 
  */
 export function attentionHref(target: string | null | undefined, ctx: StaffContext): string | null {
   if (!target) return null;
-  if (target.startsWith("queue")) return `/community-desk/${target}`;
+  // the queue tabs open only for someone who can act there: the safety tab for a safety reviewer (the CMO counts, by tier), the others
+  // for a moderator. An admin with no grant sees the item and its owner, but no button that would land on "no duties".
+  if (target === "queue?tab=safety") return ctx.is_safety_reviewer ? `/community-desk/${target}` : null;
+  if (target.startsWith("queue")) return ctx.is_moderator ? `/community-desk/${target}` : null;
   if (target === "rota") return ctx.is_admin ? "/admin/community/rota" : null;
   if (target === "drills") return ctx.is_admin ? "/admin/community/drill" : ctx.is_cmo ? "/clinician/community/drill" : null;
   return null;

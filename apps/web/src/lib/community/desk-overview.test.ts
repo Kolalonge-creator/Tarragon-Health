@@ -31,7 +31,10 @@ describe("desk overview helpers", () => {
   });
 
   it("never links someone to a page they cannot open", () => {
-    expect(attentionHref("queue?tab=safety", ctx)).toBe("/community-desk/queue?tab=safety");
+    expect(attentionHref("queue?tab=moderation", ctx)).toBe("/community-desk/queue?tab=moderation");
+    expect(attentionHref("queue?tab=safety", ctx)).toBeNull();
+    expect(attentionHref("queue?tab=safety", { ...ctx, is_safety_reviewer: true })).toBe("/community-desk/queue?tab=safety");
+    expect(attentionHref("queue?tab=moderation", { ...ctx, is_moderator: false, is_admin: true })).toBeNull();
     expect(attentionHref("rota", ctx)).toBeNull();
     expect(attentionHref("rota", { ...ctx, is_admin: true })).toBe("/admin/community/rota");
     expect(attentionHref("drills", { ...ctx, is_cmo: true })).toBe("/clinician/community/drill");
