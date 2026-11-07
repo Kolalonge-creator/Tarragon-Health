@@ -39,6 +39,11 @@ export function AttentionPanel({
   limit,
   incomplete,
   showAllHref,
+  heading = "Requires executive attention",
+  description = "Live. Ranked by clinical urgency and governance risk, then by how long each has been outstanding.",
+  emptyText = "Nothing needs your attention right now: no critical, overdue or unassigned clinical work, no open incidents, safeguarding concerns or sign-offs.",
+  headingId = "exec-attention-heading",
+  dateLabel = "Raised",
 }: {
   items: readonly ExecutiveAttentionItem[];
   now: Date;
@@ -46,19 +51,24 @@ export function AttentionPanel({
   /** Some sources could not be read: the list must not read as an all-clear. */
   incomplete: boolean;
   showAllHref: string | null;
+  heading?: string;
+  description?: string;
+  /** Shown when nothing is listed and every source loaded. */
+  emptyText?: string;
+  headingId?: string;
+  /** Column title for the date (an operational warning shows its oldest item). */
+  dateLabel?: string;
 }) {
   const counts = countByTier(items);
   const shown = items.slice(0, limit);
   return (
-    <section aria-labelledby="exec-attention-heading" className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-charcoal-ink/5">
+    <section aria-labelledby={headingId} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-charcoal-ink/5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="exec-attention-heading" className="font-heading text-lg font-semibold text-charcoal-ink">
-            Requires executive attention
+          <h2 id={headingId} className="font-heading text-lg font-semibold text-charcoal-ink">
+            {heading}
           </h2>
-          <p className="text-sm text-charcoal-ink/65">
-            Live. Ranked by clinical urgency and governance risk, then by how long each has been outstanding.
-          </p>
+          <p className="text-sm text-charcoal-ink/65">{description}</p>
         </div>
         <ul className="flex flex-wrap gap-2" aria-label="Items by priority">
           {TIERS.map((t) => (
@@ -74,17 +84,17 @@ export function AttentionPanel({
         <p className="mt-4 rounded-xl bg-warm-ivory p-4 text-sm text-charcoal-ink/75">
           {incomplete
             ? "Nothing to show from the sources that loaded. Part of this list could not be read, so this is not an all-clear."
-            : "Nothing needs your attention right now: no critical, overdue or unassigned clinical work, no open incidents, safeguarding concerns or sign-offs."}
+            : emptyText}
         </p>
       ) : (
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
-            <caption className="sr-only">Items requiring executive attention, most urgent first</caption>
+            <caption className="sr-only">{heading}, most urgent first</caption>
             <thead className="border-b border-charcoal-ink/10 text-xs uppercase tracking-wide text-charcoal-ink/55">
               <tr>
                 <th scope="col" className="py-2 pr-3 font-medium">Priority</th>
                 <th scope="col" className="py-2 pr-3 font-medium">Issue</th>
-                <th scope="col" className="py-2 pr-3 font-medium">Raised</th>
+                <th scope="col" className="py-2 pr-3 font-medium">{dateLabel}</th>
                 <th scope="col" className="py-2 pr-3 font-medium">Owner</th>
                 <th scope="col" className="py-2 pr-3 font-medium">Status</th>
                 <th scope="col" className="py-2 font-medium">Next action</th>
