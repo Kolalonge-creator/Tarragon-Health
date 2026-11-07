@@ -25,6 +25,7 @@ export * from "./wellbeing-library";
 export * from "./mental-wellbeing";
 export * from "./therapy-programmes";
 export * from "./home-pins";
+export * from "./reading-trends";
 export * from "./measurement-units";
 export * from "./rewards-pending";
 export * from "./clinician-home";

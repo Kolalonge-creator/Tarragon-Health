@@ -9,6 +9,7 @@ import {
   activeFromMs,
   buildTodaysDoseChecklist,
   collectionReporterLabel,
+  loadDoseHistory,
   loadSupplies,
   loadWeeklyAdherence,
   logDose,
@@ -256,6 +257,27 @@ describe("weekly adherence on the phone", () => {
     mockTables.medications = [];
     const res = await loadWeeklyAdherence("p1", NOW);
     expect(res).toMatchObject({ ok: true, data: { percent: null } });
+  });
+});
+
+describe("doses-taken chart on the phone", () => {
+  it("counts completed Lagos days only, ending yesterday, with the shared formula", async () => {
+    mockTables.medications = [{ id: "m1", created_at: "2026-09-01T00:00:00Z", schedule_times: ["08:00"], schedule_spec: null }];
+    mockTables.medication_logs_latest_per_slot = ["01", "02", "03", "04"].map((d) => ({
+      medication_id: "m1",
+      scheduled_for_date: `2026-10-${d}`,
+      scheduled_time: "08:00",
+      status: "taken",
+      logged_at: `2026-10-${d}T07:05:00Z`,
+    }));
+    const res = await loadDoseHistory("p1", NOW);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      // Today (the 5th) is still open, so the chart ends on the 4th and never counts today's dose as missed.
+      expect(res.data.days).toHaveLength(28);
+      expect(res.data.days.at(-1)).toEqual({ date: "2026-10-04", due: 1, taken: 1 });
+      expect(res.data.last7).toEqual({ due: 7, taken: 4, percent: 57 });
+    }
   });
 });
 

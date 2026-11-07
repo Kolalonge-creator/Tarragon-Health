@@ -29,11 +29,29 @@ import { TodayPlan } from "@/screens/sections/today-plan";
 import { LessonFooter, WeeklyLessonCard } from "@/screens/sections/learning-sections";
 import { RecordLessonCardNative } from "@/screens/sections/learning-quality-sections";
 import { HomeCheckCard } from "@/screens/sections/home-check-card";
-import { todayIsoDate } from "@/lib/medications";
+import { loadDoseHistory, todayIsoDate, type QueryResult } from "@/lib/medications";
+import { loadPinSeries, type PinSeriesMap } from "@/lib/reading-series";
+import type { DoseHistory } from "@tarragon/medicines";
 import { agoLine, dueLine, formatVisitTime, heroMetric, nextBestStep, type Line } from "@/lib/home-model";
 import { lightPalette, radii, space, useTheme } from "@/ui/design";
 import { AppText, Button, Card, Icon, InlineAlert, ListItem, PressableScale, Screen, Skeleton, SkeletonGroup, type IconName } from "@/ui/kit";
 import type { SectionId } from "@/lib/sections";
+
+export type TileTrends = { nowMs: number; series: PinSeriesMap; doses: QueryResult<DoseHistory> | null };
+
+/**
+ * The 30-day series behind each pinned vitals tile and, when today's doses is pinned, the doses-taken history (2026-11-06 big
+ * numbers). Kept outside the component so the clock and data work stay out of render. A failed read is carried through, so a tile
+ * says it could not load rather than drawing an empty chart.
+ */
+async function loadTileTrends(patientId: string, pins: readonly HomePinKey[]): Promise<TileTrends> {
+  const nowMs = Date.now();
+  const [series, doses] = await Promise.all([
+    loadPinSeries(patientId, pins, nowMs),
+    pins.includes("doses_today") ? loadDoseHistory(patientId, nowMs) : Promise.resolve(null),
+  ]);
+  return { nowMs, series, doses };
+}
 
 interface OverviewScreenProps {
   patientId: string;
@@ -63,6 +81,8 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
   const [monitoredVitals, setMonitoredVitals] = useState<string[] | null>(null);
   // A failed vitals read must read as "couldn't load", never "no reading yet".
   const [vitalsFailed, setVitalsFailed] = useState(false);
+  // The trend lines and the doses-taken bars behind the big-number tiles.
+  const [trends, setTrends] = useState<TileTrends | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [scoreReloadToken, setScoreReloadToken] = useState(0);
@@ -99,9 +119,11 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
     const monitored = monitoredRes.ok ? monitoredRes.data : null;
     setMonitoredVitals(monitored);
     const shown = resolveHomePins(saved, { activeMedicationCount: s.ok ? s.data.activeMedicationCount : 0, monitoredVitals: monitored ?? [] });
-    const values = await loadPinnedVitalValues(patientId, shown, await getMeasurementUnits());
+    const units = await getMeasurementUnits();
+    const [values, tileTrends] = await Promise.all([loadPinnedVitalValues(patientId, shown, units), loadTileTrends(patientId, shown)]);
     setVitalsFailed(!values.ok);
     if (values.ok) setVitalValues(values.data);
+    setTrends(tileTrends);
   }, [patientId]);
 
   useEffect(() => {
@@ -142,9 +164,11 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
       const result = await saveHomePins(patientId, organisationId, next, { activeMedicationCount: activeMeds, monitoredVitals: monitoredVitals ?? [] });
       if (!result.ok) return false;
       setStoredPins(result.data);
-      const values = await loadPinnedVitalValues(patientId, result.data, await getMeasurementUnits());
+      const units = await getMeasurementUnits();
+      const [values, tileTrends] = await Promise.all([loadPinnedVitalValues(patientId, result.data, units), loadTileTrends(patientId, result.data)]);
       setVitalsFailed(!values.ok);
       if (values.ok) setVitalValues(values.data);
+      setTrends(tileTrends);
       return true;
     },
     [patientId, organisationId, activeMeds, monitoredVitals],
@@ -325,7 +349,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
                 />
               ) : null}
             </View>
-            <HomePinTiles pins={pins} stats={stats} glucoseUnit={glucoseUnit} vitalValues={vitalValues} vitalsFailed={vitalsFailed} onNavigate={onNavigate} />
+            <HomePinTiles pins={pins} stats={stats} glucoseUnit={glucoseUnit} vitalValues={vitalValues} vitalsFailed={vitalsFailed} trends={trends} onNavigate={onNavigate} />
           </>
         )}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>
