@@ -116,7 +116,7 @@ export function NotificationBell({ allHref }: { allHref?: string } = {}) {
   const [open, setOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const { data } = useInAppNotifications();
+  const { data, isError } = useInAppNotifications();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const respond = useRespondToNotification();
@@ -180,7 +180,12 @@ export function NotificationBell({ allHref }: { allHref?: string } = {}) {
             )}
           </div>
           <div className="max-h-80 overflow-y-auto">
-            {items.length === 0 ? (
+            {isError && items.length === 0 ? (
+              // A failed read is not an empty inbox: say so instead of "No notifications yet".
+              <p role="alert" className="px-4 py-6 text-center text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+                Couldn&apos;t load your notifications. Please try again.
+              </p>
+            ) : items.length === 0 ? (
               <p className="px-4 py-6 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">
                 No notifications yet.
               </p>
