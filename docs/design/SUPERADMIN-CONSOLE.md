@@ -152,3 +152,27 @@ moved onto the shared frame with detail pages in tabs. Each is its own PR.
     Community files. Seven files in all.
   - Also: the three small items from 2a-2's second review (one roll-up rule for the badge mark and words; one badge
     lookup per link; a count shared by two links counted once on its group icon, with a sabotage-checked test).
+- **2b homepage: done** (branch `feat/superadmin-homepage`, stacked on 2a-3).
+  - New read-only database function `analytics_platform_overview(from, to)` (migration
+    `20261107023802_analytics_platform_overview.sql`): the chosen window and the equal-length window before it, plus
+    a live snapshot. Analyst/admin only, refused callers get 42501 (never zeros), test data left out. Proof:
+    `packages/db/tests/analytics_platform_overview.sql` (15 checks measured as differences from fixtures, sabotage
+    included); the console-wide gate test now covers it too. Both run green on a fresh local replay.
+  - Money definition: **collected** = Paystack-confirmed money in naira from the two places a confirmed charge is
+    recorded, which never overlap: `payments` with status `success` for catalogue orders (the current checkout,
+    Membership included, by `verified_at`, `total_kobo`) and `payment_transactions` `charge.success` for every other
+    route (the webhook returns from its order branch before writing `payment_transactions`). A row with no currency is
+    left out, never assumed to be naira. **Refunded** = `payment_transactions` `refund.processed`, the complete,
+    de-duplicated refund record (order refunds included). **Net** = collected minus refunded. **Failed payments** =
+    failed charge events plus catalogue orders that moved to `failed`. Not recognised revenue and not orders placed.
+    Every definition is on the page. (The first draft read only `payment_transactions` and would have missed every
+    Membership purchase; the review caught it before the PR.)
+  - Page: header with Lagos-time "updated" and refresh, a period picker (today, 7, 30, 90 days, year to date), the
+    attention panel, nine figures each against the previous window (colour by whether the change is good, the arrow
+    by direction, a rise from zero shows the old figure), Free and Membership by who pays with shares and the number
+    ending in 30 days, the live operations tiles, all areas, and system health in five states with the evidence each
+    rests on (a key that is merely set is "Unknown", never "Operational"). The gradient welcome banner is gone.
+  - Not in this PR: a custom date range, recent activity (the audit log carries patient-record views, so it needs a
+    curated list of administrative events first), trend charts, and Paystack health from real webhook evidence.
+  - Also: DataTable announces its count only after the reader searches, sorts or pages (the 2a-3 second review item).
+

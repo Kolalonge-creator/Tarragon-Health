@@ -1960,3 +1960,5 @@ dw03_escalation_working_states.sql
 dw07_dw08_audited_onboarding_and_care_circle_reads.sql
 # DW follow-ups (2026-11-07): a returned monitoring case tells its doctor in-app (only the escalation id), an unheld one tells the CMO, a not-yet-due one tells nobody; no staff account (doctor or coordinator) can delete an escalation. Sabotage: the old org-staff delete policy lets a coordinator delete.
 dw_followups_monitoring_notice_and_no_escalation_delete.sql
+# Superadmin homepage (2026-11-07): analytics_platform_overview counts a window and the one before it from fixtures measured as differences (test patient, test member, test/errored/USD payments left out; refunds and failed charges apart; snapshot by source, Free, ending in 30 days); a patient is refused with 42501, a backwards range with 22023. Sabotage: an ungated copy lets the patient in.
+analytics_platform_overview.sql
