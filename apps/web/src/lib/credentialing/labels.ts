@@ -148,3 +148,13 @@ export function formatDate(iso: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return "Not recorded";
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Africa/Lagos" });
 }
+
+/**
+ * What a reviewer is told about a credential document's malware scan. Null when there is nothing to say (clean, or the
+ * scanner is switched off). A held or failed document cannot be opened or marked as checked, so the page says why.
+ */
+export function documentScanNote(status: string): { label: string; tone: "attention" | "critical" } | null {
+  if (status === "pending_scan") return { label: "Waiting for safety check, usually cleared within a day", tone: "attention" };
+  if (status === "infected") return { label: "Failed the safety check: ask for a fresh copy", tone: "critical" };
+  return null;
+}

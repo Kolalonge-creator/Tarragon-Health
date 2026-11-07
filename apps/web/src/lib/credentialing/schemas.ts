@@ -2,6 +2,8 @@ import { z } from "zod";
 
 /** Shapes of what the credentialing read functions return. Loose on purpose: only what the screens read is checked. */
 const iso = z.string().nullable();
+/** Malware-scan state of a credential document; absent from an older database answer means it predates the scan. */
+const scanStatus = z.enum(["unscanned", "pending_scan", "clean", "infected"]).optional().default("unscanned");
 
 export const refereeSchema = z.looseObject({
   name: z.string().optional(),
@@ -108,6 +110,7 @@ export const detailSchema = z.looseObject({
       verified_by_name: z.string().nullable(),
       superseded: z.boolean(),
       expires_at: iso,
+      scan_status: scanStatus,
     }),
   ),
   checks: z.array(
@@ -165,7 +168,9 @@ export const expiryOverviewSchema = z.array(
     grace: z.array(z.looseObject({ id: z.string(), kind: z.string(), ends_at: z.string(), reason: z.string() })),
     competencies: z.array(z.string()),
     audited_task_count: z.number(),
-    renewal_documents: z.array(z.looseObject({ id: z.string(), kind: z.string(), created_at: z.string(), expires_at: iso, verified: z.boolean() })),
+    renewal_documents: z.array(
+      z.looseObject({ id: z.string(), kind: z.string(), created_at: z.string(), expires_at: iso, verified: z.boolean(), scan_status: scanStatus }),
+    ),
   }),
 );
 export type ExpiryRow = z.infer<typeof expiryOverviewSchema>[number];

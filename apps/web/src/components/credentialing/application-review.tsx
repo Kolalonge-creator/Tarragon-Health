@@ -13,9 +13,10 @@ import {
   setLevel,
   verifyDocument,
 } from "@/lib/credentialing/review-actions";
-import { APPLICATION_STATE_LABEL, CHECK_KIND_HINT, PRIMARY_SOURCE_ROUTE_LABEL, CHECK_KIND_LABEL, COMPETENCY_CODES, COMPETENCY_LABEL, DOCUMENT_KIND_LABEL, formatDate } from "@/lib/credentialing/labels";
+import { APPLICATION_STATE_LABEL, CHECK_KIND_HINT, PRIMARY_SOURCE_ROUTE_LABEL, CHECK_KIND_LABEL, COMPETENCY_CODES, COMPETENCY_LABEL, formatDate } from "@/lib/credentialing/labels";
 import type { ApplicationDetail } from "@/lib/credentialing/schemas";
 import { Field, fieldClass, Hidden, Muted, Section, StateBadge, SubmitButton } from "./shared";
+import { CredentialDocumentLink, isScanHeld } from "./document-link";
 
 const FLAG_TEXT: Record<string, string> = {
   in_use: "This MDCN folio number belongs to another clinician already working here. Do not pass the licence check until you have found out why.",
@@ -192,15 +193,13 @@ export function ApplicationReview({ detail, returnTo, isCmo }: { detail: Applica
           {docs.map((d) => (
             <li key={d.id} className="flex flex-wrap items-center justify-between gap-2">
               <span>
-                <a href={`/api/credentialing/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-green underline">
-                  {DOCUMENT_KIND_LABEL[d.kind] ?? d.kind}
-                </a>{" "}
+                <CredentialDocumentLink id={d.id} kind={d.kind} scanStatus={d.scan_status} />{" "}
                 <span className="text-xs text-charcoal-ink/55">
                   {formatDate(d.created_at)}
                   {d.verified_at ? `, checked by ${d.verified_by_name ?? "a reviewer"} on ${formatDate(d.verified_at)}` : ", not checked yet"}
                 </span>
               </span>
-              {!d.verified_at ? (
+              {!d.verified_at && !isScanHeld(d.scan_status) ? (
                 <form action={verifyDocument}>
                   <Hidden name="documentId" value={d.id} />
                   <Hidden name="returnTo" value={returnTo} />
