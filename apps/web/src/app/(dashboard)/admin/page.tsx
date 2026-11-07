@@ -425,7 +425,7 @@ export default async function AdminPage() {
           visible: isSuperAdmin,
         },
         {
-          href: "/admin/refund-requests",
+          href: "/finance/refunds",
           label: "Refund requests",
           blurb: "First-purchase money-back guarantee claims awaiting a decision",
           icon: SEMANTIC_ICON.billing,

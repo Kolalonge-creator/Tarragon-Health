@@ -47,9 +47,9 @@ export const KIND_ORDER: readonly string[] = Object.keys(KIND_LABEL);
 
 /** Where an id can be opened today. There is no per-record page for most of these, so this is the list page that holds the record. */
 const SUBJECT_HREF: Record<string, string> = {
-  order: "/admin/refund-requests",
+  order: "/finance/refunds",
   payment: "/finance/transactions",
-  refund: "/admin/refund-requests",
+  refund: "/finance/refunds",
   entitlement: "/admin/memberships",
   earnings_line: "/admin/earnings",
   payout: "/admin/payouts",

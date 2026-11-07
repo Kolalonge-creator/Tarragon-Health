@@ -48,6 +48,7 @@ export const PERMISSION_KEYS = [
   "finance.reconcile",
   "finance.tax.manage",
   "finance.export",
+  "finance.refunds.approve",
   "finance.approvals.manage",
   "finance.vendors.manage",
   "finance.cost_centers.manage",
