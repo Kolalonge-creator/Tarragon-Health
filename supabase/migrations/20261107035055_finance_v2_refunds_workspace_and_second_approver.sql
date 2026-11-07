@@ -79,7 +79,10 @@ revoke all on function private.stamp_refund_queue_refunded_at() from public, ano
 
 -- Backfill: the best evidence there is for rows that already failed or were refunded.
 -- orders_state_machine refuses changes to an order's commercial fields, not this column.
+-- orders_state_machine would stamp updated_at = now() on every row; it is paused for this one backfill so history keeps its dates.
+alter table public.orders disable trigger orders_state_machine;
 update public.orders set failed_at = updated_at where state = 'failed' and failed_at is null;
+alter table public.orders enable trigger orders_state_machine;
 update public.service_purchase_refund_queue set refunded_at = updated_at where status = 'refunded' and refunded_at is null;
 update public.voucher_refund_queue set refunded_at = updated_at where status = 'refunded' and refunded_at is null;
 
@@ -615,7 +618,7 @@ $$;
 -- ---------------------------------------------------------------------------
 insert into public.permissions (key, label, category, description)
 values ('finance.refunds.approve', 'Approve refunds', 'Finance',
-        'Approve or reject patient refund requests in the shared refunds workspace. Large refunds also need a second, different approver when finance settings say so.')
+        'Approve or reject patient refund requests in the shared refunds workspace (grant together with finance.view, which opens the finance console). Large refunds also need a second, different approver when an admin has set the threshold.')
 on conflict (key) do nothing;
 
 create or replace function private.can_decide_refunds()
@@ -688,7 +691,7 @@ end $$;
 revoke all on function public.finance_refund_settings_get() from public, anon;
 grant execute on function public.finance_refund_settings_get() to authenticated;
 
--- Set (positive amount) or clear (null) the second-approval threshold. Needs finance.approvals.manage.
+-- Set (positive amount) or clear (null) the second-approval threshold. Admin only (separation of duties).
 create or replace function public.finance_set_refund_second_approval_threshold(p_threshold_minor bigint, p_reason text)
 returns jsonb
 language plpgsql
@@ -698,7 +701,8 @@ as $$
 declare
   v_old bigint := private.refund_second_approval_threshold('NGN');
 begin
-  if not (private.mfa_requirement_met() and private.finance_can('finance.approvals.manage')) then
+  -- Only an admin changes the rule, so the people it binds (finance approvers) cannot switch it off themselves.
+  if not private.is_admin() then
     raise exception 'not authorised' using errcode = '42501';
   end if;
   if char_length(btrim(coalesce(p_reason, ''))) < 10 then
@@ -753,20 +757,20 @@ begin
     return jsonb_build_object('result', 'rejected', 'refund_id', p_refund);
   end if;
 
-  -- FIN-V2-3: at or above the threshold, two different people approve. No threshold set: one approval, as before.
+  -- FIN-V2-3. Once a refund holds a first approval it always needs a different second approver, whatever the threshold
+  -- says now: changing the threshold can never turn a held refund into a one-person approval.
+  if r.first_approved_by is not null and r.first_approved_by = v_uid then
+    return jsonb_build_object('result', 'same_approver');
+  end if;
+  -- At or above the threshold, two different people approve. No threshold set: one approval, as before.
   v_threshold := private.refund_second_approval_threshold('NGN');
-  if v_threshold is not null and r.amount_kobo >= v_threshold then
-    if r.first_approved_by is null then
+  if r.first_approved_by is null and v_threshold is not null and r.amount_kobo >= v_threshold then
       update public.refunds set first_approved_by = v_uid, first_approved_at = now(), first_approval_note = nullif(btrim(coalesce(p_note, '')), '')
        where id = p_refund and state = 'pending';
       insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event, reason)
       values (r.organisation_id, v_uid, 'refund.first_approval', 'refund', r.id,
               jsonb_build_object('amount_kobo', r.amount_kobo, 'threshold_kobo', v_threshold), nullif(btrim(coalesce(p_note, '')), ''));
       return jsonb_build_object('result', 'awaiting_second_approval', 'refund_id', p_refund, 'threshold_kobo', v_threshold);
-    end if;
-    if r.first_approved_by = v_uid then
-      return jsonb_build_object('result', 'same_approver');
-    end if;
   end if;
 
   update public.refunds set state = 'approved', decided_by = v_uid, decided_at = now(), decision_note = p_note
@@ -814,13 +818,15 @@ as $$
 declare
   v_uid uuid := (select auth.uid());
   v_threshold bigint := private.refund_second_approval_threshold('NGN');
+  v_can_decide boolean := private.can_decide_refunds();
+  v_org uuid := private.caller_org();
 begin
   if not (private.is_finance() or private.is_admin()) then
     raise exception 'not authorised' using errcode = '42501';
   end if;
   return jsonb_build_object(
     'caller_id', v_uid,
-    'can_decide', private.can_decide_refunds(),
+    'can_decide', v_can_decide,
     'second_approval_threshold_minor', v_threshold,
     'refunds', (
       select coalesce(jsonb_agg(jsonb_build_object(
@@ -828,7 +834,8 @@ begin
                'order_id', r.order_id,
                'amount_minor', r.amount_kobo,
                'state', r.state,
-               'reason', r.reason,
+               -- A patient's own words can carry health details: only someone who can decide the refund sees them.
+               'reason', case when v_can_decide then r.reason end,
                'requested_at', r.created_at,
                'requested_by', rp.full_name,
                'requested_by_staff', coalesce(rp.role::text <> 'patient', false),
@@ -862,6 +869,7 @@ begin
         left join public.profiles bp on bp.id = o.buyer_profile_id
         left join public.profiles ben on ben.id = o.beneficiary_patient_id
        where not r.is_test and not o.is_test
+         and r.organisation_id = v_org
          and (r.state in ('pending', 'approved', 'processing', 'failed')
               or coalesce(r.completed_at, r.decided_at, r.updated_at) > now() - interval '30 days'))
   );

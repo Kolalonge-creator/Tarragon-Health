@@ -5,7 +5,9 @@
 --   * With no threshold set, one approval approves a refund (today's behaviour is kept).
 --   * The finance role, an admin and a member granted finance.refunds.approve may decide;
 --     a finance.view-only member and a patient may not (42501).
---   * Setting the threshold needs finance.approvals.manage and a reason, and is audited.
+--   * Only an admin sets the threshold, with a reason, and it is audited; finance cannot.
+--   * A refund held for a second approval stays held if the threshold is later cleared.
+--   * Only someone who can decide sees a patient's free-text reason.
 --   * At or above the threshold the first approval leaves the refund pending
 --     ('awaiting_second_approval'); the same person approving again is refused
 --     ('same_approver'); a different person's approval approves it, and both are audited.
@@ -125,16 +127,19 @@ do $$ begin
 exception when insufficient_privilege then insert into frs_out values ('pat_queue', '"refused"');
 end $$;
 
--- 2. finance sets a threshold of 50,000 naira
+-- 2. finance may not set the threshold; an admin sets 50,000 naira
 reset role; select pg_temp.frs_as('fin'); set local role authenticated;
+insert into frs_out select 'fin_set', to_jsonb(pg_temp.frs_set(5000000, 'finance trying to set the rule it is bound by'));
+reset role; select pg_temp.frs_as('admin'); set local role authenticated;
 do $$ begin
   perform public.finance_set_refund_second_approval_threshold(5000000, 'short');
   insert into frs_out values ('no_reason', '"accepted"');
 exception when invalid_parameter_value then insert into frs_out values ('no_reason', '"refused"');
 end $$;
-insert into frs_out select 'fin_set', to_jsonb(pg_temp.frs_set(5000000, 'Two people approve refunds of 50,000 naira or more'));
+insert into frs_out select 'admin_set', to_jsonb(pg_temp.frs_set(5000000, 'Two people approve refunds of 50,000 naira or more'));
 
 -- 3. refund 2 (100,000 naira): finance first, finance again, then admin
+reset role; select pg_temp.frs_as('fin'); set local role authenticated;
 insert into frs_out select 'r2_first', to_jsonb(pg_temp.frs_try('r2', true, 'checked the charge'));
 insert into frs_out select 'r2_again', to_jsonb(pg_temp.frs_try('r2', true));
 -- refund 4 was requested by finance: finance cannot decide it
@@ -167,11 +172,11 @@ begin
   end if;
   insert into frs_checks values ('PASS: view-only and patient cannot decide or set the threshold; view-only reads the queue with can_decide false; patient refused the queue');
 
-  if pg_temp.frs_out('no_reason') <> 'refused' or pg_temp.frs_out('fin_set') <> 'set'
-     or not exists (select 1 from public.audit_log where action = 'finance.refund_threshold.set' and actor_id = (select v from frs_fix where k = 'fin')) then
-    raise exception 'FAIL: threshold setting (reason rule, permission or audit)';
+  if pg_temp.frs_out('no_reason') <> 'refused' or pg_temp.frs_out('fin_set') <> 'refused' or pg_temp.frs_out('admin_set') <> 'set'
+     or not exists (select 1 from public.audit_log where action = 'finance.refund_threshold.set' and actor_id = (select v from frs_fix where k = 'admin')) then
+    raise exception 'FAIL: threshold setting (reason rule, admin-only, audit): % % %', pg_temp.frs_out('no_reason'), pg_temp.frs_out('fin_set'), pg_temp.frs_out('admin_set');
   end if;
-  insert into frs_checks values ('PASS: the threshold needs a reason and the permission, and is audited');
+  insert into frs_checks values ('PASS: only an admin sets the threshold, with a reason, and it is audited');
 
   if pg_temp.frs_out('r4_own') <> 'own_request' then raise exception 'FAIL: a requester decided their own refund'; end if;
   insert into frs_checks values ('PASS: nobody decides a refund they requested');
@@ -235,6 +240,54 @@ begin
   update public.orders set state = 'failed' where id = v_fail;
   if (select failed_at from public.orders where id = v_fail) is null then raise exception 'FAIL: failed_at not stamped'; end if;
   insert into frs_checks values ('PASS: orders.failed_at is stamped when an order fails');
+end $$;
+
+-- ---- a held refund stays held when the threshold is cleared -------------------------
+do $$
+declare v_o uuid := gen_random_uuid(); v_r uuid := gen_random_uuid();
+begin
+  set local session_replication_role = replica;
+  insert into public.orders (id, organisation_id, buyer_profile_id, beneficiary_patient_id, catalog_item_id, price_id, amount_kobo, fee_kobo, total_kobo, state, paid_at, paystack_reference, is_test)
+  values (v_o, (select id from public.organisations order by created_at limit 1), (select v from frs_fix where k = 'pat'), (select v from frs_fix where k = 'pat'),
+          (select id from public.catalog_items where kind = 'membership' order by created_at limit 1), (select id from public.prices order by created_at limit 1),
+          10000000, 0, 10000000, 'paid', now(), 'FRSHOLD01', false);
+  insert into public.refunds (id, organisation_id, order_id, amount_kobo, reason, state, provider, requested_by, is_test)
+  values (v_r, (select id from public.organisations order by created_at limit 1), v_o, 10000000, 'held refund', 'pending', 'paystack', (select v from frs_fix where k = 'pat'), false);
+  set local session_replication_role = origin;
+  insert into frs_fix values ('held', v_r);
+end $$;
+select pg_temp.frs_as('fin'); set local role authenticated;
+insert into frs_out select 'held_first', to_jsonb(pg_temp.frs_try('held', true));
+reset role; select pg_temp.frs_as('admin'); set local role authenticated;
+insert into frs_out select 'admin_clear', to_jsonb(pg_temp.frs_set(null, 'Clearing the rule after a first approval'));
+reset role; select pg_temp.frs_as('fin'); set local role authenticated;
+insert into frs_out select 'held_again', to_jsonb(pg_temp.frs_try('held', true));
+reset role;
+do $$
+begin
+  if pg_temp.frs_out('held_first') <> 'awaiting_second_approval' or pg_temp.frs_out('admin_clear') <> 'set'
+     or pg_temp.frs_out('held_again') <> 'same_approver'
+     or (select state from public.refunds where id = (select v from frs_fix where k = 'held')) <> 'pending' then
+    raise exception 'FAIL: clearing the threshold let the first approver finish a held refund alone: % % %',
+      pg_temp.frs_out('held_first'), pg_temp.frs_out('admin_clear'), pg_temp.frs_out('held_again');
+  end if;
+  insert into frs_checks values ('PASS: a held refund still needs a different second approver after the threshold is cleared');
+end $$;
+-- restore the threshold for the sabotage step
+select pg_temp.frs_as('admin'); set local role authenticated;
+select pg_temp.frs_set(5000000, 'Restoring the rule for the sabotage step');
+reset role;
+
+-- ---- view-only cannot see the patient's reason -----------------------------------------
+do $$
+begin
+  if exists (select 1 from jsonb_array_elements((select v from frs_out where k = 'viewer_queue') -> 'refunds') r where r ->> 'reason' is not null) then
+    raise exception 'FAIL: a view-only member saw a patient''s refund reason';
+  end if;
+  if not exists (select 1 from jsonb_array_elements((select v from frs_out where k = 'granted_queue') -> 'refunds') r where r ->> 'reason' is not null) then
+    raise exception 'FAIL: a decider cannot see refund reasons';
+  end if;
+  insert into frs_checks values ('PASS: only someone who can decide sees the patient''s reason');
 end $$;
 
 -- ---- SABOTAGE: no threshold lookup ---------------------------------------------------

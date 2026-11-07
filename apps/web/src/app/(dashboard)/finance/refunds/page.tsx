@@ -23,7 +23,7 @@ export default async function FinanceRefundsPage() {
           refunds above the amount set below need two different approvers. Every decision is logged.
         </p>
       </div>
-      <RefundsWorkspace />
+      <RefundsWorkspace canEditThreshold={isAdmin} />
       {isAdmin && (
         <>
           <OrderRefundsAdmin decisions={false} />

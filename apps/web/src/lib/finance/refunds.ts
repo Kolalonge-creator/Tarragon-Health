@@ -20,7 +20,8 @@ export const queuedRefundSchema = z.object({
   order_id: z.string(),
   amount_minor: minor,
   state: z.enum(REFUND_STATES),
-  reason: z.string(),
+  /** Null for someone who cannot decide refunds: a patient's own words can carry health details. */
+  reason: z.string().nullable(),
   requested_at: z.string(),
   requested_by: z.string().nullable(),
   requested_by_staff: z.boolean(),
@@ -132,8 +133,13 @@ export function useSetRefundThreshold() {
 /** What the decision function answered, in words for the person who clicked. Null when it succeeded. */
 export function decisionMessage(r: DecisionResult): { tone: "success" | "info" | "refusal"; text: string } {
   switch (r.result) {
-    case "approved":
-      return { tone: "success", text: "Approved. The refund is queued for Paystack, what it paid for has ended, and the payer is told." };
+    case "approved": {
+      const ended = r.membership_ended === true || r.entitlement_revoked === true;
+      return {
+        tone: "success",
+        text: `Approved. The refund is queued for Paystack and the payer is told.${ended ? " The Membership or service it paid for has ended." : ""}`,
+      };
+    }
     case "rejected":
       return { tone: "success", text: "Rejected. The payer is told the refund was declined." };
     case "awaiting_second_approval":

@@ -87,6 +87,10 @@ describe("refund decision rules (UI side; the database enforces the same)", () =
     expect(refundTab(refund({ state: "failed" }))).toBe("failed");
     expect(refundTab(refund({ state: "completed" }))).toBe("finished");
   });
+  it("only claims the Membership ended when the database says it did", () => {
+    expect(decisionMessage({ result: "approved", membership_ended: false, entitlement_revoked: false }).text).not.toMatch(/ended/);
+    expect(decisionMessage({ result: "approved", membership_ended: true }).text).toMatch(/has ended/);
+  });
   it("explains every database answer, never pretending a hold is an approval", () => {
     expect(decisionMessage({ result: "awaiting_second_approval" })).toMatchObject({ tone: "info", text: expect.stringContaining("second") });
     expect(decisionMessage({ result: "same_approver" }).tone).toBe("refusal");
@@ -112,6 +116,7 @@ describe("RefundsWorkspace", () => {
   it("shows the threshold and labels a large refund as needing two approvals", () => {
     mockQueue.mockReturnValue(ok(queue([refund({ needs_second_approval: true })])));
     render(<RefundsWorkspace />);
+    expect(screen.queryByRole("button", { name: "Change" })).toBeNull();
     expect(screen.getByText("₦50,000")).toBeTruthy();
     expect(screen.getByText("Needs 2 approvals")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Give first approval" })).toBeTruthy();
@@ -143,11 +148,18 @@ describe("RefundsWorkspace", () => {
     expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ refundId: "r1", approve: true }), expect.anything());
   });
 
-  it("disables decisions for a view-only user and says why", () => {
-    mockQueue.mockReturnValue(ok(queue([refund()], { can_decide: false })));
+  it("lets an admin change the threshold", () => {
+    mockQueue.mockReturnValue(ok(queue([])));
+    render(<RefundsWorkspace canEditThreshold />);
+    expect(screen.getByRole("button", { name: "Change" })).toBeTruthy();
+  });
+
+  it("disables decisions for a view-only user, says why, and hides the member's reason", () => {
+    mockQueue.mockReturnValue(ok(queue([refund({ reason: null })], { can_decide: false })));
     render(<RefundsWorkspace />);
     expect((screen.getByRole("button", { name: "Approve" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByText(/can see refunds but not decide them/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/shown to refund approvers only/)).toBeTruthy();
   });
 
   it("does not show a failed read as an empty queue", () => {

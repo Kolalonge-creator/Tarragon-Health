@@ -54,7 +54,7 @@ const when = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" }) : "Not recorded";
 const words = (code: string | null) => (code ? code.replace(/_/g, " ") : "Not recorded");
 
-function ThresholdCard() {
+function ThresholdCard({ canEdit }: { canEdit: boolean }) {
   const settings = useRefundSettings();
   const save = useSetRefundThreshold();
   const [editing, setEditing] = useState(false);
@@ -67,9 +67,9 @@ function ThresholdCard() {
   return (
     <SectionCard
       title="Second approver"
-      description="Refunds at or above this amount need two different people to approve them. With no amount set, one approval is enough."
+      description="Refunds at or above this amount need two different people to approve them. With no amount set, one approval is enough. Only an admin changes it."
       actions={
-        !editing && settings.data ? (
+        canEdit && !editing && settings.data ? (
           <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
             Change
           </Button>
@@ -117,7 +117,7 @@ function ThresholdCard() {
           {save.isError && (
             <LoadFailure>
               {(save.error as { code?: string })?.code === "42501"
-                ? "Changing this needs the finance approvals permission."
+                ? "Only an admin can change this."
                 : "The setting was not saved. Try again."}
             </LoadFailure>
           )}
@@ -161,7 +161,11 @@ function RefundRow({
             {r.requested_by ? ` by ${r.requested_by}${r.requested_by_staff ? " (staff)" : ""}` : ""}
             {r.paystack_reference ? ` · Ref ${r.paystack_reference}` : ""}
           </p>
-          <p className="mt-1 max-w-2xl text-sm text-charcoal-ink/80 dark:text-night-ink/80">&ldquo;{r.reason}&rdquo;</p>
+          {r.reason ? (
+            <p className="mt-1 max-w-2xl text-sm text-charcoal-ink/80 dark:text-night-ink/80">&ldquo;{r.reason}&rdquo;</p>
+          ) : (
+            <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/50">The member&apos;s reason is shown to refund approvers only.</p>
+          )}
         </div>
         <div className="text-right">
           <p className="font-heading text-lg font-semibold tabular-nums text-charcoal-ink dark:text-night-ink">{formatMinor(r.amount_minor, "NGN")}</p>
@@ -201,7 +205,7 @@ function RefundRow({
   );
 }
 
-export function RefundsWorkspace() {
+export function RefundsWorkspace({ canEditThreshold = false }: { canEditThreshold?: boolean } = {}) {
   const q = useRefundQueue();
   const decide = useDecideRefund();
   const [tab, setTab] = useState<RefundTab>("decide");
@@ -238,7 +242,7 @@ export function RefundsWorkspace() {
 
   return (
     <div className="space-y-6">
-      <ThresholdCard />
+      <ThresholdCard canEdit={canEditThreshold} />
 
       <SectionCard title="Checkout refunds" description="Refund requests for Membership and other checkout orders. A refund only counts as refunded once Paystack confirms it.">
         {q.isError && (
@@ -277,6 +281,12 @@ export function RefundsWorkspace() {
                 </button>
               ))}
             </div>
+            {tab === "decide" && rows.some((r) => r.state === "pending" && r.first_approved_by) && (
+              <p className="mb-2 rounded-md bg-soft-sage px-3 py-2 text-xs text-charcoal-ink dark:bg-brand-green/15 dark:text-night-ink">
+                {rows.filter((r) => r.state === "pending" && r.first_approved_by).length} waiting for a second approver. Nothing is paid until a
+                different person approves.
+              </p>
+            )}
             {!data.can_decide && (
               <p className="mb-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 You can see refunds but not decide them. A finance administrator can grant the refund approval permission.
