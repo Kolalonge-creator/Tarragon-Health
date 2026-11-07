@@ -1,6 +1,6 @@
 "use server";
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getProposedConfig } from "@tarragon/shared";
@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { runBestEffort } from "@/lib/sentry/run-best-effort";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { INFECTED_UPLOAD_MESSAGE, screenUpload } from "@/lib/upload-scan/screen";
 import { getMyApplication, getMyCredentialStatus } from "./queries";
 import { checkDocumentUpload } from "./files";
 import { csv, endOfLagosDay, run, safeReturnTo, text, uuid } from "./action-helpers";
@@ -15,6 +16,10 @@ import { CredentialingError, rpcParsed, rpcVoid } from "./rpc";
 import { startTestSchema, submitTestSchema } from "./schemas";
 
 const HOME = "/account/clinician";
+
+/** Shown when the malware scan flags a credential document. Calm, and says what to do next. */
+const INFECTED_CREDENTIAL_MESSAGE =
+  "We could not accept this file because our safety check flagged it. Please download a fresh copy from the issuer, or scan the original document again, and upload that instead.";
 
 /** The applicant's own actions. Every database function re-checks that the caller owns the application. */
 
@@ -130,7 +135,6 @@ export async function uploadCredentialDocument(fd: FormData): Promise<void> {
     const profile = await getCurrentProfile();
     if (!profile?.organisation_id) throw new CredentialingError("Sign in again to continue.", "42501");
     const path = `${profile.organisation_id}/${profile.id}/${randomUUID()}.${check.type.ext}`;
-    const sha256 = createHash("sha256").update(bytes).digest("hex");
     const expiresOn = endOfLagosDay(text(fd, "expires_on"));
 
     const supabase = await createClient();
@@ -138,9 +142,17 @@ export async function uploadCredentialDocument(fd: FormData): Promise<void> {
     const [mine, staff] = await Promise.all([getMyApplication(), getMyCredentialStatus()]);
     if (!mine && !staff) throw new CredentialingError("Start your application before uploading documents.", "23514");
 
+    // Malware scan BEFORE storing (T2-08 mechanism, migration *_credentialing_upload_malware_scan.sql). Infected: refused and
+    // never stored. Scanner down: stored, but the row is held (cannot be opened or verified) until the daily retry rescans it.
+    const service = createServiceRoleClient();
+    const screened = await screenUpload(service, new Blob([bytes], { type: check.type.mime }), { credentialOwner: profile.id });
+    if (!screened.ok) {
+      throw new CredentialingError(screened.error === INFECTED_UPLOAD_MESSAGE ? INFECTED_CREDENTIAL_MESSAGE : screened.error, "23514");
+    }
+
     // The bucket has no policy for signed-in users: the file is vetted above, then stored with the service role. The
     // database function confirms the object exists with the declared size and type before it records anything.
-    const storage = createServiceRoleClient().storage.from("clinician-documents");
+    const storage = service.storage.from("clinician-documents");
     const { error: uploadError } = await storage.upload(path, bytes, { contentType: check.type.mime, upsert: false });
     if (uploadError) throw new CredentialingError("We could not store that file. Please try again.", undefined);
     try {
@@ -153,7 +165,7 @@ export async function uploadCredentialDocument(fd: FormData): Promise<void> {
           p_storage_path: path,
           p_mime: check.type.mime,
           p_size: bytes.length,
-          p_sha256: sha256,
+          p_sha256: screened.sha256,
           p_expires_at: expiresOn,
         },
         z.string(),

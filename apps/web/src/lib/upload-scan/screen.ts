@@ -29,7 +29,10 @@ export type ScreenOutcome =
   | { ok: true; verdict: "off" | "clean" | "held"; sha256: string }
   | { ok: false; error: string };
 
-export type ScreenContext = { patientId: string; uploadedBy: string | null };
+/** A patient's clinical upload, or a clinician's credential document (recorded with no patient: a clinician is not one). */
+export type ScreenContext = { patientId: string; uploadedBy: string | null } | { credentialOwner: string };
+
+type LooseRpc = { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ error: { message: string } | null }> };
 
 type ScanVerdict = "clean" | "infected" | "unavailable";
 
@@ -72,17 +75,29 @@ export async function screenUpload(
   const facts = await scanBytes(client, file, sha256);
   let recorded = false;
   try {
-    const { error } = await service.rpc("record_upload_scan", {
-      p_sha256: sha256,
-      p_verdict: facts.verdict,
-      p_signature: facts.signature as string,
-      p_engine_version: facts.engineVersion as string,
-      p_db_version: facts.dbVersion as string,
-      p_patient: ctx.patientId,
-      p_uploaded_by: ctx.uploadedBy as string,
-      p_size_bytes: file.size,
-      p_mime_type: (file.type || null) as string,
-    });
+    const { error } =
+      "credentialOwner" in ctx
+        ? await (service as unknown as LooseRpc).rpc("record_credential_upload_scan", {
+            p_sha256: sha256,
+            p_verdict: facts.verdict,
+            p_signature: facts.signature,
+            p_engine_version: facts.engineVersion,
+            p_db_version: facts.dbVersion,
+            p_uploaded_by: ctx.credentialOwner,
+            p_size_bytes: file.size,
+            p_mime_type: file.type || null,
+          })
+        : await service.rpc("record_upload_scan", {
+            p_sha256: sha256,
+            p_verdict: facts.verdict,
+            p_signature: facts.signature as string,
+            p_engine_version: facts.engineVersion as string,
+            p_db_version: facts.dbVersion as string,
+            p_patient: ctx.patientId,
+            p_uploaded_by: ctx.uploadedBy as string,
+            p_size_bytes: file.size,
+            p_mime_type: (file.type || null) as string,
+          });
     recorded = !error;
     if (error) console.error("upload-scan: could not record the verdict", error.message);
   } catch (error) {

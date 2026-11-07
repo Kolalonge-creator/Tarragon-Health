@@ -37,6 +37,14 @@ describe("screenUpload", () => {
     expect(s.rpc).toHaveBeenCalledWith("record_upload_scan", expect.objectContaining({ p_sha256: sha, p_verdict: "clean", p_patient: ctx.patientId }));
   });
 
+  it("records a clinician's credential document with no patient, through its own function", async () => {
+    const s = service();
+    const owner = "33333333-3333-4333-8333-333333333333";
+    expect(await screenUpload(s.client, file(), { credentialOwner: owner }, scanner({}))).toEqual({ ok: true, verdict: "clean", sha256: sha });
+    expect(s.rpc).toHaveBeenCalledWith("record_credential_upload_scan", expect.objectContaining({ p_sha256: sha, p_verdict: "clean", p_uploaded_by: owner }));
+    expect(s.rpc.mock.calls[0]?.[1]).not.toHaveProperty("p_patient");
+  });
+
   it("refuses an infected file with the calm message and records it (security incident)", async () => {
     const s = service();
     const r = await screenUpload(s.client, file(), ctx, scanner({ status: "infected", signature: "Eicar-Test-Signature" }));

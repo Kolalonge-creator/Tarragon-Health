@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { rpcParsed } from "@/lib/credentialing/rpc";
+
+type LooseRpc = {
+  rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string; code?: string } | null }>;
+};
+
+/** Shown when a document is held for its malware scan (the scanner was unavailable when it arrived). */
+const HELD_MESSAGE =
+  "This document is waiting for its safety check and cannot be opened yet. It is usually cleared within a day; please try again later.";
 
 /**
  * Serves one credential document to its owner or to a reviewer (S15). There is no signed link to share: the bytes
@@ -19,12 +26,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ doc
   } = await supabase.auth.getUser();
   if (!user) return new Response("Not signed in", { status: 401 });
 
-  let path: string;
-  try {
-    path = await rpcParsed(supabase, "open_clinician_document", { p_document: documentId }, z.string());
-  } catch {
-    return new Response("Not found", { status: 404 });
+  // open_clinician_document refuses a document still waiting for its malware scan (P0001 'document_held'), but only after it
+  // has confirmed the caller may see it, so saying "held" leaks nothing to a stranger.
+  const { data: opened, error: openError } = await (supabase as unknown as LooseRpc).rpc("open_clinician_document", {
+    p_document: documentId,
+  });
+  if (openError?.code === "P0001" && openError.message.startsWith("document_held")) {
+    return new Response(HELD_MESSAGE, { status: 423, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
   }
+  const parsed = z.string().safeParse(opened);
+  if (openError || !parsed.success) return new Response("Not found", { status: 404 });
+  const path = parsed.data;
 
   const { data, error } = await createServiceRoleClient().storage.from("clinician-documents").download(path);
   if (error || !data) return new Response("Not found", { status: 404 });

@@ -14,6 +14,7 @@ import {
 import { REGISTER_RESULT_LABEL, REGISTER_RESULTS } from "@/lib/credentialing/licence-verification";
 import { getProposedConfig } from "@tarragon/shared";
 import { Field, fieldClass, Hidden, Muted, SubmitButton } from "./shared";
+import { CredentialDocumentLink, isScanHeld } from "./document-link";
 
 /** The longest grace period a reviewer can record. The database enforces the same number from credentialing_config. */
 const GRACE_MAX_DAYS = (getProposedConfig("credentialing.rules").value as { grace_max_days: number }).grace_max_days;
@@ -34,24 +35,27 @@ function DateCell({ label, iso, now, show }: { label: string; iso: string | null
 function Actions({ row, returnTo }: { row: ExpiryRow; returnTo: string }) {
   return (
     <div className="space-y-3 text-sm">
-      {row.renewal_documents.map((d) => (
+      {row.renewal_documents.map((d) =>
+        isScanHeld(d.scan_status) ? (
+          <div key={d.id} className="text-xs">
+            <CredentialDocumentLink id={d.id} kind={d.kind} scanStatus={d.scan_status} /> uploaded {formatDate(d.created_at)}
+          </div>
+        ) : (
         <form key={d.id} action={renewCredential} className="flex flex-wrap items-end gap-2">
           <Hidden name="staffId" value={row.id} />
           <Hidden name="documentId" value={d.id} />
           <Hidden name="kind" value={d.kind === "indemnity_certificate" ? "indemnity" : "licence"} />
           <Hidden name="returnTo" value={returnTo} />
           <div className="text-xs">
-            <a href={`/api/credentialing/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-green underline">
-              {DOCUMENT_KIND_LABEL[d.kind] ?? d.kind}
-            </a>{" "}
-            uploaded {formatDate(d.created_at)}
+            <CredentialDocumentLink id={d.id} kind={d.kind} scanStatus={d.scan_status} /> uploaded {formatDate(d.created_at)}
           </div>
           <Field label="New expiry date">
             <input type="date" name="expires_on" required className={fieldClass} />
           </Field>
           <SubmitButton tone="outline">Check and record renewal</SubmitButton>
         </form>
-      ))}
+        ),
+      )}
 
       {row.grace.map((g) => (
         <form key={g.id} action={revokeGrace} className="flex flex-wrap items-center gap-2">

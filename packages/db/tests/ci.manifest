@@ -1967,3 +1967,5 @@ dw_followups_monitoring_notice_and_no_escalation_delete.sql
 # splits member / family sponsor / employer, refuses non-finance callers, and
 # a sabotage step proves the gross-volume check discriminates.
 finance_money_overview.sql
+# Credentialing uploads join the T2-08 malware scan (2026-11-07): scan_status derived from the server verdict, held documents cannot be opened or verified by any path, sweep clears or holds for good. Sabotage: no verified_at guard, no hold in open_clinician_document.
+credentialing_upload_malware_scan.sql
