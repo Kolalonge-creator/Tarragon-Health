@@ -3,6 +3,10 @@
   "note": "Baseline of every non-test file that uses the service-role key (files), and every file that imports a helper module that does (wrapper_callers). Adding a file needs a reviewed reason; removing one is always fine.",
   "files": [
     {
+      "file": "apps/web/src/lib/support/attachment-actions.ts",
+      "category": "Support desk ticket attachments (SUP-2, 2026-11-07): the caller's own session must first read the ticket under RLS (patient or staff of its organisation); only then does the service role record the T2-08 scan verdict, store the file in the private support-attachments bucket (no client storage policy) and write the attachment row, and sign a one-minute link for a row the caller's RLS already returned."
+    },
+    {
       "file": ".github/workflows/ci.yml",
       "category": "CI workflow secret reference"
     },
