@@ -13,6 +13,7 @@ import {
   workItemHref,
   workItemSchema,
   canTakeOver,
+  offerTakeOver,
   type WorkItem,
 } from "./work-items";
 
@@ -156,6 +157,14 @@ describe("links and take-over", () => {
   it("never offers to take a queue task by hand (it has its own claim rules)", () => {
     expect(canTakeOver({ source: "queue" })).toBe(false);
     expect(canTakeOver({ source: "programme" })).toBe(true);
+  });
+
+  it("offers 'Take it' only on work nobody has started, never on another person's hand claim", () => {
+    expect(offerTakeOver(item({ assigned_to: null, auto_assigned: false }), ME)).toBe(true);
+    expect(offerTakeOver(item({ assigned_to: DOC, auto_assigned: true }), ME)).toBe(true);
+    expect(offerTakeOver(item({ assigned_to: DOC, auto_assigned: false }), ME)).toBe(false);
+    expect(offerTakeOver(item({ assigned_to: ME }), ME)).toBe(false);
+    expect(offerTakeOver(item({ source: "queue", category: "queue", assigned_to: null }), ME)).toBe(false);
   });
 });
 

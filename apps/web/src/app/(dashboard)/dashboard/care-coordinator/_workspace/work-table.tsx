@@ -9,7 +9,7 @@ import {
   CATEGORY_LABEL,
   PRIORITY_LABEL,
   STATUS_LABEL,
-  canTakeOver,
+  offerTakeOver,
   isOverdue,
   workItemHref,
   type WorkItem,
@@ -55,7 +55,7 @@ function Actions({ item, me }: { item: WorkItem; me: string }) {
   const { openPatient } = useWorkspace();
   const take = useTakeOverWorkItem();
   const [error, setError] = useState<string | null>(null);
-  const showTake = canTakeOver(item) && item.assigned_to !== me;
+  const showTake = offerTakeOver(item, me);
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
       <Link

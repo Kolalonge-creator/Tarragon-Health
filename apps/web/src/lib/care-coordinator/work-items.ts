@@ -70,6 +70,14 @@ export function canTakeOver(item: Pick<WorkItem, "source">): boolean {
   return item.source !== "queue";
 }
 
+/**
+ * Whether "Take it" is offered: only for work nobody has started (unassigned, or placed by the system). Something a person took by
+ * hand stays with them, which is what the covering-doctor banner promises.
+ */
+export function offerTakeOver(item: Pick<WorkItem, "source" | "assigned_to" | "auto_assigned">, me: string): boolean {
+  return canTakeOver(item) && item.assigned_to !== me && (item.assigned_to === null || item.auto_assigned);
+}
+
 export const TAKE_OVER_TABLE: Record<Exclude<WorkSource, "queue">, string> = {
   outreach: "care_outreach_tasks",
   support: "navigation_requests",

@@ -15,11 +15,13 @@
 --      private.guard_staff_lab_assignment is deliberately NOT widened: a laboratory assignment is a coordinator's standing duty, and
 --      uploading does not need one.
 --   3. Routing: private.pick_coordination_owner = the patient's own coordinator, else the least-loaded coordinator, else the
---      least-loaded doctor (reuses S90's care_gap_pick_coordinator / care_gap_pick_doctor, so there is one rule). New outreach
+--      least-loaded doctor (the doctor eligibility is S90's care_gap_pick_doctor rule). New outreach
 --      tasks, support requests (navigation_requests) and chronic programme tasks with no assignee get one at insert, marked
 --      auto_assigned. Claiming by hand clears the mark, so the sweep never takes a person's work away from them.
 --   4. Handover: private.coordination_handover_sweep (cron every 10 minutes) moves untouched, system-assigned items from a doctor to
---      a coordinator once one is available. S90 gap tasks are left to S90's own hand-back.
+--      a coordinator once one is available, and gives an owner to any item that arrived when nobody could take it. S90 gap tasks
+--      are left to S90's own hand-back. Routing balances on private.coordination_load (all coordination items, gaps and queue
+--      tasks) and one rule decides who is an active coordinator (private.is_active_coordinator: role, staff row, not on leave).
 --   5. S16 queue: a task type whose minimum tier is care_coordinator is pushed to an offerable, competent coordinator first; with
 --      none, create_clinical_task carries on exactly as before (lead, then an employed doctor, then the pool).
 --   6. Read models for the workspace, all security_invoker so the caller's own RLS applies:
@@ -337,6 +339,81 @@ grant execute on function public.hold_appointment_slot_by_phone(uuid, uuid, appo
 
 -- 3. Routing -------------------------------------------------------------------------------------------------------------------------
 
+-- One load measure for everything a person holds: coordination items, care gaps and queue tasks. The S90 pickers count only gaps and
+-- queue tasks, so routing coordination work through them would send every new item to the same person (review finding, 2026-11-07).
+create or replace function private.coordination_load(p_profile uuid)
+returns bigint
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (select count(*) from public.care_outreach_tasks t where t.assigned_to = p_profile and t.status in ('open', 'in_progress', 'contacted'))
+       + (select count(*) from public.navigation_requests n where n.assigned_to = p_profile and n.status <> 'resolved')
+       + (select count(*) from public.chronic_programme_coordinator_tasks c where c.assigned_to = p_profile and c.status = 'open')
+       + (select count(*) from public.care_gaps g where g.owner_id = p_profile and g.status = 'open')
+       + (select count(*) from public.clinical_tasks q where (q.pushed_to = p_profile or q.claimed_by = p_profile)
+                                                       and q.state in ('offered_to_lead', 'open', 'claimed', 'escalated'));
+$$;
+revoke all on function private.coordination_load(uuid) from public;
+
+-- Who is an active Care Coordinator right now: the account role AND an active coordinator staff row, not on leave. One rule for
+-- routing, the sweep and the S16 push (care_gap_pick_coordinator checks the staff row only; MSG-2 checks the role only).
+create or replace function private.is_active_coordinator(p_profile uuid, p_now timestamptz default now())
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p_profile is not null and exists (
+    select 1 from public.profiles p
+      join public.clinical_staff cs on cs.profile_id = p.id and cs.organisation_id = p.organisation_id
+     where p.id = p_profile and p.role = 'care_coordinator' and p.is_active
+       and cs.active and cs.status = 'active' and cs.doctor_tier = 'care_coordinator'
+       and not private.clinician_on_leave(cs.profile_id, p_now));
+$$;
+revoke all on function private.is_active_coordinator(uuid, timestamptz) from public;
+
+create or replace function private.pick_coordination_coordinator(p_org uuid, p_now timestamptz default now())
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select cs.profile_id
+    from public.clinical_staff cs
+   where cs.organisation_id = p_org and cs.doctor_tier = 'care_coordinator'
+     and private.is_active_coordinator(cs.profile_id, p_now)
+   order by private.clinician_deprioritised_now(cs.profile_id, p_now), private.coordination_load(cs.profile_id), cs.profile_id
+   limit 1;
+$$;
+revoke all on function private.pick_coordination_coordinator(uuid, timestamptz) from public;
+
+-- The doctor fallback: the same eligibility as S90's care_gap_pick_doctor, balanced on the full coordination load.
+create or replace function private.pick_coordination_doctor(p_org uuid, p_patient uuid, p_now timestamptz default now())
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select cs.profile_id
+    from public.clinical_staff cs
+   where cs.organisation_id = p_org and cs.active and cs.status = 'active' and cs.profile_id is not null
+     and cs.employment_type = 'employed'
+     and cs.doctor_tier is not null
+     and private.doctor_tier_rank(cs.doctor_tier) >= private.doctor_tier_rank('senior_medical_officer'::public.doctor_tier)
+     and private.clinician_is_eligible(cs.profile_id)
+     and not private.clinician_on_leave(cs.profile_id, p_now)
+     and not private.clinician_in_post_call_rest(cs.profile_id)
+     and not private.has_conflict(cs.profile_id, p_patient)
+   order by private.clinician_deprioritised_now(cs.profile_id, p_now), private.coordination_load(cs.profile_id), cs.profile_id
+   limit 1;
+$$;
+revoke all on function private.pick_coordination_doctor(uuid, uuid, timestamptz) from public;
+
 create or replace function private.pick_coordination_owner(p_org uuid, p_patient uuid, p_now timestamptz default now())
 returns uuid
 language sql
@@ -346,15 +423,13 @@ set search_path = ''
 as $$
   select coalesce(
     -- the patient's own coordinator, while active and not on leave
-    (select cs.profile_id
+    (select cta.care_coordinator_id
        from public.care_team_assignment cta
-       join public.clinical_staff cs on cs.profile_id = cta.care_coordinator_id and cs.organisation_id = p_org
-      where cta.patient_id = p_patient
-        and cs.active and cs.status = 'active' and cs.doctor_tier = 'care_coordinator'
-        and not private.clinician_on_leave(cs.profile_id, p_now)
+      where cta.patient_id = p_patient and cta.organisation_id = p_org
+        and private.is_active_coordinator(cta.care_coordinator_id, p_now)
       limit 1),
-    private.care_gap_pick_coordinator(p_org, p_now),
-    private.care_gap_pick_doctor(p_org, p_patient, p_now));
+    private.pick_coordination_coordinator(p_org, p_now),
+    private.pick_coordination_doctor(p_org, p_patient, p_now));
 $$;
 revoke all on function private.pick_coordination_owner(uuid, uuid, timestamptz) from public;
 
@@ -440,50 +515,56 @@ declare
 begin
   perform set_config('tarragon.coordination_sweep', 'on', true);
 
-  -- untouched outreach tasks a doctor was given by the system (S90 gap tasks are moved by S90's own hand-back)
+  -- Two jobs, one pass per table:
+  --   (a) an item nobody holds (no owner could be found when it arrived, e.g. everyone on leave) gets the current pick, whoever it is;
+  --   (b) an item the system gave a doctor that nobody has started moves to a coordinator, but only when the pick is one.
+  -- S90 gap tasks are left to S90's own hand-back. A hand claim (auto_assigned false) is never touched.
   for r in
-    select t.id, t.organisation_id, t.patient_id
+    select t.id, t.organisation_id, t.patient_id, t.assigned_to
       from public.care_outreach_tasks t
-     where t.auto_assigned and t.status = 'open'
-       and not exists (select 1 from public.clinical_staff cs where cs.profile_id = t.assigned_to and cs.doctor_tier = 'care_coordinator')
+     where t.status = 'open'
        and not exists (select 1 from public.care_gaps g where g.outreach_task_id = t.id)
-       and private.care_gap_pick_coordinator(t.organisation_id) is not null
+       and (t.assigned_to is null
+            or (t.auto_assigned and not private.is_active_coordinator(t.assigned_to)
+                and private.pick_coordination_coordinator(t.organisation_id) is not null))
      order by t.created_at
   loop
     v_to := private.pick_coordination_owner(r.organisation_id, r.patient_id);
-    if exists (select 1 from public.clinical_staff cs where cs.profile_id = v_to and cs.doctor_tier = 'care_coordinator') then
+    if v_to is not null and (r.assigned_to is null or private.is_active_coordinator(v_to)) then
       update public.care_outreach_tasks set assigned_to = v_to, auto_assigned = true where id = r.id;
       v_moved := v_moved + 1;
     end if;
   end loop;
 
-  -- support requests nobody has acknowledged yet
+  -- support requests: an auto-placed one moves only while nobody has acknowledged it
   for r in
-    select n.id, n.organisation_id, n.patient_id
+    select n.id, n.organisation_id, n.patient_id, n.assigned_to
       from public.navigation_requests n
-     where n.auto_assigned and n.status = 'open' and n.acknowledged_at is null
-       and not exists (select 1 from public.clinical_staff cs where cs.profile_id = n.assigned_to and cs.doctor_tier = 'care_coordinator')
-       and private.care_gap_pick_coordinator(n.organisation_id) is not null
+     where n.status <> 'resolved'
+       and (n.assigned_to is null
+            or (n.auto_assigned and n.status = 'open' and n.acknowledged_at is null
+                and not private.is_active_coordinator(n.assigned_to)
+                and private.pick_coordination_coordinator(n.organisation_id) is not null))
      order by n.created_at
   loop
     v_to := private.pick_coordination_owner(r.organisation_id, r.patient_id);
-    if exists (select 1 from public.clinical_staff cs where cs.profile_id = v_to and cs.doctor_tier = 'care_coordinator') then
+    if v_to is not null and (r.assigned_to is null or private.is_active_coordinator(v_to)) then
       update public.navigation_requests set assigned_to = v_to, auto_assigned = true where id = r.id;
       v_moved := v_moved + 1;
     end if;
   end loop;
 
-  -- chronic programme tasks still open
   for r in
-    select c.id, c.organisation_id, c.patient_id
+    select c.id, c.organisation_id, c.patient_id, c.assigned_to
       from public.chronic_programme_coordinator_tasks c
-     where c.auto_assigned and c.status = 'open'
-       and not exists (select 1 from public.clinical_staff cs where cs.profile_id = c.assigned_to and cs.doctor_tier = 'care_coordinator')
-       and private.care_gap_pick_coordinator(c.organisation_id) is not null
+     where c.status = 'open'
+       and (c.assigned_to is null
+            or (c.auto_assigned and not private.is_active_coordinator(c.assigned_to)
+                and private.pick_coordination_coordinator(c.organisation_id) is not null))
      order by c.created_at
   loop
     v_to := private.pick_coordination_owner(r.organisation_id, r.patient_id);
-    if exists (select 1 from public.clinical_staff cs where cs.profile_id = v_to and cs.doctor_tier = 'care_coordinator') then
+    if v_to is not null and (r.assigned_to is null or private.is_active_coordinator(v_to)) then
       update public.chronic_programme_coordinator_tasks set assigned_to = v_to, auto_assigned = true where id = r.id;
       v_moved := v_moved + 1;
     end if;
@@ -495,26 +576,9 @@ end;
 $$;
 revoke all on function private.coordination_handover_sweep() from public;
 
--- Existing open items with no assignee get one now (no system marker existed before this migration, so nothing already assigned is
--- touched). Live counts on 2026-11-07: 14 outreach tasks in all states; support requests and programme tasks near zero.
-do $$
-declare r record; v_to uuid;
-begin
-  perform set_config('tarragon.coordination_sweep', 'on', true);
-  for r in select id, organisation_id, patient_id from public.care_outreach_tasks where assigned_to is null and status = 'open' loop
-    v_to := private.pick_coordination_owner(r.organisation_id, r.patient_id);
-    if v_to is not null then update public.care_outreach_tasks set assigned_to = v_to, auto_assigned = true where id = r.id; end if;
-  end loop;
-  for r in select id, organisation_id, patient_id from public.navigation_requests where assigned_to is null and status = 'open' loop
-    v_to := private.pick_coordination_owner(r.organisation_id, r.patient_id);
-    if v_to is not null then update public.navigation_requests set assigned_to = v_to, auto_assigned = true where id = r.id; end if;
-  end loop;
-  for r in select id, organisation_id, patient_id from public.chronic_programme_coordinator_tasks where assigned_to is null and status = 'open' loop
-    v_to := private.pick_coordination_owner(r.organisation_id, r.patient_id);
-    if v_to is not null then update public.chronic_programme_coordinator_tasks set assigned_to = v_to, auto_assigned = true where id = r.id; end if;
-  end loop;
-  perform set_config('tarragon.coordination_sweep', 'off', true);
-end $$;
+-- Existing open items with no owner get one now, through the same sweep (no system marker existed before this migration, so nothing
+-- already assigned is touched). Live on 2026-11-07: 15 open unassigned outreach tasks across two organisations.
+select private.coordination_handover_sweep();
 
 do $$
 begin
@@ -535,18 +599,12 @@ set search_path = ''
 as $$
   select cs.profile_id
     from public.clinical_staff cs
-    join public.profiles p on p.id = cs.profile_id and p.role = 'care_coordinator' and p.is_active
-   where cs.organisation_id = p_org and cs.active and cs.status = 'active'
-     and cs.doctor_tier = 'care_coordinator' and cs.employment_type = 'employed'
-     and not private.clinician_on_leave(cs.profile_id, now())
+   where cs.organisation_id = p_org and cs.doctor_tier = 'care_coordinator' and cs.employment_type = 'employed'
+     and private.is_active_coordinator(cs.profile_id)
      and private.clinician_offerable(cs.profile_id, now(), p_until)
      and not private.has_conflict(cs.profile_id, p_patient)
      and coalesce(array_length(private.clinician_missing_competencies(cs.profile_id, p_req), 1), 0) = 0
-   order by private.clinician_deprioritised_now(cs.profile_id, now()),
-            (select count(*) from public.clinical_tasks ct
-              where (ct.pushed_to = cs.profile_id or ct.claimed_by = cs.profile_id)
-                and ct.state in ('offered_to_lead', 'open', 'claimed', 'escalated')),
-            cs.profile_id
+   order by private.clinician_deprioritised_now(cs.profile_id, now()), private.coordination_load(cs.profile_id), cs.profile_id
    limit 1;
 $$;
 revoke all on function private.pick_task_coordinator(uuid, uuid, text[], timestamptz) from public;
@@ -705,7 +763,10 @@ with items as (
          case t.status when 'open' then 'open' when 'in_progress' then 'in_progress' else 'awaiting_patient' end as status,
          t.status::text as raw_status, t.assigned_to, t.auto_assigned, t.created_at, t.updated_at as last_activity_at
     from public.care_outreach_tasks t
-    left join public.care_gaps g on g.outreach_task_id = t.id and g.status = 'open'
+    -- at most one gap per task (the earliest due), so a task linked to two open gaps is still one row
+    left join lateral (select g0.next_attempt_due_at, g0.due_date from public.care_gaps g0
+                        where g0.outreach_task_id = t.id and g0.status = 'open'
+                        order by coalesce(g0.next_attempt_due_at, g0.due_date::timestamptz) limit 1) g on true
    where t.status in ('open', 'in_progress', 'contacted')
   union all
   select 'support', n.id, n.organisation_id, n.patient_id, 'support', n.category::text,
@@ -800,14 +861,31 @@ as $$
      order by p.full_name
      limit least(greatest(coalesce(p_limit, 300), 1), 1000)
   )
+  , work as (
+    -- one pass over the work items for all listed patients, not two scans per patient
+    select w.patient_id, count(*)::int as open_items, (count(*) filter (where w.due_at < now()))::int as overdue_items
+      from public.coordination_work_items w
+     where w.patient_id in (select id from pts)
+     group by w.patient_id
+  ), next_appt as (
+    select a.patient_id, min(a.scheduled_for) as next_at
+      from public.appointments a
+     where a.patient_id in (select id from pts) and a.scheduled_for >= now()
+       and a.status in ('scheduled', 'booked', 'confirmed', 'held')
+     group by a.patient_id
+  ), last_contact as (
+    select c.patient_id, max(c.contacted_at) as last_at
+      from public.care_outreach_contacts c
+     where c.patient_id in (select id from pts)
+     group by c.patient_id
+  )
   select pts.id, pts.full_name, pts.patient_number,
          cta.clinician_id, cl.full_name, cta.care_coordinator_id, co.full_name,
-         (select count(*)::int from public.coordination_work_items w where w.patient_id = pts.id),
-         (select count(*)::int from public.coordination_work_items w where w.patient_id = pts.id and w.due_at < now()),
-         (select min(a.scheduled_for) from public.appointments a
-           where a.patient_id = pts.id and a.scheduled_for >= now() and a.status in ('scheduled', 'booked', 'confirmed', 'held')),
-         (select max(c.contacted_at) from public.care_outreach_contacts c where c.patient_id = pts.id)
+         coalesce(work.open_items, 0), coalesce(work.overdue_items, 0), next_appt.next_at, last_contact.last_at
     from pts
+    left join work on work.patient_id = pts.id
+    left join next_appt on next_appt.patient_id = pts.id
+    left join last_contact on last_contact.patient_id = pts.id
     left join public.care_team_assignment cta on cta.patient_id = pts.id
     left join public.profiles cl on cl.id = cta.clinician_id
     left join public.profiles co on co.id = cta.care_coordinator_id

@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import { fetchTestPatientIds } from "@/lib/queries/real-patients";
+import { outreachKeys } from "@/lib/queries/care-outreach";
 import {
   activitySchema,
   rosterRowSchema,
@@ -43,20 +44,28 @@ export const coordinationKeys = {
 
 const REFRESH_MS = 60_000;
 
-async function testPatients(): Promise<Set<string>> {
-  return new Set(await fetchTestPatientIds(createClient()));
+/** The test-patient list, fetched once and shared by every hook here (5 minutes fresh), not once per hook per poll. */
+const TEST_PATIENTS_KEY = ["coordination", "test-patients"] as const;
+async function testPatients(qc: QueryClient): Promise<Set<string>> {
+  const ids = await qc.fetchQuery({
+    queryKey: TEST_PATIENTS_KEY,
+    queryFn: () => fetchTestPatientIds(createClient()),
+    staleTime: 5 * 60_000,
+  });
+  return new Set(ids);
 }
 
 /** Up to 1000 open items, oldest first. More than that is not a worklist, it is an incident, and the page says so. */
 export const WORK_ITEM_LIMIT = 1000;
 
 export function useCoordinationWorkItems() {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: coordinationKeys.items,
     refetchInterval: REFRESH_MS,
     queryFn: async (): Promise<WorkItem[]> => {
       const [tests, res] = await Promise.all([
-        testPatients(),
+        testPatients(qc),
         loose(createClient()).from("coordination_work_items").select("*").order("created_at", { ascending: true }).limit(WORK_ITEM_LIMIT),
       ]);
       if (res.error) throw new Error(res.error.message);
@@ -66,12 +75,13 @@ export function useCoordinationWorkItems() {
 }
 
 export function useCoordinationActivity(limit = 20) {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: [...coordinationKeys.activity, limit],
     refetchInterval: REFRESH_MS,
     queryFn: async (): Promise<ActivityEvent[]> => {
       const [tests, res] = await Promise.all([
-        testPatients(),
+        testPatients(qc),
         loose(createClient()).from("coordination_recent_activity").select("*").order("occurred_at", { ascending: false }).limit(limit * 2),
       ]);
       if (res.error) throw new Error(res.error.message);
@@ -81,10 +91,11 @@ export function useCoordinationActivity(limit = 20) {
 }
 
 export function useCoordinationRoster(scope: "mine" | "all") {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: coordinationKeys.roster(scope),
     queryFn: async (): Promise<RosterRow[]> => {
-      const [tests, res] = await Promise.all([testPatients(), loose(createClient()).rpc("coordination_patient_roster", { p_scope: scope })]);
+      const [tests, res] = await Promise.all([testPatients(qc), loose(createClient()).rpc("coordination_patient_roster", { p_scope: scope })]);
       if (res.error) throw new Error(res.error.message);
       return z.array(rosterRowSchema).parse(res.data).filter((r) => !tests.has(r.patient_id));
     },
@@ -112,6 +123,7 @@ const NEEDS_ACTION = ["no_show", "provider_cancelled", "failed"];
  * cancelled by the clinician, or failed). The same appointments table the doctor and patient dashboards read.
  */
 export function useCoordinationAppointments() {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: coordinationKeys.appointments,
     refetchInterval: REFRESH_MS,
@@ -121,7 +133,7 @@ export function useCoordinationAppointments() {
       const select =
         "id, patient_id, scheduled_for, status, appointment_type, booked_via, payment_status, patient:profiles!appointments_patient_id_fkey(full_name), clinician:profiles!appointments_clinician_id_fkey(full_name)";
       const [tests, upcoming, missed] = await Promise.all([
-        testPatients(),
+        testPatients(qc),
         supabase
           .from("appointments")
           .select(select)
@@ -227,6 +239,11 @@ export function useTakeOverWorkItem() {
       // RLS can turn an update into a silent no-op; report it instead of pretending it worked.
       if (!data || data.length === 0) throw new Error("That item could not be taken: it may have been closed or you may not have access.");
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: coordinationKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: coordinationKeys.all });
+      // the source pages keep their own caches; refresh them too so they show the new owner at once
+      qc.invalidateQueries({ queryKey: ["navigation-requests"] });
+      qc.invalidateQueries({ queryKey: outreachKeys.org });
+    },
   });
 }

@@ -76,7 +76,7 @@ do $$
 declare
   v_org uuid; v_admin uuid;
   v_coord uuid; v_coord2 uuid; v_doc uuid; v_spec uuid; v_cmo uuid; v_pt uuid; v_pt2 uuid;
-  v_coord_staff uuid; v_coord2_staff uuid;
+  v_coord_staff uuid; v_coord2_staff uuid; v_doc_staff uuid; v_doc2 uuid; v_doc2_staff uuid; v_out4 uuid; v_out5 uuid;
   v_out1 uuid; v_out2 uuid; v_out3 uuid; v_nav uuid; v_prog uuid; v_occ uuid := gen_random_uuid(); v_task uuid;
   v_start timestamptz := date_trunc('hour', now()) + interval '3 days' + interval '9 hours';
   v_appt public.appointments%rowtype;
@@ -180,6 +180,28 @@ begin
   perform pg_temp.rec('4 an explicit assignee is kept and not marked auto', v_cmo::text || '/false',
     (select assigned_to::text || '/' || auto_assigned::text from public.care_outreach_tasks where id = v_out3));
 
+  -- ===== 4b. load is balanced on coordination work, not only gaps and queue tasks =====
+  -- v_doc already holds several coordination items and no gaps or queue tasks; a second, idle doctor must get the next one.
+  v_doc2 := pg_temp.mkuser(v_org, 'doctor-two', 'clinician', date '1982-01-01');
+  v_doc2_staff := pg_temp.mkstaff(v_org, v_doc2, v_admin, 'senior_medical_officer', 'employed', true);
+  insert into public.care_outreach_tasks (organisation_id, patient_id, trigger_type, priority, status)
+  values (v_org, v_pt2, 'consultation_follow_up', 2, 'open') returning id into v_out4;
+  perform pg_temp.rec('4b the next item goes to the idle doctor, not the one holding the coordination work', v_doc2::text,
+    (select assigned_to::text from public.care_outreach_tasks where id = v_out4));
+  update public.clinical_staff set active = false where id = v_doc2_staff;
+
+  -- ===== 4c. an item that arrives when nobody can take it is routed later =====
+  select id into v_doc_staff from public.clinical_staff where profile_id = v_doc;
+  update public.clinical_staff set active = false where id = v_doc_staff;
+  insert into public.care_outreach_tasks (organisation_id, patient_id, trigger_type, priority, status)
+  values (v_org, v_pt2, 'failed_referral', 2, 'open') returning id into v_out5;
+  perform pg_temp.rec('4c with no eligible doctor or coordinator the item arrives with no owner', 'null',
+    coalesce((select assigned_to::text from public.care_outreach_tasks where id = v_out5), 'null'));
+  update public.clinical_staff set active = true where id = v_doc_staff;
+  perform private.coordination_handover_sweep();
+  perform pg_temp.rec('4c the sweep gives it an owner once one is available', v_doc::text || '/true',
+    (select assigned_to::text || '/' || auto_assigned::text from public.care_outreach_tasks where id = v_out5));
+
   -- ===== 5. claims and patients =====
   perform pg_temp.act(v_cmo);
   update public.care_outreach_tasks set assigned_to = v_cmo where id = v_out2;
@@ -198,7 +220,9 @@ begin
 
   -- ===== 6. a coordinator arrives =====
   update public.clinical_staff set active = true where id = v_coord_staff;
-  perform pg_temp.rec('6 the sweep moves three items', '3', private.coordination_handover_sweep()::text);
+  -- at least this proof's four auto items (outreach x2, support, programme); other rows in a shared database may move too
+  perform pg_temp.rec('6 the sweep moves this proof''s untouched items', 'true', (private.coordination_handover_sweep() >= 4)::text);
+  perform pg_temp.rec('6 the 4c item moved to the coordinator too', v_coord::text, (select assigned_to::text from public.care_outreach_tasks where id = v_out5));
   perform pg_temp.rec('6 outreach task moved to the coordinator', v_coord::text, (select assigned_to::text from public.care_outreach_tasks where id = v_out1));
   perform pg_temp.rec('6 and stays marked auto', 'true', (select auto_assigned::text from public.care_outreach_tasks where id = v_out1));
   perform pg_temp.rec('6 support request moved to the coordinator', v_coord::text, (select assigned_to::text from public.navigation_requests where id = v_nav));
@@ -215,6 +239,10 @@ begin
   on conflict (patient_id) do update set clinician_id = excluded.clinician_id, care_coordinator_id = excluded.care_coordinator_id;
   perform pg_temp.rec('6 the patient''s own coordinator is preferred', v_coord::text, private.pick_coordination_owner(v_org, v_pt)::text);
   perform pg_temp.rec('6 a patient with no coordinator goes to the less busy one', v_coord2::text, private.pick_coordination_owner(v_org, v_pt2)::text);
+  -- one rule for "active coordinator": a staff row alone is not enough once the account is no longer a coordinator
+  update public.profiles set role = 'patient' where id = v_coord2;
+  perform pg_temp.rec('6 a staff row whose account is no longer a coordinator is not picked', v_coord::text, private.pick_coordination_owner(v_org, v_pt2)::text);
+  update public.profiles set role = 'care_coordinator' where id = v_coord2;
   update public.clinical_staff set active = false where id = v_coord2_staff;
 
   -- ===== 7. S16 queue: coordinator first =====
