@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EXPORT_LABELS, SECURITY_RULE_LABELS, loadSecurityOverview } from "@/lib/security/security-overview";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Security" };
 export const dynamic = "force-dynamic";
@@ -35,12 +36,7 @@ export default async function SecurityPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Security</h1>
-        <p className="text-sm text-charcoal-ink/60">
-          Built only from what the platform records. Updated {WHEN.format(new Date(o.generated_at))}.
-        </p>
-      </div>
+      <PageHeader title="Security" description={`Built only from what the platform records. Updated ${WHEN.format(new Date(o.generated_at))}.`} />
 
       <Card>
         <CardHeader><CardTitle>Open security alerts</CardTitle></CardHeader>

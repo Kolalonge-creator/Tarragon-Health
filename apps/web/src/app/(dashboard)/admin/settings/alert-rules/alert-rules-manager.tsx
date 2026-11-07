@@ -12,6 +12,7 @@ import {
   type SignAlertRulesState,
 } from "./actions";
 import { isSupersededVersion } from "@/lib/clinical/refuse-superseded-draft";
+import { DataTable } from "@/components/ui/data-table";
 
 type AlertTypeRow = {
   category: string;
@@ -107,35 +108,34 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
 
 function AlertTypeTable({ config }: { config: AlertTypeRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-mist-grey/40">
-      <table className="w-full text-left text-xs">
-        <thead className="bg-mist-grey/20 text-charcoal-ink/60">
-          <tr>
-            <th className="p-2 font-medium">Type</th>
-            <th className="p-2 font-medium">Category</th>
-            <th className="p-2 font-medium">Severity</th>
-            <th className="p-2 font-medium">Owner tier</th>
-            <th className="p-2 font-medium">Ack timeout</th>
-          </tr>
-        </thead>
-        <tbody>
-          {config.map((entry) => {
-            const severity = SEVERITY_LABEL[entry.default_severity] ?? { label: `Level ${entry.default_severity}`, variant: "grey" as const };
-            return (
-              <tr key={entry.type_code} className="border-t border-mist-grey/30">
-                <td className="p-2 font-mono">{entry.type_code}</td>
-                <td className="p-2 text-charcoal-ink/70">{entry.category}</td>
-                <td className="p-2">
-                  <Badge variant={severity.variant}>{severity.label}</Badge>
-                </td>
-                <td className="p-2 text-charcoal-ink/70">{entry.owner_tier}</td>
-                <td className="p-2 text-charcoal-ink/70">{entry.ack_timeout_minutes} min</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      caption="Alert types"
+      columns={[
+        { header: "Type", sortable: true },
+        { header: "Category", sortable: true },
+        { header: "Severity", sortable: true },
+        { header: "Owner tier", sortable: true },
+        { header: "Ack timeout", sortable: true, align: "right" },
+      ]}
+      rows={config.map((entry) => {
+        const severity = SEVERITY_LABEL[entry.default_severity] ?? { label: `Level ${entry.default_severity}`, variant: "grey" as const };
+        return {
+          key: entry.type_code,
+          searchText: `${entry.type_code} ${entry.category} ${severity.label} ${entry.owner_tier}`,
+          sort: [entry.type_code, entry.category, entry.default_severity, entry.owner_tier, entry.ack_timeout_minutes],
+          cells: [
+            <span key="t" className="font-mono text-xs">{entry.type_code}</span>,
+            <span key="c" className="text-charcoal-ink/70">{entry.category}</span>,
+            <Badge key="s" variant={severity.variant}>{severity.label}</Badge>,
+            <span key="o" className="text-charcoal-ink/70">{entry.owner_tier}</span>,
+            <span key="a" className="text-charcoal-ink/70">{entry.ack_timeout_minutes} min</span>,
+          ],
+        };
+      })}
+      searchLabel="Search alert types"
+      emptyMessage="No alert types configured."
+      noun={{ one: "alert type", many: "alert types" }}
+    />
   );
 }
 

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { dormantAfterDays, isDormant, loadReviewItems, loadReviewStatus } from "@/lib/security/staff-access-review";
 import { CompleteReviewForm, DecisionForm, StartReviewForm } from "./review-forms";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = { title: "Staff access review" };
 export const dynamic = "force-dynamic";
@@ -33,13 +34,15 @@ export default async function StaffAccessReviewPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Staff access review</h1>
-        <p className="text-sm text-charcoal-ink/60">
-          Every {s.interval_days} days, confirm that each staff account still needs the access it has. Recording a decision changes
-          nothing by itself: to remove or change access, open the member&apos;s page from the list.
-        </p>
-      </div>
+      <PageHeader
+        title="Staff access review"
+        description={
+          <>
+            Every {s.interval_days} days, confirm that each staff account still needs the access it has. Recording a decision changes
+            nothing by itself: to remove or change access, open the member&apos;s page from the list.
+          </>
+        }
+      />
 
       <Card>
         <CardHeader><CardTitle>Status</CardTitle></CardHeader>

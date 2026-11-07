@@ -6,6 +6,7 @@ import {
   isRoleHomePrefixed,
   pathMatchesRole,
 } from "@/lib/auth/roles";
+import { homeForSignedInUser } from "@/lib/auth/home-for-signed-in-user";
 import { isAppHost, wwwRedirectTarget } from "@/lib/marketing/host";
 import { isMarketingPath } from "@/lib/marketing/routes";
 import { consoleBaseUrl, consoleRedirectTarget } from "@/lib/console-redirect";
@@ -269,7 +270,8 @@ async function proxyInner(request: NextRequest) {
       .eq("id", user.id)
       .single();
     if (profile) {
-      return NextResponse.redirect(new URL(getRoleHomePath(profile.role), request.url));
+      // An active Chief Medical Officer enters on the Leadership overview (2026-11-07); everyone else on their role home.
+      return NextResponse.redirect(new URL(await homeForSignedInUser(supabase, user.id, profile.role), request.url));
     }
     return NextResponse.redirect(new URL("/login", request.url));
   }
@@ -423,7 +425,9 @@ async function proxyInner(request: NextRequest) {
         new URL("/patient/prevention#health-check", request.url)
       );
     }
-    return NextResponse.redirect(new URL(home, request.url));
+    // Same entry rule as sign-in: an active Chief Medical Officer goes to the Leadership overview.
+    const entry = profile.role === "clinician" && !supporterOnly ? await homeForSignedInUser(supabase, user.id, profile.role) : home;
+    return NextResponse.redirect(new URL(entry, request.url));
   }
 
   // The super admin (`admin`) has full platform control and may traverse every
@@ -482,8 +486,23 @@ async function proxyInner(request: NextRequest) {
         // for the reason given above.
         "/clinician/operations-queue",
         "/clinician/medication-issues",
+        // CC-3 (2026-11-07): coordinator-level queue tasks are now pushed to a coordinator first, so the queue and the task page
+        // must open. Both are safe for the role: the queue lists only the caller's own tasks, and the database refuses a claim
+        // below the task type's minimum tier (task_types.min_doctor_tier), so a coordinator can only ever hold coordinator work.
+        "/clinician/queue",
+        "/clinician/tasks",
       ].some((allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`));
     if (isCoordinatorClinicianPath) {
+      return response;
+    }
+
+    // CC-1 (2026-11-07): one shared coordination workspace. A doctor may open /dashboard/care-coordinator/* to do coordinator work
+    // while no coordinator is employed. The workspace layout decides who qualifies (an employed Senior Medical Officer or the CMO)
+    // and every action is gated again in the database (private.is_coordination_actor). The community redirect above runs first.
+    const isClinicianCoordinationPath =
+      profile.role === "clinician" &&
+      (pathname === "/dashboard/care-coordinator" || pathname.startsWith("/dashboard/care-coordinator/"));
+    if (isClinicianCoordinationPath) {
       return response;
     }
 

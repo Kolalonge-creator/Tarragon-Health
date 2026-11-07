@@ -228,10 +228,16 @@ function SupportRequestRow({
 
       {r.status !== "resolved" && (
         <div className="flex flex-wrap items-center gap-2">
-          {!r.assigned_to ? (
-            <Button type="button" size="sm" variant="outline" disabled={assignPending} onClick={onAssign}>
-              Assign to me
-            </Button>
+          {/* CC-2: a request the system placed (auto_assigned) is still free to take; only a hand claim keeps it with its person. */}
+          {!r.assigned_to || (r as { auto_assigned?: boolean }).auto_assigned ? (
+            <>
+              {r.assigned_to && (
+                <span className="text-xs text-charcoal-ink/60">Placed with {r.assigned_staff?.full_name ?? "a colleague"} automatically</span>
+              )}
+              <Button type="button" size="sm" variant="outline" disabled={assignPending} onClick={onAssign}>
+                Assign to me
+              </Button>
+            </>
           ) : (
             <span className="text-xs text-charcoal-ink/60">
               With {r.assigned_staff?.full_name ?? "a navigator"}

@@ -2,7 +2,7 @@
 --
 -- Proves in one rolled-back transaction:
 --   1. coordinator_find_patient: a coordinator finds a patient of their own organisation by phone number or by name and gets name, state, phone
---      and tier only; every hit writes an audit line; a patient, a doctor and anon are refused; a query under 3 characters is refused.
+--      and tier only; every hit writes an audit line; a patient and anon are refused, an employed doctor is served (CC-1); a query under 3 characters is refused.
 --   2. A Free patient (no membership): a coordinator cannot hold a paid item for them (P0001, hint upgrade_first); the same patient booking
 --      for themselves is not touched by that rule.
 --   3. A Member: the coordinator's hold is stamped booked_via = coordinator_phone, booked_by = the coordinator; confirm with no credit
@@ -129,7 +129,8 @@ begin
   perform pg_temp.rec('a patient cannot use the lookup (42501)', '42501', pg_temp.try('select * from public.coordinator_find_patient(''CPB member'')'));
   perform pg_temp.back();
   perform pg_temp.act(v_doc);
-  perform pg_temp.rec('a doctor cannot use the lookup (42501)', '42501', pg_temp.try('select * from public.coordinator_find_patient(''CPB member'')'));
+  -- CC-1 (2026-11-07): an employed doctor covers coordination while no coordinator is employed, so the lookup now serves them too.
+  perform pg_temp.rec('an employed doctor covering coordination can use the lookup (CC-1)', 'ok', pg_temp.try('select * from public.coordinator_find_patient(''CPB member'')'));
   perform pg_temp.back();
   perform pg_temp.act_anon();
   perform pg_temp.rec('anon cannot use the lookup (42501)', '42501', pg_temp.try('select * from public.coordinator_find_patient(''CPB member'')'));

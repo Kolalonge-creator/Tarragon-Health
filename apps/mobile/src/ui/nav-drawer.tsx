@@ -27,8 +27,10 @@ interface NavDrawerProps {
 }
 
 /**
- * Slide-over "everything else" hub: an icon-grid menu banded into the same groups
- * as the web sidebar. Overview already lives one tap away in the bottom tab bar and
+ * Slide-over "everything else" hub: an icon-grid menu in the same groups and order
+ * as the web side menu (My health, Healthcare, My support, Resources, Account), each
+ * a row you can open, with the quieter sections behind "More in <group>".
+ * Overview already lives one tap away in the bottom tab bar and
  * behind the header's home icon, so it is left out of the grid, nothing here
  * duplicates it. The section names and band names still come from lib/sections.ts
  * and the older translator (useT); only the drawer's own words are new keys.
@@ -40,14 +42,17 @@ export function NavDrawer({ visible, activeSection, patientName, patientNumber, 
   const tr = useT();
   const label = (key: MessageKey, params?: Record<string, string | number>) => t(key, locale, params);
 
-  // The everyday jobs stay open; the rest collapse to their headings. Only the band
-  // holding the current section opens by default; tapping a heading overrides that for
-  // this session. This mirrors the web sidebar's progressive disclosure.
+  // The same groups and order as the web side menu (lib/sections.ts). The unlabelled top group stays open; the rest collapse to a
+  // row you can open. Only the group holding the current section opens by default; tapping a row overrides that for this session.
+  // Inside a group, the `more` sections sit behind "More in this group", which opens on its own when the current section is one.
   const shown = SECTIONS.filter((s) => !hiddenSections.includes(s.id));
-  const everydayItems = shown.filter((s) => s.group === "top" && s.id !== "overview");
+  const topItems = shown.filter((s) => s.group === "top" && s.id !== "overview");
   const groups = SECTION_GROUP_ORDER.filter((group) => group !== "top" && shown.some((s) => s.group === group));
-  const activeGroup = SECTIONS.find((s) => s.id === activeSection)?.group;
+  const activeDef = SECTIONS.find((s) => s.id === activeSection);
+  const activeGroup = activeDef?.group;
   const [manualOpen, setManualOpen] = useState<Record<string, boolean>>({});
+  const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({});
+  const isMoreOpen = (group: string) => moreOpen[group] ?? (activeGroup === group && activeDef?.more === true);
   // What the person typed. Only sections this account can see are searched (hiddenSections is already applied to `shown`).
   const [query, setQuery] = useState("");
   const matches = searchSections(shown.map((s) => s.id), query, (l) => tr(l));
@@ -127,40 +132,59 @@ export function NavDrawer({ visible, activeSection, patientName, patientNumber, 
                       style={{ minHeight: 44, justifyContent: "center", paddingVertical: space.xs }}
                     >
                       <AppText variant="bodyStrong">{m.label}</AppText>
-                      <AppText variant="caption" tone="textMuted">{tr(m.group)}</AppText>
+                      <AppText variant="caption" tone="textMuted">{m.group === "top" ? tr("Home") : tr(m.group)}</AppText>
                     </PressableScale>
                   ))
                 )}
               </View>
             ) : null}
             {!searching ? (<>
-            <View style={{ gap: space.md }}>
-              <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
-                {tr("Everyday")}
-              </AppText>
-              {grid(everydayItems)}
-            </View>
+            {topItems.length > 0 ? grid(topItems) : null}
             {groups.map((group) => {
               const items = shown.filter((s) => s.group === group);
+              const mainItems = items.filter((s) => !s.more);
+              const moreItems = items.filter((s) => s.more);
               const open = isOpen(group);
+              const showMore = isMoreOpen(group);
               const name = tr(group);
               const Chevron = open ? ChevronDown : ChevronRight;
+              const MoreChevron = showMore ? ChevronDown : ChevronRight;
               return (
-                <View key={group} style={{ gap: space.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: space.md }}>
+                <View key={group} style={{ gap: space.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: space.sm }}>
+                  {/* A group reads as a row you can open, not a faint heading (the web's 2026-11-06 visual pass). */}
                   <PressableScale
                     onPress={() => setManualOpen((m) => ({ ...m, [group]: !open }))}
                     withHaptic={false}
                     accessibilityRole="button"
                     accessibilityState={{ expanded: open }}
                     accessibilityLabel={label(open ? "drawer.expanded" : "drawer.collapsed", { group: name })}
-                    style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+                    style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}
                   >
-                    <AppText variant="label" tone="textMuted" style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    <AppText variant="bodyStrong" tone={open ? "text" : "textMuted"}>
                       {name}
                     </AppText>
                     <Chevron size={16} color={colors.textSubtle} strokeWidth={2} />
                   </PressableScale>
-                  {open ? grid(items) : null}
+                  {open ? grid(mainItems) : null}
+                  {open && moreItems.length > 0 ? (
+                    <>
+                      <PressableScale
+                        onPress={() => setMoreOpen((m) => ({ ...m, [group]: !showMore }))}
+                        withHaptic={false}
+                        accessibilityRole="button"
+                        accessibilityState={{ expanded: showMore }}
+                        accessibilityLabel={label(showMore ? "drawer.expanded" : "drawer.collapsed", { group: tr(`More in ${group}`) })}
+                        style={{ flexDirection: "row", alignItems: "center", gap: space.xs, minHeight: 44 }}
+                      >
+                        <MoreChevron size={14} color={colors.textSubtle} strokeWidth={2} />
+                        {/* One whole phrase per group, as on the web. */}
+                        <AppText variant="label" tone="textMuted">
+                          {tr(`More in ${group}`)}
+                        </AppText>
+                      </PressableScale>
+                      {showMore ? grid(moreItems) : null}
+                    </>
+                  ) : null}
                 </View>
               );
             })}

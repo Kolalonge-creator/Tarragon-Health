@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { PageHeader } from "@/components/ui/page-header";
+import { DataTable, type DataTableColumn, type DataTableRow } from "@/components/ui/data-table";
 import { replayDeliveryAction } from "@/lib/event-bus/actions";
 import { loadAttempts, loadDeliveries, loadSubscriberStatus, PAGE_SIZE } from "@/lib/event-bus/load";
 import { DELIVERY_STATUSES, filtersToQuery, formatAge, formatIds, parseFilters, type DeliveryStatus } from "@/lib/event-bus/model";
@@ -19,8 +20,6 @@ const locale = DEFAULT_UI_LANGUAGE;
 const lagos = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : t("busops.never", locale);
 const TONE: Record<DeliveryStatus, "green" | "amber" | "red" | "blue"> = { done: "green", pending: "amber", processing: "blue", dead: "red" };
-const cell = "px-3 py-2 align-top text-left text-sm text-charcoal-ink";
-const head = "px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60";
 const field = "mt-1 w-full rounded-lg border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink";
 
 /**
@@ -46,6 +45,83 @@ export default async function EventBusPage({
   const last = deliveries.rows[deliveries.rows.length - 1];
   const older = deliveries.rows.length === PAGE_SIZE && last ? filtersToQuery({ ...filters, before: last.created_at, beforeId: last.delivery_id }) : null;
 
+  const subColumns: DataTableColumn[] = (["name", "event", "pending", "dead", "done", "oldest", "success", "failure"] as const).map((c) => ({
+    header: t(`busops.subscribers.col.${c}` as const, locale),
+    sortable: true,
+    defaultDir: c === "name" || c === "event" ? "asc" : "desc",
+    align: c === "pending" || c === "dead" || c === "done" ? "right" : undefined,
+  }));
+  const subRows: DataTableRow[] = subs.rows.map((r) => ({
+    key: r.subscriber_key,
+    searchText: `${r.subscriber_key} ${r.event_type}`,
+    sort: [
+      r.subscriber_key,
+      r.event_type,
+      Number(r.pending) + Number(r.processing),
+      Number(r.dead),
+      Number(r.done_24h),
+      r.oldest_due_seconds > 0 ? r.oldest_due_seconds : null,
+      r.last_success_at,
+      r.last_failure_at,
+    ],
+    cells: [
+      <span key="name">
+        <Link className="underline" href={`/admin/ops/event-bus${filtersToQuery({ subscriber: r.subscriber_key })}`}>{r.subscriber_key}</Link>
+        {!r.is_active && <Badge variant="grey" className="ml-2">{t("busops.subscribers.off", locale)}</Badge>}
+        {r.lag_incident_open && <Badge variant="red" className="ml-2">{t("busops.subscribers.lag_open", locale)}</Badge>}
+      </span>,
+      r.event_type,
+      Number(r.pending) + Number(r.processing),
+      r.dead,
+      r.done_24h,
+      r.oldest_due_seconds > 0 ? formatAge(r.oldest_due_seconds, locale) : "-",
+      lagos(r.last_success_at),
+      lagos(r.last_failure_at),
+    ],
+  }));
+
+  const deliveryColumns: DataTableColumn[] = [
+    ...(["event", "ids", "subscriber", "status", "tries", "lag", "error"] as const).map((c) => ({
+      header: t(`busops.deliveries.col.${c}` as const, locale),
+      sortable: c !== "ids" && c !== "error",
+      defaultDir: c === "tries" || c === "lag" ? ("desc" as const) : ("asc" as const),
+      className: c === "ids" ? "break-all text-xs" : c === "error" ? "max-w-[260px] break-words text-xs" : undefined,
+    })),
+    { header: "Actions" },
+  ];
+  // Dead first when sorted by status: those are the ones to replay.
+  const STATUS_ORDER: Record<DeliveryStatus, number> = { dead: 0, pending: 1, processing: 2, done: 3 };
+  const deliveryRows: DataTableRow[] = deliveries.rows.map((d) => {
+    const status = d.status as DeliveryStatus;
+    const detail = `/admin/ops/event-bus${filtersToQuery(filters)}${filtersToQuery(filters) ? "&" : "?"}open=${d.delivery_id}`;
+    return {
+      key: d.delivery_id,
+      sort: [d.event_type, null, d.subscriber_key, STATUS_ORDER[status] ?? null, d.attempt_count, d.lag_seconds, null, null],
+      cells: [
+        <span key="event">
+          {d.event_type} v{d.event_version}
+          {d.priority === "urgent" && <Badge variant="red" className="ml-2">{t("busops.deliveries.urgent", locale)}</Badge>}
+          {d.is_test && <Badge variant="grey" className="ml-2">{t("busops.deliveries.test", locale)}</Badge>}
+        </span>,
+        formatIds(d.payload_ids),
+        d.subscriber_key,
+        <Badge key="status" variant={TONE[status] ?? "grey"}>{t(`busops.status.${status}` as const, locale)}</Badge>,
+        <Link key="tries" className="underline" href={detail}>{d.attempt_count}</Link>,
+        formatAge(d.lag_seconds, locale),
+        d.last_error ?? "",
+        status === "dead" ? (
+          <form key="replay" action={replayDeliveryAction}>
+            <input type="hidden" name="delivery_id" value={d.delivery_id} />
+            <input type="hidden" name="status" value={filters.status ?? ""} />
+            <input type="hidden" name="subscriber" value={filters.subscriber ?? ""} />
+            <input type="hidden" name="type" value={filters.eventType ?? ""} />
+            <button type="submit" className="rounded-lg border border-charcoal-ink/20 px-3 py-1 text-xs font-semibold text-charcoal-ink">{t("busops.replay.button", locale)}</button>
+          </form>
+        ) : null,
+      ],
+    };
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader title={t("busops.title", locale)} description={t("busops.intro", locale)} />
@@ -62,39 +138,18 @@ export default async function EventBusPage({
         <CardHeader>
           <CardTitle>{t("busops.subscribers.title", locale)}</CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent>
           {subs.failed ? (
             <LoadFailure>{t("busops.load_failed", locale)}</LoadFailure>
-          ) : subs.rows.length === 0 ? (
-            <p className="text-sm text-charcoal-ink/60">{t("busops.subscribers.empty", locale)}</p>
           ) : (
-            <table className="w-full min-w-[720px]">
-              <thead>
-                <tr>
-                  {(["name", "event", "pending", "dead", "done", "oldest", "success", "failure"] as const).map((c) => (
-                    <th key={c} className={head}>{t(`busops.subscribers.col.${c}` as const, locale)}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {subs.rows.map((r) => (
-                  <tr key={r.subscriber_key} className="border-t border-charcoal-ink/10">
-                    <td className={cell}>
-                      <Link className="underline" href={`/admin/ops/event-bus${filtersToQuery({ subscriber: r.subscriber_key })}`}>{r.subscriber_key}</Link>
-                      {!r.is_active && <Badge variant="grey" className="ml-2">{t("busops.subscribers.off", locale)}</Badge>}
-                      {r.lag_incident_open && <Badge variant="red" className="ml-2">{t("busops.subscribers.lag_open", locale)}</Badge>}
-                    </td>
-                    <td className={cell}>{r.event_type}</td>
-                    <td className={cell}>{Number(r.pending) + Number(r.processing)}</td>
-                    <td className={cell}>{r.dead}</td>
-                    <td className={cell}>{r.done_24h}</td>
-                    <td className={cell}>{r.oldest_due_seconds > 0 ? formatAge(r.oldest_due_seconds, locale) : "-"}</td>
-                    <td className={cell}>{lagos(r.last_success_at)}</td>
-                    <td className={cell}>{lagos(r.last_failure_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable
+              caption={t("busops.subscribers.title", locale)}
+              columns={subColumns}
+              rows={subRows}
+              searchLabel="Search subscribers"
+              emptyMessage={t("busops.subscribers.empty", locale)}
+              noun={{ one: "subscriber", many: "subscribers" }}
+            />
           )}
         </CardContent>
       </Card>
@@ -133,54 +188,20 @@ export default async function EventBusPage({
         <CardHeader>
           <CardTitle>{t("busops.deliveries.title", locale)}</CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent>
           {deliveries.failed ? (
             <LoadFailure>{t("busops.load_failed", locale)}</LoadFailure>
-          ) : deliveries.rows.length === 0 ? (
-            <p className="text-sm text-charcoal-ink/60">{t("busops.deliveries.empty", locale)}</p>
           ) : (
-            <table className="w-full min-w-[860px]">
-              <thead>
-                <tr>
-                  {(["event", "ids", "subscriber", "status", "tries", "lag", "error"] as const).map((c) => (
-                    <th key={c} className={head}>{t(`busops.deliveries.col.${c}` as const, locale)}</th>
-                  ))}
-                  <th className={head} />
-                </tr>
-              </thead>
-              <tbody>
-                {deliveries.rows.map((d) => {
-                  const status = d.status as DeliveryStatus;
-                  const detail = `/admin/ops/event-bus${filtersToQuery(filters)}${filtersToQuery(filters) ? "&" : "?"}open=${d.delivery_id}`;
-                  return (
-                    <tr key={d.delivery_id} className="border-t border-charcoal-ink/10">
-                      <td className={cell}>
-                        {d.event_type} v{d.event_version}
-                        {d.priority === "urgent" && <Badge variant="red" className="ml-2">{t("busops.deliveries.urgent", locale)}</Badge>}
-                        {d.is_test && <Badge variant="grey" className="ml-2">{t("busops.deliveries.test", locale)}</Badge>}
-                      </td>
-                      <td className={`${cell} break-all text-xs`}>{formatIds(d.payload_ids)}</td>
-                      <td className={cell}>{d.subscriber_key}</td>
-                      <td className={cell}><Badge variant={TONE[status] ?? "grey"}>{t(`busops.status.${status}` as const, locale)}</Badge></td>
-                      <td className={cell}><Link className="underline" href={detail}>{d.attempt_count}</Link></td>
-                      <td className={cell}>{formatAge(d.lag_seconds, locale)}</td>
-                      <td className={`${cell} max-w-[260px] break-words text-xs`}>{d.last_error ?? ""}</td>
-                      <td className={cell}>
-                        {status === "dead" && (
-                          <form action={replayDeliveryAction}>
-                            <input type="hidden" name="delivery_id" value={d.delivery_id} />
-                            <input type="hidden" name="status" value={filters.status ?? ""} />
-                            <input type="hidden" name="subscriber" value={filters.subscriber ?? ""} />
-                            <input type="hidden" name="type" value={filters.eventType ?? ""} />
-                            <button type="submit" className="rounded-lg border border-charcoal-ink/20 px-3 py-1 text-xs font-semibold text-charcoal-ink">{t("busops.replay.button", locale)}</button>
-                          </form>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            // The database hands these over a page at a time (the "older" link below), newest first. The table only sorts
+            // the page in hand, never pages it again, and its count says so; filtering is the form above, run in the query.
+            <DataTable
+              caption={t("busops.deliveries.title", locale)}
+              columns={deliveryColumns}
+              rows={deliveryRows}
+              pageSize={Math.max(PAGE_SIZE, deliveryRows.length)}
+              emptyMessage={t("busops.deliveries.empty", locale)}
+              noun={{ one: "delivery on this page", many: "deliveries on this page" }}
+            />
           )}
           {older && (
             <p className="mt-3">

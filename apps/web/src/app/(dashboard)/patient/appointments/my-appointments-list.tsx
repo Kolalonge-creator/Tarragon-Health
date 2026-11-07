@@ -28,6 +28,9 @@ import { Button } from "@/components/ui/button";
 import { CALENDAR_APPOINTMENT_STATUSES } from "@/lib/calendar/ics";
 import { ConsultationRuleCard } from "@/components/consultation/consultation-rule";
 import type { Locale } from "@tarragon/i18n";
+import { CHANGEABLE_STATUSES } from "@/lib/appointments/appointment-views";
+import { CancelAppointmentDialog, type CancellableAppointment } from "./cancel-appointment-dialog";
+import { RescheduleAppointment } from "./reschedule-appointment";
 
 import { formatPatientDateTime } from "@/lib/format-date";
 const JOINABLE_STATUSES = ["booked", "confirmed", "checked_in", "in_progress"];
@@ -53,7 +56,7 @@ function formatSlot(iso: string): string {
  * plus any live waiting-list entries (10.17) — a cancellation elsewhere can
  * turn one of these into an "offered" slot the patient needs to accept. */
 export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: string; locale?: Locale }) {
-  const { data: appointments, isLoading } = useMyUpcomingAppointments(patientId);
+  const { data: appointments, isLoading, isError } = useMyUpcomingAppointments(patientId);
   // S21: a booked consultation has its own room; an appointment without one (older bookings) keeps the older waiting room.
   const { data: encounters } = useMyUpcomingEncounters(patientId);
   const roomFor = (appointmentId: string) => encounters?.find((e) => e.appointment_id === appointmentId)?.encounter_id ?? null;
@@ -66,6 +69,10 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  // P15: the appointment awaiting the "Cancel this appointment?" answer, and the moment Cancel was tapped (read in the click handler).
+  const [cancelling, setCancelling] = useState<{ appt: CancellableAppointment; label: string; atMs: number } | null>(null);
+  const [rescheduling, setRescheduling] = useState<{ id: string; atMs: number } | null>(null);
   // Re-check the join window every 30 seconds so "Join call" appears on time
   // without a reload. Null on the server and during hydration, so the button
   // shows only once the browser clock has been read.
@@ -108,10 +115,14 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
 
   async function handleCancel(appointmentId: string) {
     setError(null);
+    setNotice(null);
     try {
       await cancel.mutateAsync({ appointmentId });
+      setNotice("Appointment cancelled. You can see it under Cancelled.");
     } catch (e) {
       setError((e as Error).message || "Could not cancel that appointment.");
+    } finally {
+      setCancelling(null);
     }
   }
 
@@ -145,8 +156,19 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
           </p>
         )}
 
+        {notice && (
+          <p role="status" className="text-sm text-charcoal-ink dark:text-night-ink">
+            {notice}
+          </p>
+        )}
+
         {appointments?.some((a) => a.consultation_method === "telemedicine") && <ConsultationRuleCard locale={locale} />}
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {isError && (
+          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            Couldn&apos;t load your upcoming appointments. Please refresh the page to try again.
+          </p>
+        )}
         {appointments && appointments.length === 0 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No upcoming appointments yet.</p>
         )}
@@ -208,17 +230,48 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
                         <a href={`/api/calendar/appointment/${appt.id}`}>Add to calendar</a>
                       </Button>
                     )}
-                    {["held", "booked", "confirmed"].includes(appt.status) && (
+                    {CHANGEABLE_STATUSES.includes(appt.status) && appt.clinician_id && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        aria-expanded={rescheduling?.id === appt.id}
+                        onClick={() => {
+                          setNotice(null);
+                          setRescheduling(rescheduling?.id === appt.id ? null : { id: appt.id, atMs: Date.now() });
+                        }}
+                      >
+                        Reschedule
+                      </Button>
+                    )}
+                    {CHANGEABLE_STATUSES.includes(appt.status) && (
                       <Button
                         size="sm"
                         variant="ghost"
                         disabled={cancel.isPending}
-                        onClick={() => handleCancel(appt.id)}
+                        onClick={() =>
+                          setCancelling({
+                            appt,
+                            label: `${APPOINTMENT_TYPE_LABELS[appt.appointment_type] ?? appt.appointment_type.replace(/_/g, " ")}, ${formatSlot(appt.scheduled_for)}`,
+                            atMs: Date.now(),
+                          })
+                        }
                       >
                         Cancel
                       </Button>
                     )}
                   </div>
+                  {rescheduling?.id === appt.id && appt.clinician_id && (
+                    <RescheduleAppointment
+                      appointment={{ ...appt, clinician_id: appt.clinician_id }}
+                      patientId={patientId}
+                      openedAtMs={rescheduling.atMs}
+                      onDone={(message) => {
+                        setRescheduling(null);
+                        setNotice(message);
+                      }}
+                      onClose={() => setRescheduling(null)}
+                    />
+                  )}
                   {/* S64 (15.7): the price and cancel rule sit beside the pay button, so nobody pays without seeing them */}
                   {appt.status === "booked" && PAID_APPOINTMENT_PRODUCT_CODE[appt.appointment_type] && (
                     <div className="w-full">
@@ -271,6 +324,14 @@ export function MyAppointmentsList({ patientId, locale = "en" }: { patientId: st
             </ul>
           </div>
         )}
+        <CancelAppointmentDialog
+          appointment={cancelling?.appt ?? null}
+          openedAtMs={cancelling?.atMs ?? 0}
+          slotLabel={cancelling?.label ?? ""}
+          pending={cancel.isPending}
+          onConfirm={() => cancelling && handleCancel(cancelling.appt.id)}
+          onClose={() => setCancelling(null)}
+        />
       </CardContent>
     </Card>
   );

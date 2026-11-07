@@ -6,6 +6,7 @@ import { circleP4Copy } from "./care-circle-p4-copy";
 import { diagnosticDirectoryCopy } from "./diagnostic-directory-copy";
 import { diagnosticSearchCopy } from "./diagnostic-search-copy";
 import { circleP5Copy } from "./care-circle-p5-copy";
+import { circleHelpRequestsCopy } from "./care-circle-help-requests-copy";
 import { maternalChild } from "./maternal-child";
 import { designPrinciplesCopy } from "./design-principles-copy";
 import { pregnancyTools } from "./pregnancy-tools";
@@ -5033,6 +5034,8 @@ export const en = {
   ...circleP4Copy,
   // 2026-11-04: Care Circle Phase 5, payer view and admin metrics (proposed copy, CMO and DPO review pending: see care-circle-p5-copy.ts)
   ...circleP5Copy,
+  // 2026-11-07: Care Circle typed help requests, P22 / PD-08 (proposed copy, CMO review pending: see care-circle-help-requests-copy.ts)
+  ...circleHelpRequestsCopy,
   // 2026-11-04: diagnostic directory admin screens (staff only, see diagnostic-directory-copy.ts)
   ...diagnosticDirectoryCopy,
   // 2026-11-05: diagnostic directory search, partner badge and explainer (proposed copy, CMO and DPO review pending: see diagnostic-search-copy.ts)
@@ -5124,6 +5127,8 @@ export const en = {
   "emergency.steps": "What to do",
   "circle.help.title": "Ask your Care Circle for help",
   "circle.help.intro": "One tap tells the people in your Care Circle who can receive alerts that you want them to call you. It does not replace getting care. If you need care now, go to the nearest hospital.",
+  // P22: the web card's intro now that a kind of help is picked first (founder approved 2026-11-07). The phone card keeps circle.help.intro.
+  "circle.help.introTyped": "Ask the people in your Care Circle for help. Pick what you need and they get a message.",
   "circle.help.button": "Ask my Care Circle for help",
   "circle.help.sent": "Your Care Circle has been told. {count} people were reached.",
   "circle.help.sent_none": "Nobody in your Care Circle can receive alerts yet. Please call someone you trust, or go to the nearest hospital.",

@@ -4,6 +4,7 @@ export * from "./anchors";
 export * from "./schedule";
 export * from "./dose-state";
 export * from "./adherence";
+export * from "./dose-history";
 export * from "./supply";
 export * from "./reminders";
 export * from "./safety/diabetes-drug-safety";

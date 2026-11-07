@@ -1,7 +1,8 @@
 import { SeriesTrendsCard } from "@/screens/sections/series-trends-card";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, View } from "react-native";
+import { Modal, View, type ScrollView } from "react-native";
+import { LatestReadingsRow } from "@/screens/sections/latest-readings-row";
 import { asLocale, t, type MessageKey } from "@tarragon/i18n";
 import {
   GLUCOSE_UNIT_LABEL,
@@ -184,6 +185,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [ackRowId, setAckRowId] = useState<string | null>(null);
   // Bumped after every saved reading so the seven-day home check card and its guided session step forward.
   const [homeReload, setHomeReload] = useState(0);
+  // The "+ Log a reading" button at the top jumps down to the form (founder, 2026-11-06: the page opens with logging and the latest readings).
+  const scrollRef = useRef<ScrollView | null>(null);
+  const logFormY = useRef(0);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
   const [triageCard, setTriageCard] = useState<{ message: string; tone: "warn" | "info"; audioId: string | null } | null>(null);
   // The repeat the rule set asked for, kept so the screen can show WHEN (a countdown). It adds to the cards above and never replaces or delays them.
@@ -529,7 +533,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const holdSession = guidance !== null || question !== null;
 
   return (
-    <Screen>
+    <Screen scrollRef={scrollRef}>
       <View style={{ gap: space.xs }}>
         <AppText variant="headline" heading>
           {tr("vitals.title")}
@@ -537,6 +541,17 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         <AppText variant="body" tone="textMuted">
           {tr("vitals.subtitle")}
         </AppText>
+      </View>
+
+      {/* The one log button at the top (as on the web); the empty blood pressure card below has none of its own. */}
+      <View style={{ alignItems: "flex-end" }}>
+        <Button
+          title="+ Log a reading"
+          fullWidth={false}
+          accessibilityLabel="Log a reading"
+          accessibilityHint="Moves to the form further down this screen"
+          onPress={() => scrollRef.current?.scrollTo({ y: Math.max(0, logFormY.current - space.lg), animated: true })}
+        />
       </View>
 
       <SyncBanner />
@@ -583,6 +598,9 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           <EmptyState icon="vitals" title={tr("vitals.latest.empty_title")} body={tr("vitals.latest.empty_body")} />
         )}
       </Card>
+
+      {/* Blood sugar, weight and pulse as big numbers with a 30-day line, under the blood pressure card. */}
+      <LatestReadingsRow subjectId={beneficiaryProfileId ?? patientId} reloadToken={homeReload} />
 
       {newestEstimate ? (
         <Card style={{ gap: space.xs }}>
@@ -683,6 +701,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       {!beneficiaryProfileId ? <HomeCheckCard patientId={patientId} reloadToken={homeReload} session={{ readings: homeSessionReadings, hold: holdSession }} /> : null}
 
       {/* Log a reading */}
+      <View onLayout={(e) => (logFormY.current = e.nativeEvent.layout.y)}>
       <Card style={{ gap: space.md }}>
         <AppText variant="title" heading>
           {tr("vitals.log.title")}
@@ -730,6 +749,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         {ackText ? <InlineAlert tone="info" message={ackText} /> : null}
         <Button title={tr("vitals.log.save")} onPress={handleSave} loading={saving} />
       </Card>
+      </View>
 
       <OtherVitalCard
         subjectId={beneficiaryProfileId ?? patientId}

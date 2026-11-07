@@ -6,6 +6,16 @@ import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LoadFailure } from "@/components/ui/load-failure";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+
+const COLUMNS: DataTableColumn[] = [
+  { header: "Severity", sortable: true },
+  { header: "Domain", sortable: true },
+  { header: "What's wrong", sortable: true, className: "min-w-56" },
+  { header: "Who", sortable: true },
+  { header: "Age", sortable: true, defaultDir: "desc" },
+  { header: "Open", align: "right" },
+];
 
 export type OpsExceptionRow = {
   domain:
@@ -155,41 +165,32 @@ export function ExceptionQueue({
         </LoadFailure>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead>
-            <tr className="border-b border-charcoal-ink/10 text-left text-xs uppercase tracking-wide text-charcoal-ink/50">
-              <th className="py-2 pr-3">Severity</th>
-              <th className="py-2 pr-3">Domain</th>
-              <th className="py-2 pr-3">What&apos;s wrong</th>
-              <th className="py-2 pr-3">Who</th>
-              <th className="py-2 pr-3">Age</th>
-              <th className="py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={`${r.domain}-${r.entity_id}`} className="border-b border-charcoal-ink/5">
-                <td className="py-2.5 pr-3">
-                  <Badge variant={SEVERITY_VARIANT[r.severity]}>{r.severity}</Badge>
-                </td>
-                <td className="py-2.5 pr-3 text-charcoal-ink/70">{DOMAIN_LABEL[r.domain]}</td>
-                <td className="py-2.5 pr-3">
-                  <div className="font-medium text-charcoal-ink">{r.headline}</div>
-                  <div className="text-xs text-charcoal-ink/60">{r.detail}</div>
-                </td>
-                <td className="py-2.5 pr-3 text-charcoal-ink/70">{r.subject_name ?? "—"}</td>
-                <td className="py-2.5 pr-3 text-charcoal-ink/70">{ageText(r.age_hours)}</td>
-                <td className="py-2.5 text-right">
-                  <Link href={r.href} className="text-sm font-medium text-brand-green hover:underline">
-                    Open
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Arrives worst first (the queue's own order). A failed filter shows the error AND an empty table that says it
+          was not loaded, never the empty-domain wording, so it cannot read as clear. */}
+      <DataTable
+        caption="Exception queue"
+        columns={COLUMNS}
+        rows={rows.map((r) => ({
+          key: `${r.domain}-${r.entity_id}`,
+          searchText: `${r.severity} ${DOMAIN_LABEL[r.domain]} ${r.headline} ${r.detail} ${r.subject_name ?? ""}`,
+          sort: [r.severity_rank, DOMAIN_LABEL[r.domain], r.headline, r.subject_name, r.age_hours, null],
+          cells: [
+            <Badge key="sev" variant={SEVERITY_VARIANT[r.severity]}>{r.severity}</Badge>,
+            <span key="dom" className="text-charcoal-ink/70">{DOMAIN_LABEL[r.domain]}</span>,
+            <div key="what">
+              <div className="font-medium text-charcoal-ink">{r.headline}</div>
+              <div className="text-xs text-charcoal-ink/60">{r.detail}</div>
+            </div>,
+            <span key="who" className="text-charcoal-ink/70">{r.subject_name ?? "—"}</span>,
+            <span key="age" className="text-charcoal-ink/70">{ageText(r.age_hours)}</span>,
+            <Link key="open" href={r.href} className="text-sm font-medium text-brand-green hover:underline">Open</Link>,
+          ],
+        }))}
+        searchLabel="Search the queue"
+        emptyMessage={refetchFailed ? "Not loaded." : "Nothing open in this domain."}
+        noun={{ one: "item", many: "items" }}
+        className={pending ? "opacity-60" : undefined}
+      />
     </div>
   );
 }
