@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
-import { getRoleHomePath } from "./roles";
+import { homeForSignedInUser } from "./home-for-signed-in-user";
 import { sanitizeRedirect } from "./redirect";
 import { recordLoginDevice } from "./record-login-device";
 import { MFA_SETUP_PATH, loginGateTarget } from "@tarragon/auth/mfa-policy";
@@ -25,8 +25,9 @@ export async function resolveLoginDestination(
     .eq("id", userId)
     .single();
 
-  const home = profile ? getRoleHomePath(profile.role) : "/patient";
-  return sanitizeRedirect(redirectTo) ?? home;
+  const intended = sanitizeRedirect(redirectTo);
+  if (intended) return intended;
+  return profile ? homeForSignedInUser(supabase, userId, profile.role) : "/patient";
 }
 
 /**

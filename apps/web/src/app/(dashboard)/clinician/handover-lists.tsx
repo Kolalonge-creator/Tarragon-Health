@@ -1,7 +1,7 @@
 import Link from "next/link";
-import type { Database } from "@tarragon/shared";
+import type { OpenHandover } from "@/lib/worklist/load-open-handovers";
 
-export type OpenHandover = Database["public"]["Functions"]["open_escalation_handovers"]["Returns"][number];
+export type { OpenHandover };
 
 function timeText(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });

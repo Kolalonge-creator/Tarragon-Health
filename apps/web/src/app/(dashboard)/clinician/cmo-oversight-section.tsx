@@ -5,7 +5,9 @@ import { TodayStrip } from "./today-strip";
 import { WorklistTable } from "./worklist/worklist-table";
 import { OverdueHandoversBlock, type OpenHandover } from "./handover-lists";
 
-export type OnLeaveDoctor = { name: string; until: string };
+import type { OnLeaveDoctor } from "@/lib/leadership/load-on-leave";
+
+export type { OnLeaveDoctor };
 
 function untilText(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });

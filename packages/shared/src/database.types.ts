@@ -57066,6 +57066,18 @@ export type Database = {
         }
         Returns: string
       }
+      finance_money_overview: {
+        Args: {
+          p_compare_from?: string
+          p_compare_to?: string
+          p_currency?: string
+          p_from: string
+          p_granularity?: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      finance_open_item_counts: { Args: never; Returns: Json }
       finance_pay_bill: {
         Args: { p_bank_account_code: string; p_id: string; p_paid_date: string }
         Returns: string
@@ -57128,6 +57140,30 @@ export type Database = {
       finance_tax_rates_list: { Args: never; Returns: Json }
       finance_tax_summary: {
         Args: { p_currency?: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      finance_transaction_detail: {
+        Args: { p_record_id: string; p_record_type: string }
+        Returns: Json
+      }
+      finance_transactions_list: {
+        Args: {
+          p_event_kinds?: string[]
+          p_for_export?: boolean
+          p_from: string
+          p_limit?: number
+          p_max_minor?: number
+          p_min_minor?: number
+          p_offset?: number
+          p_payer_types?: string[]
+          p_providers?: string[]
+          p_search?: string
+          p_settlement?: string[]
+          p_sort?: string
+          p_sort_dir?: string
+          p_streams?: string[]
+          p_to: string
+        }
         Returns: Json
       }
       finance_trial_balance: {

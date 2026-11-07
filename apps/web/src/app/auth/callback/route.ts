@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getRoleHomePath } from "@/lib/auth/roles";
+import { homeForSignedInUser } from "@/lib/auth/home-for-signed-in-user";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
 import { backfillSignupMetadata } from "@/lib/auth/backfill-signup-metadata";
 
@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     .eq("id", data.user.id)
     .single();
 
-  const home = profile ? getRoleHomePath(profile.role) : "/patient";
-  return NextResponse.redirect(`${origin}${sanitizeRedirect(redirectParam) ?? home}`);
+  const intended = sanitizeRedirect(redirectParam);
+  const home = intended ?? (profile ? await homeForSignedInUser(supabase, data.user.id, profile.role) : "/patient");
+  return NextResponse.redirect(`${origin}${home}`);
 }

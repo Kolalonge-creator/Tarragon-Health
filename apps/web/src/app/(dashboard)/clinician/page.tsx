@@ -28,8 +28,10 @@ import { TodayStrip } from "./today-strip";
 import { WorklistTable } from "./worklist/worklist-table";
 import { loadDoctorWorklist } from "@/lib/worklist/doctor-worklist-load";
 import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-request";
-import { CmoOversightSection, type OnLeaveDoctor } from "./cmo-oversight-section";
-import { HandoversOfferedSection, type OpenHandover } from "./handover-lists";
+import { CmoOversightSection } from "./cmo-oversight-section";
+import { loadOnLeave } from "@/lib/leadership/load-on-leave";
+import { HandoversOfferedSection } from "./handover-lists";
+import { loadOpenHandovers, type OpenHandover } from "@/lib/worklist/load-open-handovers";
 import { loadWorklist } from "@/lib/security/worklists";
 import {
   criticalBannerView,
@@ -157,32 +159,13 @@ export default async function ClinicianPage() {
   const isCmo = canAssignCases(staff);
   // G10: waiting handovers that involve the viewer (all of the organisation's for the CMO). Null when the read failed, so the
   // CMO's "not answered in time" block says so instead of showing an empty all-clear.
-  const handoversPromise: Promise<OpenHandover[] | null> = staff
-    ? Promise.resolve(supabase.rpc("open_escalation_handovers")).then(({ data, error }) => (error ? null : (data ?? [])))
-    : Promise.resolve([]);
-  const nowIso = now.toISOString();
+  const handoversPromise: Promise<OpenHandover[] | null> = staff ? loadOpenHandovers(supabase) : Promise.resolve([]);
   const oversightPromise = isCmo
-    ? Promise.all([
-        getCmoSigningHubForRequest().catch(() => null),
-        supabase
-          .from("provider_time_off")
-          .select("clinician_id, ends_at, clinician:profiles!provider_time_off_clinician_id_fkey(full_name)")
-          .eq("kind", "leave")
-          .lte("starts_at", nowIso)
-          .gt("ends_at", nowIso)
-          .returns<{ clinician_id: string; ends_at: string; clinician: { full_name: string | null } | null }[]>(),
-      ]).then(([hub, leaveRes]) => {
-        const latest = new Map<string, OnLeaveDoctor>();
-        for (const l of leaveRes.data ?? []) {
-          const prev = latest.get(l.clinician_id);
-          if (!prev || l.ends_at > prev.until) latest.set(l.clinician_id, { name: l.clinician?.full_name ?? "A clinician", until: l.ends_at });
-        }
-        return {
-          signoffsWaiting: hub?.items.length ?? 0,
-          signoffsFailed: hub === null || hub.failed,
-          onLeave: leaveRes.error ? null : [...latest.values()],
-        };
-      })
+    ? Promise.all([getCmoSigningHubForRequest().catch(() => null), loadOnLeave(supabase, now)]).then(([hub, onLeave]) => ({
+        signoffsWaiting: hub?.items.length ?? 0,
+        signoffsFailed: hub === null || hub.failed,
+        onLeave,
+      }))
     : Promise.resolve(null);
   const [patientCountRes, escalationsRes, medReviewsRes, carePlanReviewsRes, appointmentsTodayRes, uploadsToReviewRes] = await Promise.all([
     supabase

@@ -92,7 +92,11 @@ export function getNavSections(
    * Community groups are dormant behind the `community` go-live guard (docs/COMMUNITY_SPEC.md section 8). The entry is added only when
    * the database says the community is open for this member, so while it is closed nothing about it shows anywhere in the menu.
    */
-  options?: { communityOpen?: boolean },
+  options?: {
+    communityOpen?: boolean;
+    /** An active Chief Medical Officer: the Clinical Leadership Overview leads their menu (CMO command centre, 2026-11-07). */
+    cmo?: boolean;
+  },
 ): NavSection[] {
   switch (role) {
     case "patient":
@@ -394,7 +398,12 @@ export function getNavSections(
           ]
         : [
             {
-              items: [{ label: "Today", href: "/clinician", icon: "dashboard", exact: true }],
+              items: [
+                ...(options?.cmo
+                  ? [{ label: "Leadership overview", href: "/clinician/leadership", icon: "analytics" as const }]
+                  : []),
+                { label: options?.cmo ? "My clinical day" : "Today", href: "/clinician", icon: "dashboard", exact: true },
+              ],
             },
             {
               // DW-02 (2026-11-06): daily clinical work first. Inboxes and queues where a patient or colleague
@@ -579,6 +588,9 @@ export function getNavSections(
                 },
                 // MSG-5: what is waiting across messages, alerts and monthly meetings, and who holds it.
                 { label: "Care operations", href: "/clinician/care-operations", icon: "operations" },
+                // CC-1 (2026-11-07): doctors cover care coordination while no Care Coordinator is employed. The workspace itself
+                // admits an employed Senior Medical Officer or the CMO and explains itself to anyone else.
+                { label: "Care coordination", href: "/dashboard/care-coordinator", icon: "team" },
                 {
                   label: "Support tickets",
                   href: "/clinician/support-tickets",
@@ -869,30 +881,53 @@ export function getNavSections(
         },
       ];
     case "finance":
+      // Finance v2 (docs/design/FINANCE-DASHBOARD-V2.md): grouped by what a finance
+      // team does in a day. Only pages that exist are listed; later phases add theirs.
       return [
         {
           items: [
-            { label: "Overview", href: "/finance", icon: "dashboard", exact: true },
-            { label: "General ledger", href: "/finance/ledger", icon: "ledger" },
+            { label: "Financial overview", href: "/finance", icon: "dashboard", exact: true },
+          ],
+        },
+        {
+          label: "Revenue",
+          items: [
+            { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
+            { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
+          ],
+        },
+        {
+          label: "Payments",
+          items: [
             { label: "Transactions", href: "/finance/transactions", icon: "billing" },
+            { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile", countKey: "financeReconciliationOpen" },
+            { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "reconcile" },
+            { label: "Settlement tie-out", href: "/finance/settlement-tieout", icon: "reconcile" },
+            { label: "Laboratory settlements", href: "/finance/partner-settlements", icon: "payables" },
+            { label: "Fraud signals", href: "/finance/fraud", icon: "warning", countKey: "financeFraudOpen" },
+          ],
+        },
+        {
+          label: "Accounting",
+          items: [
+            { label: "General ledger", href: "/finance/ledger", icon: "ledger" },
             { label: "Financial statements", href: "/finance/statements", icon: "statements" },
             { label: "Budgets", href: "/finance/budgets", icon: "budget" },
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
-            { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
-            { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
-            { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
-            { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "reconcile" },
-            { label: "Fraud signals", href: "/finance/fraud", icon: "warning" },
-            { label: "Laboratory settlements", href: "/finance/partner-settlements", icon: "payables" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },
             { label: "Compliance calendar", href: "/finance/compliance", icon: "compliance" },
+          ],
+        },
+        {
+          label: "Reports",
+          items: [
             { label: "Reports & filings", href: "/finance/reports", icon: "statements" },
           ],
         },
         {
-          label: "Controls",
+          label: "Audit and controls",
           items: [
-            { label: "Approvals", href: "/finance/approvals", icon: "approvals" },
+            { label: "Approvals", href: "/finance/approvals", icon: "approvals", countKey: "financeApprovalsPending" },
             { label: "Audit log", href: "/finance/audit", icon: "audit" },
           ],
         },
@@ -927,6 +962,7 @@ export function getNavSections(
           label: "Setup",
           items: [
             { label: "Periods & accounts", href: "/finance/settings", icon: "settings" },
+            { label: "Finance glossary", href: "/finance/glossary", icon: "ledger" },
           ],
         },
       ];
@@ -1194,8 +1230,9 @@ export const CLINICIAN_GOVERNANCE_SECTIONS: readonly NavSection[] = GOVERNANCE_S
 /** Every href on the Governance index; the sidebar's Governance home link is lit on all of them. */
 export const GOVERNANCE_HREFS: readonly string[] = GOVERNANCE_SECTIONS.flatMap((s) => s.items.map((i) => i.href));
 
+/** The Chief Medical Officer's search index (the only caller), so it includes their Leadership overview. */
 export function clinicianSearchSections(): NavSection[] {
-  return [...getNavSections("clinician", null), ...CLINICIAN_GOVERNANCE_SECTIONS];
+  return [...getNavSections("clinician", null, { cmo: true }), ...CLINICIAN_GOVERNANCE_SECTIONS];
 }
 
 function isActive(pathname: string, href: string, exact?: boolean) {
