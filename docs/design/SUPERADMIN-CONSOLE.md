@@ -176,3 +176,18 @@ moved onto the shared frame with detail pages in tabs. Each is its own PR.
     curated list of administrative events first), trend charts, and Paystack health from real webhook evidence.
   - Also: DataTable announces its count only after the reader searches, sorts or pages (the 2a-3 second review item).
 
+- **2c record search: done** (branch `feat/superadmin-record-search`, stacked on 2b).
+  - ⌘K now also finds, for the admin: employers (corporate organisations), sponsor programmes (name, code or sponsor),
+    lab and imaging providers, incidents (reference or title), and checkout orders by Paystack reference (only a
+    term that looks like a reference is looked up, and only on the reference column, so a name never pulls up anyone's
+    payments). `lib/admin-search-records.ts`.
+  - Every record read goes through the admin's own session, so the database's row rules decide what comes back (the
+    service-role client is not used for any new group). A result is an identity line and a link to the page that
+    already shows the record behind its own gate; an order opens the admin Patients page for the person it was for.
+    Nothing clinical is returned. A source that fails is reported in the box rather than shown as a shorter list.
+  - The matched words are highlighted in each result title; the failure note now says part of the search is missing
+    (not "only pages are shown", which was wrong once some groups load).
+  - Not yet: recent searches and recently viewed records, Memberships as their own group (they are reached through the
+    patient), audit events (need the same curated admin-event list as the homepage's recent activity), and a direct name
+    search for sponsor programmes and directory providers (today both small lists are read whole and filtered, fine at
+    current size, worth an indexed lookup as they grow).
