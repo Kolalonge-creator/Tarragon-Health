@@ -20,7 +20,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export default async function PayForPage({ params }: { params: Promise<{ patientId: string }> }) {
   const { patientId } = await params;
   if (!UUID.test(patientId)) notFound();
-  const { uiLanguage } = await getPatientDashboardContext();
+  const { uiLanguage } = await getPatientDashboardContext({ area: "supporter" });
   const supabase = await createClient();
   const { data } = await supabase.rpc("my_supported_people");
   const person = parseSupported(data).find((p) => p.patient_id === patientId);

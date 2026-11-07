@@ -12,6 +12,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export default async function SupporterViewPage({ params }: { params: Promise<{ patientId: string }> }) {
   const { patientId } = await params;
   if (!UUID.test(patientId)) notFound();
-  const { uiLanguage } = await getPatientDashboardContext();
+  const { uiLanguage } = await getPatientDashboardContext({ area: "supporter" });
   return <SupporterView patientId={patientId} locale={uiLanguage} alertSlot={<HelpAlertView patientId={patientId} locale={uiLanguage} />} />;
 }

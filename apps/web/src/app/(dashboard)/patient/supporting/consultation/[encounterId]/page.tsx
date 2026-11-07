@@ -24,7 +24,7 @@ export default async function CaregiverConsultationPage({ params }: { params: Pr
   if (!UUID.test(encounterId)) notFound();
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
-  const { uiLanguage } = await getPatientDashboardContext();
+  const { uiLanguage } = await getPatientDashboardContext({ area: "supporter" });
   const supabase = await createClient();
   const { data } = await supabase.rpc("my_consultation_invites" as never);
   const invite = parseCaregiverInvites(data).find((i) => i.encounter_id === encounterId) ?? null;
