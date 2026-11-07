@@ -94,7 +94,19 @@ begin
   if v_caught < 1 then raise exception 'VACUOUS TEST: dropping the index flipped no check'; end if;
 end $$;
 
+-- Real checks: PASS when the migration behaves. Sabotage: each check is reported as a control that PASSES when the
+-- sabotage FLIPPED it (or when that check is not expected to depend on the sabotaged object); the block above already raised if
+-- too few flipped. A healthy run therefore prints no FAIL verdict at all (scripts/run-db-proofs.sh fails on any).
 select phase, check_name, expected, actual, case when expected = actual then 'PASS' else 'FAIL' end as result
-from results order by phase, check_name;
+from results where phase = 'real'
+union all
+select 'sabotage control', check_name, expected, actual,
+       case when expected is distinct from actual then 'PASS (flipped)' else 'PASS (unaffected)' end
+from results where phase = 'sabotaged'
+union all
+select 'sabotage control', 'sabotage flipped at least one check', '>= 1',
+       (select count(*)::text from results where phase = 'sabotaged' and expected is distinct from actual),
+       case when (select count(*) from results where phase = 'sabotaged' and expected is distinct from actual) >= 1 then 'PASS' else 'FAIL' end
+order by 1, 2;
 
 rollback;
