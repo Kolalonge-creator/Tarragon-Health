@@ -2,7 +2,7 @@ import { Platform, Pressable, Text, View } from "react-native";
 import { useT } from "@/lib/ui-language";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { PRIMARY_SECTIONS, type SectionDef, type SectionId } from "@/lib/sections";
+import { PRIMARY_SECTIONS, tabIsActive, type SectionDef, type SectionId } from "@/lib/sections";
 import { useLegacyColors } from "./design";
 
 interface BottomTabBarProps {
@@ -38,7 +38,8 @@ const MIN_BOTTOM_INSET = Platform.OS === "ios" ? 22 : 8;
 export function BottomTabBar({ activeSection, onSelect, onMore, sections = PRIMARY_SECTIONS }: BottomTabBarProps) {
   const tr = useT();
   const colors = useLegacyColors();
-  const moreActive = !sections.some((s) => s.id === activeSection);
+  // A tab also lights on the screens it stands in for (PD-01: vitals, medicines and results light My Health), as on the web.
+  const moreActive = !sections.some((s) => tabIsActive(s, activeSection));
   const insets = useSafeAreaInsets();
 
   return (
@@ -53,7 +54,7 @@ export function BottomTabBar({ activeSection, onSelect, onMore, sections = PRIMA
       }}
     >
       {sections.map((section) => {
-        const active = section.id === activeSection;
+        const active = tabIsActive(section, activeSection);
         return (
           <Tab
             key={section.id}

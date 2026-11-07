@@ -67,6 +67,8 @@ export function primaryNavItems(sections: readonly NavSection[]): NavItem[] {
 /** A labelled group of sidebar links. `label` is omitted for the top group. */
 export interface NavSection {
   label?: string;
+  /** The group's icon in the icon-only collapsed sidebar (the admin console's rail). Unused elsewhere. */
+  icon?: AppIconName;
   items: NavItem[];
 }
 
@@ -665,14 +667,12 @@ export function getNavSections(
             },
           ];
     case "admin":
-      // Every settings-shaped page (members, partners, protocols, billing,
-      // compliance, ...) used to be its own sidebar link across these
-      // groups — ~15 of them, plus another ~13 reachable only from the
-      // /admin home page's tile grid. They now live behind the single
-      // "Settings" entry below, whose top tab bar
-      // (admin/settings/layout.tsx) groups all ~28 into 7 sections. Only
-      // genuinely operational pages (live data to work, not configuration)
-      // stay as direct sidebar links.
+      // Superadmin console sidebar (docs/design/SUPERADMIN-CONSOLE.md, founder approved 2026-11-07). It used to be one
+      // flat "Operations" group of 86 links; it is now nine labelled groups that collapse to their headings, with the
+      // less-used links in each group behind "More in this group" (`more: true`). Every page that was linked before is
+      // still linked (admin-console-nav.test.ts asserts it). Settings-shaped pages also live behind the single
+      // "Settings" entry, whose tab bar (admin/settings/layout.tsx) groups them; the clinical configuration pages that
+      // were already direct links stay here too.
       return [
         {
           items: [
@@ -681,117 +681,163 @@ export function getNavSections(
             { label: "Front desk", href: "/admin/front-desk", icon: "analytics" },
             { label: "Inbox", href: "/admin/inbox", icon: "members" },
             { label: "Follow-ups", href: "/admin/follow-ups", icon: "review" },
-            { label: "Operations console", href: "/admin/ops", icon: "operations" },
-            { label: "Analytics", href: "/analytics", icon: "analytics" },
           ],
         },
         {
-          label: "Operations",
+          label: "People and access",
+          icon: "members",
           items: [
             { label: "Patients", href: "/admin/patients", icon: "members" },
-            { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
-            { label: "Directory queues", href: "/admin/directory-queues", icon: "review" },
+            { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
+            // New clinician applications, document and licence checks, licence and indemnity expiry (S15).
+            { label: "Clinician credentialing", href: "/admin/credentialing", icon: "review" },
+            { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
+            { label: "Assisted account recovery", href: "/admin/account-recovery", icon: "privacy", more: true },
+            { label: "Leads", href: "/admin/leads", icon: "members", more: true },
+          ],
+        },
+        {
+          label: "Care delivery",
+          icon: "caseload",
+          items: [
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
             // Every consultation: time, doctor, patient, doctor and Zoom connected minutes, CSV (founder/CMO ask 2026-11-03).
             { label: "Consultations log", href: "/admin/consultations", icon: "booking" },
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
-            // New clinician applications, document and licence checks, licence and indemnity expiry (S15).
-            { label: "Clinician credentialing", href: "/admin/credentialing", icon: "review" },
             // Who is on call, who is declared to work, who leads each care pack patient (S18).
             { label: "Rota and lead clinicians", href: "/admin/rota", icon: "caseload" },
-            // The go-live guards and the proposed values the founder owns (S37).
-            { label: "Go-live guards", href: "/admin/go-live", icon: "governance" },
-            // The symptom checker's regulatory position, accuracy audit and safety settings (S60).
-            { label: "Symptom checker safety", href: "/admin/symptom-safety", icon: "governance" },
+            { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
+            { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
             // Community groups, topics, moderators, filter rules, the recorded member lookup.
             { label: "Community", href: "/admin/community", icon: "messages" },
             // The shared moderation desk every Community role holder uses (COM-31); an admin always has it.
             { label: "Community desk", href: "/community-desk", icon: "messages" },
-            // Grant or end a Membership by hand until checkout exists (S22b).
+            // The symptom checker's regulatory position, accuracy audit and safety settings (S60).
+            { label: "Symptom checker safety", href: "/admin/symptom-safety", icon: "governance", more: true },
+            { label: "Triage agreement", href: "/admin/triage-agreement", icon: "analytics", more: true },
+            { label: "Task types and priorities", href: "/admin/task-types", icon: "settings", more: true },
+            { label: "Testimonials", href: "/admin/testimonials", icon: "review", more: true },
+            { label: "Doctor testimonials", href: "/admin/doctor-testimonials", icon: "review", more: true },
+          ],
+        },
+        {
+          label: "Organisations and partners",
+          icon: "facilities",
+          items: [
+            { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
+            { label: "Lab and imaging directory", href: "/admin/ops/diagnostic-directory", icon: "review" },
+            { label: "Directory queues", href: "/admin/directory-queues", icon: "review" },
+            // How each laboratory, pharmacy and clinic is doing; pause or reinstate from new work (S74).
+            { label: "Partner quality", href: "/admin/partner-quality", icon: "governance" },
+            { label: "Employers", href: "/admin/employers", icon: "corporate" },
+            // Programme codes for insurers, employers and NGOs, and their aggregate group figures (S38e).
+            { label: "Sponsors", href: "/admin/sponsors", icon: "members" },
+            { label: "Institution console", href: "/admin/sponsors/institution", icon: "members", more: true },
+            { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review", more: true },
+            { label: "Partner chase list", href: "/admin/ops/directory-chase", icon: "review", more: true },
+            { label: "Provider quality", href: "/admin/provider-quality", icon: "governance", more: true },
+            // Samples in flight, delays, rejected samples and re-collections per laboratory (S27h).
+            { label: "Lab turnaround", href: "/admin/lab-turnaround", icon: "operations", more: true },
+            // Turnaround to supply, flags, complaints and licence expiry for each partner pharmacy; a flag is a suggestion to review, never an automatic removal (S28e).
+            { label: "Pharmacy scorecard", href: "/admin/pharmacy-scorecard", icon: "governance", more: true },
+          ],
+        },
+        {
+          label: "Membership and money",
+          icon: "billing",
+          items: [
+            // Grant or end a Membership by hand (S22b).
             { label: "Memberships", href: "/admin/memberships", icon: "members" },
             // What can be bought, its price and its history; switch an item on or off (S25).
             { label: "Catalogue and prices", href: "/admin/catalogue", icon: "billing" },
-            // Gifts to the Community Access Fund and the grants that pay for a named item for a named person (S72).
-            { label: "Community Access Fund", href: "/admin/access-fund", icon: "billing" },
+            { label: "Refund requests", href: "/admin/refund-requests", icon: "billing" },
+            { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "analytics" },
+            { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
+            // Fee schedules, what contracted clinicians have earned, adjustments (S30).
+            { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
             // What each organisation pays per Membership seat: the flat default, per-organisation prices, history (two-tier, C10).
-            { label: "Organisation prices", href: "/admin/organisation-prices", icon: "billing" },
+            { label: "Organisation prices", href: "/admin/organisation-prices", icon: "billing", more: true },
+            { label: "Promo codes", href: "/admin/promo-codes", icon: "billing", more: true },
+            { label: "Membership discount codes", href: "/admin/discount-codes", icon: "billing", more: true },
+            // Gifts to the Community Access Fund and the grants that pay for a named item for a named person (S72).
+            { label: "Community Access Fund", href: "/admin/access-fund", icon: "billing", more: true },
+            { label: "Earnings questions", href: "/admin/earnings/disputes", icon: "analytics", more: true },
+            // What Tarragon owes a pharmacy or clinic from money it collected; labs are never on it (S74).
+            { label: "Partner settlements", href: "/admin/partner-settlements", icon: "billing", more: true },
+            { label: "Settlement tie-out", href: "/finance/settlement-tieout", icon: "analytics", more: true },
+          ],
+        },
+        {
+          label: "Outcomes and analytics",
+          icon: "outcomes",
+          items: [
+            { label: "Analytics", href: "/analytics", icon: "analytics" },
             // Blood pressure control 90 days after joining: aggregate only, small numbers withheld (S38).
             { label: "Outcomes", href: "/admin/outcomes", icon: "analytics" },
             { label: "Response times", href: "/admin/outcomes/response-times", icon: "analytics" },
-            // Do Health Points and taking part change outcomes, or do healthier people just take part more? Internal, never published (OUTCOMES).
-            { label: "Engagement and outcomes", href: "/admin/outcomes/engagement", icon: "analytics" },
-            // The founder's figures to today, small groups included. Super admin only; switched off by default; a reason is audited (OUTCOMES, OQ-OUT-09/11).
-            { label: "Founder view (small groups)", href: "/admin/outcomes/engagement/founder", icon: "analytics" },
-            { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics" },
-            { label: "Other outcome measures", href: "/admin/outcomes/measures", icon: "analytics" },
-            { label: "Cascade of care", href: "/admin/outcomes/cascade", icon: "analytics" },
-            { label: "Reliable change (PHQ-9, GAD-7)", href: "/admin/outcomes/reliable-change", icon: "analytics" },
-            { label: "Control by medicine adjustment", href: "/admin/outcomes/control-by-adjustment", icon: "analytics" },
-            { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics" },
-            // Programme codes for insurers, employers and NGOs, and their aggregate group figures (S38e).
             // Care Circle adoption, engagement, gifts and safety: counts only, no names (Care Circle P5).
             { label: "Care Circle", href: "/admin/care-circle", icon: "analytics" },
-            { label: "Sponsors", href: "/admin/sponsors", icon: "members" },
-            { label: "Institution console", href: "/admin/sponsors/institution", icon: "members" },
-            { label: "Triage agreement", href: "/admin/triage-agreement", icon: "analytics" },
-            // Fee schedules, what contracted clinicians have earned, adjustments (S30).
-            { label: "Fees and earnings", href: "/admin/earnings", icon: "analytics" },
-            { label: "Earnings questions", href: "/admin/earnings/disputes", icon: "analytics" },
-            { label: "Payouts", href: "/admin/payouts", icon: "analytics" },
-            { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "analytics" },
-            { label: "Settlement tie-out", href: "/finance/settlement-tieout", icon: "analytics" },
-            // How each laboratory, pharmacy and clinic is doing; pause or reinstate from new work (S74).
-            { label: "Partner quality", href: "/admin/partner-quality", icon: "governance" },
-            // Samples in flight, delays, rejected samples and re-collections per laboratory (S27h).
-            { label: "Lab turnaround", href: "/admin/lab-turnaround", icon: "operations" },
-            // Turnaround to supply, flags, complaints and licence expiry for each partner pharmacy; a flag is a suggestion to review, never an automatic removal (S28e).
-            { label: "Pharmacy scorecard", href: "/admin/pharmacy-scorecard", icon: "governance" },
-            // What Tarragon owes a pharmacy or clinic from money it collected; labs are never on it (S74).
-            { label: "Partner settlements", href: "/admin/partner-settlements", icon: "billing" },
+            // Do Health Points and taking part change outcomes, or do healthier people just take part more? Internal, never published (OUTCOMES).
+            { label: "Engagement and outcomes", href: "/admin/outcomes/engagement", icon: "analytics", more: true },
+            // The founder's figures to today, small groups included. Super admin only; switched off by default; a reason is audited (OUTCOMES, OQ-OUT-09/11).
+            { label: "Founder view (small groups)", href: "/admin/outcomes/engagement/founder", icon: "analytics", more: true },
+            { label: "Risk fairness", href: "/admin/risk-fairness", icon: "analytics", more: true },
+            { label: "Other outcome measures", href: "/admin/outcomes/measures", icon: "analytics", more: true },
+            { label: "Cascade of care", href: "/admin/outcomes/cascade", icon: "analytics", more: true },
+            { label: "Reliable change (PHQ-9, GAD-7)", href: "/admin/outcomes/reliable-change", icon: "analytics", more: true },
+            { label: "Control by medicine adjustment", href: "/admin/outcomes/control-by-adjustment", icon: "analytics", more: true },
+            { label: "Export outcomes", href: "/admin/outcomes/export", icon: "analytics", more: true },
+          ],
+        },
+        {
+          label: "Platform operations",
+          icon: "operations",
+          items: [
+            { label: "Operations console", href: "/admin/ops", icon: "operations" },
+            { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
-            { label: "Event bus", href: "/admin/ops/event-bus", icon: "operations" },
-            { label: "Partner webhooks", href: "/admin/ops/partner-webhooks", icon: "operations" },
             // Is the chain from a reading to a grade, task, page and notice working, and how fast (P1).
             { label: "Chain health", href: "/admin/ops/chain-health", icon: "operations" },
-            { label: "Providers", href: "/admin/ops/providers", icon: "operations" },
-            { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance" },
-                { label: "Clinician roster", href: "/admin/ops/clinicians", icon: "members" },
-            { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance" },
-            { label: "Operations wall", href: "/admin/ops/wall", icon: "operations" },
-            { label: "Capacity and cover", href: "/admin/capacity", icon: "caseload" },
-            { label: "Fire drills", href: "/admin/fire-drills", icon: "siren" },
-            { label: "Ops desk", href: "/admin/ops/desk", icon: "siren" },
-            { label: "Directory freshness", href: "/admin/ops/directory-freshness", icon: "review" },
-                { label: "Partner chase list", href: "/admin/ops/directory-chase", icon: "review" },
-                { label: "Lab and imaging directory", href: "/admin/ops/diagnostic-directory", icon: "review" },
-            { label: "Automations", href: "/admin/ops/automations", icon: "settings" },
             { label: "Automation health", href: "/admin/ops/automation-health", icon: "review" },
-            { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
-            { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance" },
-            { label: "AI monitoring", href: "/admin/ops/ai-monitoring", icon: "governance" },
-            { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
-            { label: "Prescription desk", href: "/admin/support/prescription-desk", icon: "patientActivity" },
-            { label: "Employers", href: "/admin/employers", icon: "corporate" },
-            { label: "Leads", href: "/admin/leads", icon: "members" },
-            { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
-            { label: "Membership discount codes", href: "/admin/discount-codes", icon: "billing" },
+            { label: "Providers", href: "/admin/ops/providers", icon: "operations" },
+            { label: "Operations wall", href: "/admin/ops/wall", icon: "operations", more: true },
+            { label: "Event bus", href: "/admin/ops/event-bus", icon: "operations", more: true },
+            { label: "Partner webhooks", href: "/admin/ops/partner-webhooks", icon: "operations", more: true },
+            { label: "Automations", href: "/admin/ops/automations", icon: "settings", more: true },
+            { label: "Reliability and SLA (view)", href: "/admin/ops/reliability", icon: "governance", more: true },
+            { label: "Fire drills", href: "/admin/fire-drills", icon: "siren", more: true },
+            { label: "AI monitoring", href: "/admin/ops/ai-monitoring", icon: "governance", more: true },
+            { label: "AI cost by month", href: "/admin/ops/ai-cost", icon: "governance", more: true },
+          ],
+        },
+        {
+          label: "Security and governance",
+          icon: "security",
+          items: [
+            { label: "Security", href: "/admin/security", icon: "privacy" },
+            { label: "Record access review", href: "/admin/access-review", icon: "audit" },
+            { label: "Staff access review", href: "/admin/staff-access-review", icon: "audit" },
             { label: "Data rights requests", href: "/admin/data-rights", icon: "privacy" },
-            { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
-            { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
+            // The go-live guards and the proposed values the founder owns (S37, G-01).
+            { label: "Go-live guards", href: "/admin/go-live", icon: "governance" },
             { label: "AI governance", href: "/admin/settings/ai-governance", icon: "audit" },
-            { label: "AI cost", href: "/admin/settings/ai-governance/cost", icon: "audit" },
-            { label: "Symptom triage protocols", href: "/admin/settings/triage-protocols", icon: "escalation" },
-            { label: "Compare triage versions", href: "/admin/settings/triage-protocols/compare", icon: "escalation" },
-            { label: "Result release policies", href: "/admin/settings/result-release-policies", icon: "labs" },
-            { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
-            { label: "Provider quality", href: "/admin/provider-quality", icon: "governance" },
-            { label: "Testimonials", href: "/admin/testimonials", icon: "review" },
-            { label: "Doctor testimonials", href: "/admin/doctor-testimonials", icon: "review" },
+            { label: "Go-live guards (view)", href: "/admin/ops/go-live", icon: "governance", more: true },
+            { label: "AI cost", href: "/admin/settings/ai-governance/cost", icon: "audit", more: true },
           ],
         },
         {
           label: "Configuration",
-          items: [{ label: "Settings", href: "/admin/settings", icon: "settings" }],
+          icon: "settings",
+          items: [
+            { label: "Settings", href: "/admin/settings", icon: "settings" },
+            { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation", more: true },
+            { label: "Symptom triage protocols", href: "/admin/settings/triage-protocols", icon: "escalation", more: true },
+            { label: "Compare triage versions", href: "/admin/settings/triage-protocols/compare", icon: "escalation", more: true },
+            { label: "Result release policies", href: "/admin/settings/result-release-policies", icon: "labs", more: true },
+            { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp", more: true },
+            { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination", more: true },
+          ],
         },
       ];
     case "pharmacist":

@@ -3,7 +3,7 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { BookAppointment } from "./book-appointment";
-import { MyAppointmentsList } from "./my-appointments-list";
+import { AppointmentsViews } from "./appointments-views";
 import { FollowupCard } from "./followup-card";
 import { SecondOpinionRequestCard } from "@/app/(dashboard)/patient/second-opinion-request";
 import { PATIENT_BOOKABLE_APPOINTMENT_TYPES } from "./appointment-labels";
@@ -42,10 +42,10 @@ export default async function PatientAppointmentsPage({
         backTo={{ href: "/patient", label: "Dashboard" }}
         title="Appointments"
         icon={SEMANTIC_ICON.booking}
-        description="Book a video or audio visit, or a result consultation, with a Tarragon doctor, request a second opinion, and manage your upcoming appointments."
+        description="Book a video or audio visit, or a result consultation, with a Tarragon doctor, request a second opinion, and manage your appointments."
       />
       <FollowupCard patientId={subjectId} isSelf={subjectId === profile.id} />
-      <MyAppointmentsList patientId={subjectId} locale={uiLanguage} />
+      <AppointmentsViews patientId={subjectId} isSelf={subjectId === profile.id} locale={uiLanguage} />
       <BookAppointment
         organisationId={profile.organisation_id}
         patientId={subjectId}

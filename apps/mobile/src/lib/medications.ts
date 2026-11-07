@@ -14,7 +14,11 @@ import {
   addDays,
   allTimes,
   groupLogsBySlot,
+  buildDoseHistory,
+  type AdherenceConfig,
+  type AdherenceMedicine,
   type AdherenceResult,
+  type DoseHistory,
   type ResolvedAnchor,
   type DoseLog,
   type FoodNote,
@@ -460,13 +464,22 @@ interface AdherenceLogRow {
   logged_at: string | null;
 }
 
-/** The patient's own week, computed on the phone so it works offline: doses marked taken over doses due. */
-export async function loadWeeklyAdherence(patientId: string, nowMs: number = Date.now()): Promise<QueryResult<AdherenceResult>> {
+/**
+ * The medicines and dose answers the adherence formula reads, for the last `readDays` Lagos days (today included; the configured
+ * adherence window when not given), plus the configured adherence rules. Read with the patient's own session, falling back to the
+ * offline copy; doses logged on this phone and not yet sent count too. A failed read with no offline copy is an error, never
+ * "nothing due".
+ */
+async function loadAdherenceInputs(
+  patientId: string,
+  nowMs: number,
+  readDays?: number,
+): Promise<QueryResult<{ medicines: AdherenceMedicine[]; cfg: AdherenceConfig }>> {
   await refreshAnchorProfile(patientId);
   const band = loadAdherenceBand();
   const rules = loadMedicineRules();
   const missedAfterMinutes = loadReminderBehaviour().missedAfterMinutes;
-  const start = addDays(lagosLocalDate(nowMs), -(band.windowDays - 1));
+  const start = addDays(lagosLocalDate(nowMs), -((readDays ?? band.windowDays) - 1));
 
   let meds: AdherenceMedRow[];
   let logs: AdherenceLogRow[];
@@ -522,22 +535,41 @@ export async function loadWeeklyAdherence(patientId: string, nowMs: number = Dat
     byMed.set(row.medication_id, list);
   }
 
-  const result = computeWeeklyAdherence(
-    meds.map((m) => ({
-      id: m.id,
-      spec: scheduleOf(m, patientId),
-      logs: groupLogsBySlot(byMed.get(m.id) ?? []),
-      activeFromMs: activeFromMs(m),
-    })),
-    nowMs,
-    {
-      windowDays: band.windowDays,
-      minDoses: rules.adherenceMinDoses,
-      missedAfterMinutes,
-      thresholdPercent: band.percent,
-    }
-  );
-  return { ok: true, data: result };
+  return {
+    ok: true,
+    data: {
+      medicines: meds.map((m) => ({
+        id: m.id,
+        spec: scheduleOf(m, patientId),
+        logs: groupLogsBySlot(byMed.get(m.id) ?? []),
+        activeFromMs: activeFromMs(m),
+      })),
+      cfg: {
+        windowDays: band.windowDays,
+        minDoses: rules.adherenceMinDoses,
+        missedAfterMinutes,
+        thresholdPercent: band.percent,
+      },
+    },
+  };
+}
+
+/** The patient's own week, computed on the phone so it works offline: doses marked taken over doses due. */
+export async function loadWeeklyAdherence(patientId: string, nowMs: number = Date.now()): Promise<QueryResult<AdherenceResult>> {
+  const inputs = await loadAdherenceInputs(patientId, nowMs);
+  if (!inputs.ok) return inputs;
+  return { ok: true, data: computeWeeklyAdherence(inputs.data.medicines, nowMs, inputs.data.cfg) };
+}
+
+/**
+ * Doses marked taken over the last 28 completed Lagos days, with the 7- and 30-day figures (the doses-taken chart, 2026-11-06).
+ * The same formula and completed-days rule as the web (buildDoseHistory in @tarragon/medicines). A failed read is an error, so
+ * the chart says it could not load rather than drawing a month of "nothing due".
+ */
+export async function loadDoseHistory(patientId: string, nowMs: number = Date.now()): Promise<QueryResult<DoseHistory>> {
+  const inputs = await loadAdherenceInputs(patientId, nowMs, 31);
+  if (!inputs.ok) return inputs;
+  return { ok: true, data: buildDoseHistory(inputs.data.medicines, nowMs, inputs.data.cfg) };
 }
 
 export interface SupplyRow {
