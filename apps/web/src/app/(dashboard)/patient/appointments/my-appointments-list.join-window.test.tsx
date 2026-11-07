@@ -22,7 +22,9 @@ jest.mock("@/lib/queries/appointments", () => ({
   useCancelWaitingListEntry: () => ({ mutate: jest.fn(), isPending: false }),
   useAcceptWaitingListOffer: () => ({ mutate: jest.fn(), isPending: false }),
   useEnsureAppointmentVideoConsultation: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useMyBookingTerms: () => ({ data: { cancel_window_hours: 2, late_cancel_credit_returned: false }, isLoading: false }),
 }));
+jest.mock("./reschedule-appointment", () => ({ RescheduleAppointment: () => <div data-testid="reschedule-panel" /> }));
 
 const NOW = new Date("2026-11-10T10:00:00Z");
 const appt = (minutesFromNow: number, status = "confirmed") => ({

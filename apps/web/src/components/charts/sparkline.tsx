@@ -3,28 +3,10 @@
  * legend: the tile's label names it. A 2px line in brand green on the tile's own surface, the latest point marked, no axes or
  * grid. The shape is the message; the number beside it is the value. Screen readers get a one-line description instead.
  */
-export interface SparkPoint {
-  /** Time, ms. */
-  t: number;
-  v: number;
-}
+import { sparkPath, type SparkPoint } from "@tarragon/shared";
 
-export function sparkPath(points: readonly SparkPoint[], width: number, height: number, pad = 3): { d: string; last: { x: number; y: number } } | null {
-  if (points.length < 2) return null;
-  const ts = points.map((p) => p.t);
-  const vs = points.map((p) => p.v);
-  const t0 = Math.min(...ts);
-  const t1 = Math.max(...ts);
-  const v0 = Math.min(...vs);
-  const v1 = Math.max(...vs);
-  const x = (t: number) => (t1 === t0 ? width / 2 : pad + ((t - t0) / (t1 - t0)) * (width - 2 * pad));
-  // A flat series sits in the middle rather than on the floor.
-  const y = (v: number) => (v1 === v0 ? height / 2 : height - pad - ((v - v0) / (v1 - v0)) * (height - 2 * pad));
-  const sorted = [...points].sort((a, b) => a.t - b.t);
-  const d = sorted.map((p, i) => `${i === 0 ? "M" : "L"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
-  const lastPoint = sorted[sorted.length - 1]!;
-  return { d, last: { x: x(lastPoint.t), y: y(lastPoint.v) } };
-}
+/** The point type and path maths live in @tarragon/shared (reading-trends.ts), shared with the phone app. */
+export { sparkPath, type SparkPoint };
 
 export function Sparkline({ points, label, className }: { points: readonly SparkPoint[]; label: string; className?: string }) {
   const W = 120;

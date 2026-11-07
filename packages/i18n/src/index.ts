@@ -30,6 +30,7 @@ export * from "./monthly-report";
 export * from "./cycle-copy";
 export * from "./care-circle-tools-copy";
 export * from "./family-circle-copy";
+export * from "./care-circle-help-requests-copy";
 export * from "./employer-pilot-copy";
 export * from "./care-gap-copy";
 export * from "./maternal-child";

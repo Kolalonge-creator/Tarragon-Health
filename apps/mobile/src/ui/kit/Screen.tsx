@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement, ReactNode, RefObject } from "react";
 import { ScrollView, View, type RefreshControlProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { space, useTheme } from "../design";
@@ -11,15 +11,18 @@ interface ScreenProps {
   edges?: ("top" | "bottom" | "left" | "right")[];
   /** Pull to refresh, for screens that load data. */
   refreshControl?: ReactElement<RefreshControlProps>;
+  /** Lets a screen scroll itself, for example a "Log a reading" button that jumps to the form further down. */
+  scrollRef?: RefObject<ScrollView | null>;
 }
 
 /** The canvas every kit screen sits on: theme background, standard gutter, keyboard-friendly scrolling. */
-export function Screen({ children, scroll = true, edges = ["left", "right"], refreshControl }: ScreenProps) {
+export function Screen({ children, scroll = true, edges = ["left", "right"], refreshControl, scrollRef }: ScreenProps) {
   const { colors } = useTheme();
   return (
     <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.canvas }}>
       {scroll ? (
         <ScrollView
+          ref={scrollRef}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: space.xl, gap: space.lg }}
           showsVerticalScrollIndicator={false}

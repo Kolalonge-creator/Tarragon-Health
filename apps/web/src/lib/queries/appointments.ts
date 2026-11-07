@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ensureAppointmentVideoConsultation } from "@/app/(dashboard)/patient/appointments/video-actions";
 import { confirmAppointmentAndSetupVideo } from "@/lib/appointments/confirm-with-video-setup";
 import type { Tables, Enums } from "@tarragon/shared";
+import { HISTORY_STATUSES, type AppointmentHistoryView } from "@/lib/appointments/appointment-views";
 import { toConsultSlots, type BookableConsultSlotRow } from "@/lib/consultations/slots";
 
 export type Appointment = Tables<"appointments">;
@@ -37,6 +38,7 @@ const CONSULT_ROLE_BY_TYPE: Record<string, "doctor" | "dietitian" | "pharmacist"
 export const appointmentKeys = {
   availableSlots: (params: Record<string, unknown>) => ["appointments", "available-slots", params] as const,
   myUpcoming: (patientId: string) => ["appointments", "my-upcoming", patientId] as const,
+  myHistory: (patientId: string, view: string) => ["appointments", "my-history", patientId, view] as const,
   clinicianUpcoming: (clinicianId: string) => ["appointments", "clinician-upcoming", clinicianId] as const,
   myWaitingList: (patientId: string) => ["appointments", "waiting-list", "mine", patientId] as const,
   availabilityRules: (clinicianId: string) => ["appointments", "availability-rules", clinicianId] as const,
@@ -107,6 +109,26 @@ export function useMyUpcomingAppointments(patientId: string) {
         .eq("patient_id", patientId)
         .in("status", UPCOMING_STATUSES)
         .order("scheduled_for", { ascending: true });
+      if (error) throw error;
+      return data as (Appointment & { clinician: { full_name: string | null } | null })[];
+    },
+  });
+}
+
+/** P15: past, cancelled or missed appointments, newest first (HISTORY_STATUSES). RLS decides who may read them, a supporter included. */
+export function useMyAppointmentHistory(patientId: string, view: AppointmentHistoryView, enabled = true) {
+  return useQuery({
+    queryKey: appointmentKeys.myHistory(patientId, view),
+    enabled: enabled && !!patientId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("*, clinician:profiles!appointments_clinician_id_fkey(full_name)")
+        .eq("patient_id", patientId)
+        .in("status", HISTORY_STATUSES[view] as AppointmentStatus[])
+        .order("scheduled_for", { ascending: false })
+        .limit(50);
       if (error) throw error;
       return data as (Appointment & { clinician: { full_name: string | null } | null })[];
     },
@@ -254,8 +276,31 @@ export function useHoldAppointmentSlot() {
        * p_patient_id to the caller when this is left out.
        */
       patientId?: string;
+      /**
+       * CC-1: a booking made for a patient on a phone call from the coordination workspace. Goes through
+       * hold_appointment_slot_by_phone, so a doctor covering coordination gets the same phone booking (30 minute hold, pay link,
+       * confirm on payment) a Care Coordinator gets. The database refuses anyone who may not coordinate.
+       */
+      viaPhone?: boolean;
     }) => {
       const supabase = createClient();
+      if (input.viaPhone) {
+        if (!input.patientId) throw new Error("A phone booking needs the patient it is for");
+        const { data, error } = await supabase.rpc("hold_appointment_slot_by_phone" as never, {
+          p_organisation_id: input.organisationId,
+          p_clinician_id: input.clinicianId,
+          p_appointment_type: input.appointmentType,
+          p_consultation_method: input.consultationMethod,
+          p_scheduled_for: input.scheduledFor,
+          p_ends_at: input.endsAt,
+          p_patient_id: input.patientId,
+          p_reason: input.reason,
+          p_service: input.service,
+          p_location: input.location,
+        } as never);
+        if (error) throw error;
+        return data as Appointment;
+      }
       const { data, error } = await supabase.rpc("hold_appointment_slot", {
         p_organisation_id: input.organisationId,
         p_clinician_id: input.clinicianId,
