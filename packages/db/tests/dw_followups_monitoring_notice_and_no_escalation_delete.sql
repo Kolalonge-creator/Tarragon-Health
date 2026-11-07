@@ -5,6 +5,8 @@
 --     carrying only the escalation id (no patient, nothing clinical)
 --  2  a due monitoring case nobody holds notifies the organisation's active CMO instead
 --  3  a not-yet-due monitoring case is left alone and nobody is notified about it
+--  3b a due case held by a doctor on leave notifies the CMO instead of the absent doctor
+--  3c with no doctor and no active CMO to tell, an ops incident is raised (never silent)
 --  4  a staff account (the assigned doctor) cannot delete an escalation; a care coordinator cannot either
 --  SABOTAGE: restoring the old org-staff delete policy and grant lets the coordinator delete, so check 4 can fail.
 -- Wrapped in BEGIN/ROLLBACK; mints its own fixtures in a fresh organisation.
@@ -48,7 +50,7 @@ declare
   v_pat uuid := (select v from ids where k = 'patient');
   v_doc uuid := (select v from ids where k = 'doc');
   v_cmo uuid := (select v from ids where k = 'cmo');
-  v_held uuid; v_unheld uuid; v_future uuid;
+  v_held uuid; v_unheld uuid; v_future uuid; v_leave uuid; v_orphan uuid;
   v_n integer;
   v_payload jsonb;
   v_failed boolean;
@@ -88,6 +90,35 @@ begin
   -- 3. not yet due: untouched, nobody told
   if (select status from public.escalations where id = v_future) <> 'monitoring' then raise exception 'FAIL 3a: a not-yet-due case returned'; end if;
   if exists (select 1 from public.notifications where source_id = v_future) then raise exception 'FAIL 3b: a not-yet-due case raised a notice'; end if;
+
+  -- 3b. the holding doctor is on leave: the CMO is told, not the absent doctor
+  insert into public.provider_time_off (organisation_id, clinician_id, kind, starts_at, ends_at, reason, created_by)
+  values (v_org, v_doc, 'leave', now() - interval '1 day', now() + interval '1 day', 'DWFU proof', v_cmo);
+  insert into public.escalations (organisation_id, patient_id, reason, assigned_doctor_id, status)
+  values (v_org, v_pat, 'DWFU leave', v_doc, 'open') returning id into v_leave;
+  alter table public.escalations disable trigger escalations_enforce_state_rules;
+  update public.escalations set status = 'monitoring', status_note = 'Watching readings', monitor_until = now() - interval '1 minute' where id = v_leave;
+  alter table public.escalations enable trigger escalations_enforce_state_rules;
+  perform private.return_due_escalation_monitoring();
+  if exists (select 1 from public.notifications where source_id = v_leave and recipient_id = v_doc) then raise exception 'FAIL 3b: the doctor on leave was told'; end if;
+  if not exists (select 1 from public.notifications where source_id = v_leave and recipient_id = v_cmo) then raise exception 'FAIL 3b: the CMO was not told about a case whose doctor is on leave'; end if;
+
+  -- 3c. nobody to tell: an ops incident, not silence
+  update public.clinical_staff set active = false where profile_id = v_cmo;
+  delete from public.ops_incidents where external_reference = 'escalation_monitoring_return_notify_failed';
+  insert into public.escalations (organisation_id, patient_id, reason, assigned_doctor_id, status)
+  values (v_org, v_pat, 'DWFU orphan', v_doc, 'open') returning id into v_orphan;
+  alter table public.escalations disable trigger escalations_enforce_state_rules;
+  alter table public.escalations disable trigger escalations_enforce_reassignment_authority;
+  update public.escalations set status = 'monitoring', status_note = 'Watching readings', monitor_until = now() - interval '1 minute', assigned_doctor_id = null where id = v_orphan;
+  alter table public.escalations enable trigger escalations_enforce_reassignment_authority;
+  alter table public.escalations enable trigger escalations_enforce_state_rules;
+  perform private.return_due_escalation_monitoring();
+  if (select status from public.escalations where id = v_orphan) <> 'under_review' then raise exception 'FAIL 3c: the orphan case did not return'; end if;
+  if not exists (select 1 from public.ops_incidents where external_reference = 'escalation_monitoring_return_notify_failed' and status not in ('resolved', 'closed')) then
+    raise exception 'FAIL 3c: nobody could be told and no incident was raised';
+  end if;
+  update public.clinical_staff set active = true where profile_id = v_cmo;
 
   -- 4. no staff delete
   insert into ids values ('held', v_held);
