@@ -18,6 +18,13 @@ import { submitRiskAssessment } from "./actions";
 
 jest.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+  // P14: the saved-draft read. No draft in these tests (the draft tests live in risk-assessment-form.draft.test.tsx).
+  useQuery: () => ({ data: null, isError: false }),
+}));
+jest.mock("./risk-assessment-draft-actions", () => ({
+  loadRiskAssessmentDraft: jest.fn(async () => ({ ok: true, draft: null })),
+  saveRiskAssessmentDraft: jest.fn(async () => ({ ok: true })),
+  discardRiskAssessmentDraft: jest.fn(async () => ({ ok: true })),
 }));
 jest.mock("@/lib/queries/vitals", () => ({
   useVitalsReadings: () => ({ data: undefined }),
@@ -95,6 +102,7 @@ describe("RiskAssessmentForm", () => {
     });
     fireEvent.click(screen.getByLabelText("I've had an abnormal result from a screening test before"));
 
+    fireEvent.click(screen.getByRole("button", { name: "Check your answers" }));
     fireEvent.click(screen.getByText("Save assessment"));
 
     // Wait for the action's transition to settle (React wraps the pending ->
@@ -162,6 +170,7 @@ describe("RiskAssessmentForm", () => {
     fireEvent.click(screen.getByText("Next"));
 
     // Step 4: submit without ever having filled step 2.
+    fireEvent.click(screen.getByRole("button", { name: "Check your answers" }));
     fireEvent.click(screen.getByText("Save assessment"));
 
     // The whole point of the fix: this resolves (the mocked action always
@@ -210,6 +219,7 @@ describe("RiskAssessmentForm", () => {
         };
       }
     );
+    fireEvent.click(screen.getByRole("button", { name: "Check your answers" }));
     fireEvent.click(screen.getByText("Save assessment"));
 
     await screen.findByText('Invalid option: expected one of "never"|"former"|"current"');
@@ -256,9 +266,11 @@ describe("RiskAssessmentForm", () => {
       field: "smoking_status",
       values: {},
     }));
+    fireEvent.click(screen.getByRole("button", { name: "Check your answers" }));
     fireEvent.click(screen.getByText("Save assessment"));
-    await screen.findByText(/Choose one for smoking/);
-    expect(screen.getByText(/Step 2 of 4/)).toBeTruthy();
+    // The check-your-answers step lists the same message before the server answers, so wait for the step change itself.
+    expect(await screen.findByText(/Step 2 of 4/)).toBeTruthy();
+    expect(submitRiskAssessment).toHaveBeenCalled();
   });
 
   it("still shows the HPV tick to a man whose last answer was yes, so a resubmit cannot turn it into no", () => {

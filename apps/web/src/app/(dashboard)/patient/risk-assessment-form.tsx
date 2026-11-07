@@ -1,8 +1,18 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { submitRiskAssessment } from "./actions";
+import { discardRiskAssessmentDraft, loadRiskAssessmentDraft, saveRiskAssessmentDraft } from "./risk-assessment-draft-actions";
+import { useActingFor } from "@/components/acting-for-context";
+import {
+  formDataToAnswers,
+  missingAnswers,
+  reviewSummary,
+  type DraftAnswers,
+  type MissingAnswer,
+} from "@/lib/validation/risk-assessment-review";
+import { formatPatientDate } from "@/lib/format-date";
 import {
   CANCER_TYPES,
   CIGARETTES_PER_DAY,
@@ -22,7 +32,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Enums } from "@tarragon/shared";
 
 const STEP_COUNT = 4;
-const STEP_LABELS = ["Family history", "Lifestyle", "Medical history", "Vaccination & screening"];
+/** P14: after the four question steps, a "check your answers" step; the assessment is only submitted from there. */
+const REVIEW_STEP = 5;
+const STEP_LABELS = ["Family history", "Lifestyle", "Medical history", "Vaccination & screening", "Check your answers"];
+/** Not a form field: whether "None of these" was ticked for diagnoses, kept in a saved draft so resuming shows it. */
+const NO_DIAGNOSES_KEY = "no_diagnoses";
 
 /** Best-effort care_plan_condition → EXISTING_DIAGNOSES mapping. Only the
  * conditions with an obvious equivalent map; obesity/ckd/asthma/copd/
@@ -98,6 +112,23 @@ export function RiskAssessmentForm({ patientId, sex }: { patientId: string; /** 
   const { data: priorResponses } = useRiskAssessmentResponses(patientId);
 
   const [step, setStep] = useState(1);
+  // P14 save and resume. Only on the patient's own account: while acting for someone nothing is loaded or saved, so
+  // their half-finished answers can never land on the supporter's own record.
+  const acting = useActingFor();
+  const draftQuery = useQuery({
+    queryKey: ["risk-assessment-draft", patientId],
+    queryFn: async () => {
+      const r = await loadRiskAssessmentDraft();
+      if (!r.ok) throw new Error(r.error);
+      return r.draft;
+    },
+    enabled: !acting,
+  });
+  const [draftHandled, setDraftHandled] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [review, setReview] = useState<{ answers: DraftAnswers; missing: MissingAnswer[] } | null>(null);
+  const pendingResume = useRef<DraftAnswers | null>(null);
   const [showCancerOther, setShowCancerOther] = useState(false);
   const [showDiagnosesOther, setShowDiagnosesOther] = useState(false);
   const [smokingStatus, setSmokingStatus] = useState("");
@@ -155,8 +186,14 @@ export function RiskAssessmentForm({ patientId, sex }: { patientId: string; /** 
     if (state?.success) {
       queryClient.invalidateQueries({ queryKey: ["risk-assessment-responses", patientId] });
       queryClient.invalidateQueries({ queryKey: ["prevention-risk-scores", patientId] });
+      // A submitted assessment replaces the saved draft (own account only; nothing was saved while acting).
+      if (!acting) {
+        void discardRiskAssessmentDraft().then(() =>
+          queryClient.invalidateQueries({ queryKey: ["risk-assessment-draft", patientId] })
+        );
+      }
     }
-  }, [state?.success, queryClient, patientId]);
+  }, [state?.success, queryClient, patientId, acting]);
 
   // Same bug, same fix as the signup form (see signup/signup-form.tsx):
   // React resets a <form action={...}>'s uncontrolled fields synchronously
@@ -215,6 +252,75 @@ export function RiskAssessmentForm({ patientId, sex }: { patientId: string; /** 
     }
   }
 
+  function currentAnswers(): DraftAnswers {
+    const form = formRef.current;
+    const answers = form ? formDataToAnswers(new FormData(form)) : {};
+    if (noDiagnoses && existingDiagnoses.length === 0) answers[NO_DIAGNOSES_KEY] = "on";
+    return answers;
+  }
+
+  function openReview() {
+    const answers = currentAnswers();
+    setReview({ answers, missing: missingAnswers(answers) });
+    setStep(REVIEW_STEP);
+  }
+
+  async function saveForLater() {
+    setSaveState("saving");
+    setSaveError(null);
+    const r = await saveRiskAssessmentDraft({ answers: currentAnswers(), step });
+    if (r.ok) {
+      setSaveState("saved");
+      queryClient.invalidateQueries({ queryKey: ["risk-assessment-draft", patientId] });
+    } else {
+      setSaveState("failed");
+      setSaveError(r.error);
+    }
+  }
+
+  /** Puts a saved draft back into the form: the uncontrolled fields directly, the controlled ones through state. */
+  function resume(answers: DraftAnswers, savedStep: number) {
+    const form = formRef.current;
+    const str = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
+    setSmokingStatus(str(answers.smoking_status));
+    setHeightCm(str(answers.height_cm));
+    setWeightKg(str(answers.weight_kg));
+    const dx = Array.isArray(answers.existing_diagnoses) ? answers.existing_diagnoses : [];
+    setExistingDiagnoses(dx);
+    setNoDiagnoses(answers[NO_DIAGNOSES_KEY] === "on" && dx.length === 0);
+    setShowDiagnosesOther(dx.includes("other"));
+    const cancers = Array.isArray(answers.family_cancer_types) ? answers.family_cancer_types : [];
+    setShowCancerOther(cancers.includes("other"));
+    if (form) {
+      for (const el of Array.from(form.elements)) {
+        if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLSelectElement)) continue;
+        const name = el.name;
+        if (!name || name === "existing_diagnoses" || name === "height_cm" || name === "weight_kg") continue;
+        const value = answers[name];
+        if (el instanceof HTMLInputElement && el.type === "checkbox") {
+          el.checked = Array.isArray(value) ? value.includes(el.value) : value === el.value || value === "on";
+        } else if (typeof value === "string") {
+          el.value = value;
+        }
+      }
+    }
+    // Fields that only appear after a choice (cigarettes, "other" details) mount on the next render; the effect below sets them.
+    pendingResume.current = answers;
+    setStep(Math.min(Math.max(savedStep, 1), STEP_COUNT));
+    setDraftHandled(true);
+  }
+  useEffect(() => {
+    const answers = pendingResume.current;
+    const form = formRef.current;
+    if (!answers || !form) return;
+    pendingResume.current = null;
+    for (const name of ["cigarettes_per_day", "family_cancer_other_detail", "existing_diagnoses_other_detail"]) {
+      const el = form.elements.namedItem(name);
+      const value = answers[name];
+      if ((el instanceof HTMLInputElement || el instanceof HTMLSelectElement) && typeof value === "string") el.value = value;
+    }
+  });
+
   const bmi = useMemo(() => {
     const height = Number(heightCm);
     const weight = Number(weightKg);
@@ -256,12 +362,12 @@ export function RiskAssessmentForm({ patientId, sex }: { patientId: string; /** 
 
           <div className="flex items-center gap-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             <span className="whitespace-nowrap">
-              Step {step} of {STEP_COUNT}: {STEP_LABELS[step - 1]}
+              {step === REVIEW_STEP ? STEP_LABELS[REVIEW_STEP - 1] : `Step ${step} of ${STEP_COUNT}: ${STEP_LABELS[step - 1]}`}
             </span>
             <div className="h-1.5 flex-1 rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15">
               <div
                 className="h-1.5 rounded-full bg-brand-green transition-all"
-                style={{ width: `${(step / STEP_COUNT) * 100}%` }}
+                style={{ width: `${(Math.min(step, STEP_COUNT) / STEP_COUNT) * 100}%` }}
               />
             </div>
           </div>
@@ -273,6 +379,41 @@ export function RiskAssessmentForm({ patientId, sex }: { patientId: string; /** 
               native constraint validation while off-screen (see the
               `noValidate` comment on the <form> above) — that's now handled
               at the form level instead. */}
+          {!acting && draftQuery.isError ? (
+            <p role="alert" className="text-sm text-red-600 dark:text-red-300">
+              Couldn&apos;t load your saved answers. You can still fill in the assessment now.
+            </p>
+          ) : null}
+          {!acting && draftQuery.data && !draftHandled ? (
+            <div className="space-y-2 rounded-lg border border-brand-green/30 p-3">
+              <p className="text-sm text-charcoal-ink dark:text-night-ink">
+                You saved this assessment on {formatPatientDate(draftQuery.data.updatedAt)} without finishing it.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    if (draftQuery.data) resume(draftQuery.data.answers, draftQuery.data.step);
+                  }}
+                >
+                  Continue where you left off
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setDraftHandled(true);
+                    void discardRiskAssessmentDraft();
+                  }}
+                >
+                  Start again
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           <div className={stepClass} hidden={step !== 1}>
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Family history</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -502,6 +643,49 @@ export function RiskAssessmentForm({ patientId, sex }: { patientId: string; /** 
             <Checkbox name="prior_abnormal_result" label="I've had an abnormal result from a screening test before" />
           </div>
 
+          <div className={stepClass} hidden={step !== REVIEW_STEP}>
+            <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Check your answers</h3>
+            {review && review.missing.length > 0 ? (
+              <div role="status" className="space-y-2 rounded-lg border border-amber-300 p-3 dark:border-amber-700">
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">More information needed</p>
+                <ul className="space-y-1">
+                  {review.missing.map((m) => (
+                    <li key={m.field} className="flex flex-wrap items-center justify-between gap-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+                      <span>{m.message}</span>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setStep(m.step)}>
+                        Go to {STEP_LABELS[m.step - 1].toLowerCase()}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+                Everything needed is answered. Check the answers below, then save the assessment.
+              </p>
+            )}
+            {review
+              ? reviewSummary(review.answers, { askHpv: sex !== "male" || priorHpvYes }).map((section) => (
+                  <div key={section.step} className="space-y-1 border-t border-charcoal-ink/10 pt-2 dark:border-night-ink/15">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{section.title}</p>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setStep(section.step)}>
+                        Change
+                      </Button>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-sm">
+                      {section.lines.map((line) => (
+                        <div key={line.label} className="contents">
+                          <dt className="text-charcoal-ink/60 dark:text-night-ink/60">{line.label}</dt>
+                          <dd className="text-charcoal-ink dark:text-night-ink">{line.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                ))
+              : null}
+          </div>
+
           {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
           {state?.success && (
             <p className="text-sm text-brand-green dark:text-brand-green-bright">
@@ -521,11 +705,31 @@ export function RiskAssessmentForm({ patientId, sex }: { patientId: string; /** 
               </Button>
             )}
             {step === STEP_COUNT && (
+              <Button type="button" className="ml-auto" onClick={openReview}>
+                Check your answers
+              </Button>
+            )}
+            {step === REVIEW_STEP && (
               <Button type="submit" className="ml-auto" disabled={pending}>
                 {pending ? "Saving…" : "Save assessment"}
               </Button>
             )}
           </div>
+          {!acting ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" size="sm" variant="ghost" disabled={saveState === "saving"} onClick={saveForLater}>
+                {saveState === "saving" ? "Saving…" : "Save and finish later"}
+              </Button>
+              {saveState === "saved" ? (
+                <p role="status" className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+                  Saved. Only you can see it, and you can come back to finish it.
+                </p>
+              ) : null}
+              {saveState === "failed" ? (
+                <p role="alert" className="text-xs text-red-600 dark:text-red-300">{saveError}</p>
+              ) : null}
+            </div>
+          ) : null}
           </fieldset>
         </form>
       </CardContent>

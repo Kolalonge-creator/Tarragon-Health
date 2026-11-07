@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import { raiseMedicationNotSureTask } from "./medication-not-sure-actions";
 
 /**
  * Medication safety pathway 64.3, step 1 of 2 — "Patient confirms". Shown
@@ -22,6 +23,21 @@ export function MedicationReconciliationConfirm({ patientId }: { patientId: stri
   const { data: open } = useOpenMedicationReconciliation(patientId);
   const confirm = useConfirmMedicationList(patientId);
   const [note, setNote] = useState("");
+  // P16: "I'm not sure" leaves the list unconfirmed (confirming means "this list is accurate", which a patient who is
+  // unsure cannot say). Per the CMO decision from chat (2026-11-07) it raises one routine task on the medicine-issue
+  // worklist (at most one per patient per day); the reassurance below shows only once that task is in.
+  const [unsure, setUnsure] = useState(false);
+  const [unsurePending, setUnsurePending] = useState(false);
+  const [unsureError, setUnsureError] = useState<string | null>(null);
+
+  async function answerNotSure() {
+    setUnsurePending(true);
+    setUnsureError(null);
+    const r = await raiseMedicationNotSureTask({ source: "reconciliation" });
+    setUnsurePending(false);
+    if (r.ok) setUnsure(true);
+    else setUnsureError(r.error);
+  }
   const errorId = fieldErrorId("reconciliation_note");
 
   if (open?.patient_confirmed_at) {
@@ -65,6 +81,20 @@ export function MedicationReconciliationConfirm({ patientId }: { patientId: stri
         >
           {confirm.isPending ? "Confirming…" : "Confirm this list is accurate"}
         </Button>
+        <Button size="sm" variant="ghost" disabled={confirm.isPending || unsurePending} onClick={answerNotSure}>
+          I&apos;m not sure
+        </Button>
+        {unsureError ? (
+          <p role="alert" className="text-sm text-red-600 dark:text-red-300">{unsureError}</p>
+        ) : null}
+        {/* CMO signed from chat 2026-11-07 */}
+        {unsure ? (
+          <p role="status" className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+            That&apos;s fine. Your list stays unconfirmed for now. If a medicine on it looks wrong, use &quot;Report a
+            problem&quot; beside it, or bring your medicine packs to your next consultation so the doctor can go through
+            them with you.
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

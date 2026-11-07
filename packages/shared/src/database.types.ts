@@ -42174,6 +42174,48 @@ export type Database = {
           },
         ]
       }
+      risk_assessment_drafts: {
+        Row: {
+          answers: Json
+          created_at: string
+          organisation_id: string
+          patient_id: string
+          step: number
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          organisation_id: string
+          patient_id: string
+          step?: number
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          organisation_id?: string
+          patient_id?: string
+          step?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_assessment_drafts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_assessment_drafts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       risk_assessment_responses: {
         Row: {
           category: Database["public"]["Enums"]["risk_assessment_category"]

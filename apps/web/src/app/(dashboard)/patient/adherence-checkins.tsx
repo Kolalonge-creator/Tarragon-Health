@@ -10,10 +10,30 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { raiseMedicationNotSureTask } from "./medication-not-sure-actions";
+
+/** The stored answer when the patient picks "Not sure". */
+export const NOT_SURE_ANSWER = "Not sure";
 
 function CheckinRow({ checkin, patientId }: { checkin: AdherenceCheckinWithDrug; patientId: string }) {
   const respond = useRespondToCheckin(patientId);
   const [answer, setAnswer] = useState("");
+  const [notSurePending, setNotSurePending] = useState(false);
+  const [notSureError, setNotSureError] = useState<string | null>(null);
+
+  // P16 (CMO decision from chat, 2026-11-07): "Not sure" first raises one routine task on the medicine-issue worklist,
+  // then records the answer. If the task cannot be raised, the answer is not recorded, so the question stays and can be retried.
+  async function answerNotSure() {
+    setNotSurePending(true);
+    setNotSureError(null);
+    const r = await raiseMedicationNotSureTask({ source: "checkin", checkinId: checkin.id });
+    setNotSurePending(false);
+    if (!r.ok) {
+      setNotSureError(r.error);
+      return;
+    }
+    respond.mutate({ checkinId: checkin.id, response: NOT_SURE_ANSWER });
+  }
 
   return (
     <li className="space-y-2 py-3">
@@ -35,7 +55,13 @@ function CheckinRow({ checkin, patientId }: { checkin: AdherenceCheckinWithDrug;
         >
           {respond.isPending ? "Sending…" : "Send"}
         </Button>
+        <Button size="sm" variant="ghost" disabled={respond.isPending || notSurePending} onClick={answerNotSure}>
+          Not sure
+        </Button>
       </div>
+      {notSureError && (
+        <p role="alert" className="text-xs text-red-600 dark:text-red-300">{notSureError}</p>
+      )}
       {respond.isError && (
         <p className="text-xs text-red-600 dark:text-red-300">Could not save your answer. Try again.</p>
       )}
