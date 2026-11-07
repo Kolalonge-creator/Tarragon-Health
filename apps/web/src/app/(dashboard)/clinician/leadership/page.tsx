@@ -7,6 +7,7 @@ import {
   attentionFromSignoffs,
   attentionFromWorklist,
   cmoOversightView,
+  overdueHandoversForOversight,
   leadershipPeriodBounds,
   parseLeadershipPeriod,
   periodTrend,
@@ -25,6 +26,7 @@ import { getCmoSigningHubForRequest } from "@/lib/queries/cmo-signing-hub-reques
 import { getTestPatientIdsForRequest } from "@/lib/queries/real-patients-request";
 import { createClient } from "@/lib/supabase/server";
 import { loadDoctorWorklist } from "@/lib/worklist/doctor-worklist-load";
+import { loadOpenHandovers } from "@/lib/worklist/load-open-handovers";
 import { CmoOversightSection } from "../cmo-oversight-section";
 import { AttentionPanel } from "./attention-panel";
 import { KpiCard } from "./kpi-card";
@@ -59,12 +61,13 @@ export default async function LeadershipOverviewPage({
   const bounds = leadershipPeriodBounds(period, now);
   const [supabase, testPatientIds] = await Promise.all([createClient(), getTestPatientIdsForRequest()]);
 
-  const [worklist, signals, hub, onLeave, kpis] = await Promise.all([
+  const [worklist, signals, hub, onLeave, kpis, openHandovers] = await Promise.all([
     loadDoctorWorklist(supabase, { profileId: profile?.id ?? null, staffId: staff?.id ?? null }, testPatientIds),
     loadGovernanceSignals(supabase, testPatientIds),
     getCmoSigningHubForRequest().catch(() => null),
     loadOnLeave(supabase, now),
     loadLeadershipKpis(supabase, bounds, testPatientIds),
+    loadOpenHandovers(supabase),
   ]);
 
   const signoffsFailed = hub === null || hub.failed;
@@ -236,6 +239,7 @@ export default async function LeadershipOverviewPage({
           signoffsWaiting={signoffsWaiting}
           signoffsFailed={signoffsFailed}
           onLeave={onLeave}
+          overdueHandovers={openHandovers === null ? null : overdueHandoversForOversight(openHandovers, now)}
         />
       </div>
 
