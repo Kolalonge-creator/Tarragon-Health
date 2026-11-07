@@ -70,7 +70,10 @@ function HomeHeroView({ hero }: { hero: ChannelHeroCopy }) {
             width={1400}
             height={1750}
             loading="eager"
-            sizes="(min-width: 1024px) 520px, 90vw"
+            // The page's LCP, so it gets fetch priority over scripts. On a phone the 300px hint picks a smaller file (828px on a
+            // typical 2.6x Android, 1080px on a 3x iPhone) instead of the full-width one. hero-photo-phone-size.test.tsx pins both.
+            fetchPriority="high"
+            sizes="(min-width: 1024px) 520px, (max-width: 639px) 300px, 90vw"
             className="aspect-[4/5] w-full rounded-[28px] object-cover"
           />
           <PhoneMockup
