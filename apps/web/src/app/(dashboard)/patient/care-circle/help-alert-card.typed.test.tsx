@@ -51,6 +51,9 @@ describe("HelpAlertCard typed requests", () => {
       expect(screen.getByRole("radio", { name })).toBeTruthy();
     }
     expect(screen.getByText(/This is not an emergency service\. If you need care now, go to the nearest hospital\./)).toBeTruthy();
+    // founder-approved intro, 2026-11-07 (replaces "One tap tells...")
+    expect(screen.getByText("Ask the people in your Care Circle for help. Pick what you need and they get a message.")).toBeTruthy();
+    expect(screen.queryByText(/One tap/)).toBeNull();
   });
 
   it("sends nothing until a kind is chosen, and says so", async () => {

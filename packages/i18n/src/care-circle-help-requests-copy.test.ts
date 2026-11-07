@@ -15,9 +15,14 @@ describe("Care Circle typed help requests copy (P22 / PD-08)", () => {
     }
   });
 
-  it("is still proposed: nothing here is marked as reviewed by a build", () => {
-    expect(CIRCLE_HELP_REQUESTS_COPY_REVIEW.status).toBe("proposed");
-    expect(CIRCLE_HELP_REQUESTS_COPY_REVIEW.reviewer).toBeNull();
+  it("records the CMO sign-off from chat (2026-11-07), and every key is either signed or listed as pending", () => {
+    expect(CIRCLE_HELP_REQUESTS_COPY_REVIEW.status).toBe("cmo_reviewed");
+    expect(CIRCLE_HELP_REQUESTS_COPY_REVIEW.reviewer).toMatch(/Chief Medical Officer/);
+    expect(CIRCLE_HELP_REQUESTS_COPY_REVIEW.reviewedOn).toBe("2026-11-07");
+    const signed: readonly string[] = CIRCLE_HELP_REQUESTS_COPY_REVIEW.signedKeys;
+    const pending: readonly string[] = CIRCLE_HELP_REQUESTS_COPY_REVIEW.pendingKeys;
+    expect([...signed, ...pending].sort()).toEqual([...keys].sort());
+    expect(signed).toEqual(expect.arrayContaining(["circlehelp.not_emergency", "circlehelp.view.asked_for", "circlehelp.view.general", "circlehelp.note.hint"]));
   });
 
   it("has one label for each of the five kinds of help the database accepts", () => {

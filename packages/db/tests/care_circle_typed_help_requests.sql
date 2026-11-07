@@ -9,6 +9,8 @@
 --      directly; a blank note is stored as NULL.
 --   D. The untyped call still works (older app builds), and there is exactly one send_circle_help_alert (no ambiguous overload).
 --   E. anon cannot execute the RPC nor read the table.
+--   Priority (founder as CMO, 2026-11-07): a typed request is a 'routine' notification (A8); an untyped tap stays 'critical' (D3).
+--   SABOTAGE 3: priority forced to routine for every alert flips D3.
 --   SABOTAGE (each row expects the broken outcome, so each proves its check can fail): the view's membership gate removed lets the
 --   stranger read the request (flips B2); the type check removed from the RPC turns the 22023 refusal into the table CHECK error (flips C1).
 -- BEGIN/ROLLBACK; mints its own fixtures.
@@ -109,6 +111,9 @@ begin
         and (coalesce(payload::text, '') ilike '%drive me%' or coalesce(payload::text, '') ilike '%transport%')));
   perform pg_temp.ck('A6 the supporter was told in the app', '1',
     (select count(*)::text from public.notifications where recipient_id = sup and template = 'circle_help_tap' and channel = 'in_app'));
+  perform pg_temp.ck('A8 a typed request reaches the supporter as a routine notification on every channel, never critical', 'routine',
+    (select string_agg(distinct priority::text, ',') from public.notifications where recipient_id = sup and template = 'circle_help_tap'
+        and source_id = (r::jsonb ->> 'alert_id')::uuid));
   perform pg_temp.ck('A7 the audit names the type and that there was a note, never the note itself', 'true/0',
     coalesce((select (event ->> 'has_note') from public.audit_log where action = 'care_circle.help_alert_sent' and entity_id = (r::jsonb ->> 'alert_id')::uuid limit 1), 'missing')
     || '/' || (select count(*)::text from public.audit_log where entity_id = (r::jsonb ->> 'alert_id')::uuid and event::text ilike '%drive me%'));
@@ -127,6 +132,9 @@ begin
   r := pg_temp.q_as(pat, 'select public.send_circle_help_alert()::text');
   perform pg_temp.ck('D1 the untyped call still asks for help', 'false/null',
     (r::jsonb ->> 'already_sent') || '/' || coalesce((select request_type from public.care_circle_help_alerts where patient_id = pat order by created_at desc limit 1), 'null'));
+  perform pg_temp.ck('D3 an untyped tap (the old one-tap alarm) still reaches the supporter as critical', 'critical',
+    (select string_agg(distinct priority::text, ',') from public.notifications where recipient_id = sup and template = 'circle_help_tap'
+        and source_id = (r::jsonb ->> 'alert_id')::uuid));
   perform pg_temp.ck('D2 exactly one send_circle_help_alert exists', '1',
     (select count(*)::text from pg_proc p join pg_namespace s on s.oid = p.pronamespace where s.nspname = 'public' and p.proname = 'send_circle_help_alert'));
 
@@ -158,6 +166,21 @@ begin
   exception when sqlstate 'P0099' then null;
   end;
   perform pg_temp.sk('S2 type check removed: the clear 22023 refusal becomes the table CHECK error (flips C1)', 'ERR:23514', r);
+
+  -- SABOTAGE 3: every alert sent as routine; the untyped alarm loses its critical priority (flips D3)
+  delete from public.care_circle_help_alerts where patient_id = pat;
+  begin
+    select pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer, text, text)'::regprocedure) into d;
+    d := replace(d, 'case when v_type is null then ''critical'' else ''routine'' end', '''routine''');
+    if d = pg_get_functiondef('public.send_circle_help_alert(double precision, double precision, integer, text, text)'::regprocedure) then raise exception 'sabotage 3 did not change the function'; end if;
+    execute d;
+    r := pg_temp.q_as(pat, 'select public.send_circle_help_alert()::text');
+    r := (select string_agg(distinct priority::text, ',') from public.notifications where recipient_id = sup and template = 'circle_help_tap'
+            and source_id = (r::jsonb ->> 'alert_id')::uuid);
+    raise exception using errcode = 'P0099';
+  exception when sqlstate 'P0099' then null;
+  end;
+  perform pg_temp.sk('S3 priority forced to routine: the untyped alarm is no longer critical (flips D3)', 'routine', r);
 end $$;
 
 select phase, check_name, expected, actual, case when expected is not distinct from actual then 'PASS' else 'FAIL' end as verdict
@@ -169,7 +192,7 @@ begin
   select count(*) into n from results where expected is distinct from actual;
   if n > 0 then raise exception 'care_circle_typed_help_requests: % check(s) did not hold', n; end if;
   select count(*) into s from results where phase = 'sabotaged';
-  if s < 2 then raise exception 'care_circle_typed_help_requests: the sabotage steps did not run'; end if;
+  if s < 3 then raise exception 'care_circle_typed_help_requests: the sabotage steps did not run'; end if;
   if (select count(*) from results where phase = 'real') < 18 then raise exception 'care_circle_typed_help_requests: fewer checks ran than expected'; end if;
 end $$;
 rollback;

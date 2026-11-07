@@ -13,6 +13,8 @@
 --     overloaded: two functions that both accept a zero-argument call would make every existing call ambiguous (42725). The body is the
 --     LIVE body (pg_get_functiondef, 2026-11-07, identical to 20261104172930), with only the type/note validation, the insert columns,
 --     the audit detail and the returned fields added.
+--   * Priority (founder as CMO, 2026-11-07): a typed request reaches supporters as a 'routine' notification (notification_priority is
+--     {routine, critical}, checked live read-only); an untyped tap keeps 'critical'.
 --   * circle_help_alert_view returns request_type and request_note. Same LIVE body otherwise; same membership gate, same audit.
 --
 -- No row is converted: both columns are added nullable.
@@ -96,7 +98,10 @@ begin
   loop
     v_members := v_members + 1;
     begin
-      perform private.circle_notify(r.supporter_id, v_org, 'circle_help_tap', 'care_circle_help_alerts', v_id, array['in_app', 'push', 'email'], 'critical', v_test);
+      -- Founder (CMO), 2026-11-07: a TYPED request (help booking, paying, collecting medicines, transport, call me) is not an alarm and goes
+      -- out as a routine notification. An untyped tap (the old one-tap alarm, e.g. from the phone app) stays critical.
+      perform private.circle_notify(r.supporter_id, v_org, 'circle_help_tap', 'care_circle_help_alerts', v_id, array['in_app', 'push', 'email'],
+                                    case when v_type is null then 'critical' else 'routine' end, v_test);
       v_told := v_told + 1;
     exception when others then
       begin

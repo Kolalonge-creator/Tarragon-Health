@@ -5126,7 +5126,7 @@ export const en = {
   "emergency.signs": "Look for",
   "emergency.steps": "What to do",
   "circle.help.title": "Ask your Care Circle for help",
-  "circle.help.intro": "One tap tells the people in your Care Circle who can receive alerts that you want them to call you. It does not replace getting care. If you need care now, go to the nearest hospital.",
+  "circle.help.intro": "Ask the people in your Care Circle for help. Pick what you need and they get a message.",
   "circle.help.button": "Ask my Care Circle for help",
   "circle.help.sent": "Your Care Circle has been told. {count} people were reached.",
   "circle.help.sent_none": "Nobody in your Care Circle can receive alerts yet. Please call someone you trust, or go to the nearest hospital.",

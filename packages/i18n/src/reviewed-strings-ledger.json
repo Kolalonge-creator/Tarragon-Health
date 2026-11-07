@@ -25,7 +25,7 @@
       "care_category"
     ]
   },
-  "baselineCeiling": 1163,
+  "baselineCeiling": 1162,
   "entries": {
     "breathing.a11y_phase": {
       "hash": "72354cf0a6f4aa9e",
@@ -6316,10 +6316,10 @@
       "baseline": true
     },
     "circle.help.intro": {
-      "hash": "6e7022f4a2b1c731",
-      "reviewer": "unreviewed (baseline)",
-      "reviewedOn": null,
-      "baseline": true
+      "hash": "d6c1c0fb5459d084",
+      "reviewer": "Kola Longe, founder acting as Chief Medical Officer (new intro approved from chat 2026-11-07, P22 PR #1808)",
+      "reviewedOn": "2026-11-07",
+      "baseline": false
     },
     "circle.help.button": {
       "hash": "44c254ebb65218cf",
