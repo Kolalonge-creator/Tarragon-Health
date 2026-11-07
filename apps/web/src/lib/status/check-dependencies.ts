@@ -161,3 +161,27 @@ export async function checkDependencies(): Promise<DependencyReport> {
     resend,
   };
 }
+
+/** The providers the integrations centre lists (lib/integrations-centre/model.ts). */
+export type ProviderKeyName = "paystack" | "email" | "push" | "sms" | "zoom" | "ai" | "clamav" | "maps";
+
+/**
+ * Whether each provider's key is present in this process, for the integrations centre. Presence only: a value never
+ * leaves this function, and nothing is sent. It lives here, beside the other status checks, because this module is the
+ * one place allowed to look at provider keys without using them (the Part C scan exempts it, packages/shared). A key
+ * being present is never on its own taken as proof a provider works; the page judges that from recorded activity.
+ * Push's signing key is held by the sending edge function, so only the public key can be seen from here.
+ */
+export function providerKeysPresent(): Record<ProviderKeyName, boolean> {
+  return {
+    paystack: Boolean(process.env.PAYSTACK_SECRET_KEY),
+    email: Boolean(process.env.RESEND_API_KEY),
+    push: Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY),
+    sms: Boolean(process.env.TERMII_API_KEY),
+    zoom: Boolean(process.env.ZOOM_ACCOUNT_ID && process.env.ZOOM_CLIENT_ID && process.env.ZOOM_CLIENT_SECRET),
+    ai: Boolean(process.env.ANTHROPIC_API_KEY),
+    clamav: Boolean(process.env.SCANNER_SERVICE_URL),
+    maps: Boolean(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY),
+  };
+}
+

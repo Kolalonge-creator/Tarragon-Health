@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCareTasks, useCompleteCareTask, type CareTask } from "@/lib/queries/care-tasks";
 import { useCarePlanGoals, useProposeCarePlanGoal } from "@/lib/queries/care-plan-goals";
 import { useCarePlans, type CarePlan } from "@/lib/queries/care-plans";
@@ -12,6 +13,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { useActingFor } from "@/components/acting-for-context";
+import {
+  carePlanRevisionKeys,
+  usePatientCarePlanActions,
+  usePatientCarePlanRevisions,
+  type PatientPlanAction,
+} from "@/lib/queries/care-plan-revisions";
+import type { CarePlanRevision } from "@/lib/care-plan/plan-view";
+import { CARE_PLAN_COPY } from "@/lib/care-plan/patient-copy";
+import {
+  CarePlanActionsByCategory,
+  CarePlanChangeNotice,
+  CarePlanEarlierVersions,
+  CarePlanReviewDates,
+} from "@/app/(dashboard)/patient/care-plan-review-details";
 
 function humanize(value: string) {
   return value
@@ -35,7 +51,17 @@ function formatDue(dueAt: string | null): string | null {
  * plans, while the goals/tasks below are already unified by being
  * patient-scoped rather than per-condition.
  */
-function ConditionsOverview({ plans }: { plans: CarePlan[] }) {
+function ConditionsOverview({
+  plans,
+  actions,
+  actionsFailed,
+  revisions,
+}: {
+  plans: CarePlan[];
+  actions: PatientPlanAction[];
+  actionsFailed: boolean;
+  revisions: CarePlanRevision[];
+}) {
   if (plans.length === 0) {
     return (
       // Two problems with the line this replaces ("Your doctor will assign
@@ -80,6 +106,16 @@ function ConditionsOverview({ plans }: { plans: CarePlan[] }) {
                 </p>
               )}
               {plan.notes && <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{plan.notes}</p>}
+              {/* PD-06: review dates, actions by category with why/when/how, and the plan's earlier versions. */}
+              <CarePlanReviewDates lastReviewedAt={plan.last_reviewed_at} nextReviewAt={plan.next_review_at} />
+              {actionsFailed ? (
+                <p className="text-sm text-red-600 dark:text-red-300">{CARE_PLAN_COPY.loadFailed}</p>
+              ) : (
+                <CarePlanActionsByCategory actions={actions.filter((a) => a.carePlanId === plan.id)} />
+              )}
+              {revisions.some((r) => r.care_plan_id === plan.id) && (
+                <CarePlanEarlierVersions revisions={revisions.filter((r) => r.care_plan_id === plan.id)} />
+              )}
               {!plan.hasScheduledReview && <UpgradePrompt feature="multi_condition_review" />}
             </li>
           );
@@ -229,7 +265,12 @@ export function MyCarePlanTasks({
   patientId: string;
   organisationId: string | null;
 }) {
-  const { data: plans } = useCarePlans(patientId);
+  const { data: plans, isError: plansFailed } = useCarePlans(patientId);
+  const planIds = (plans ?? []).map((p) => p.id);
+  const actionsQuery = usePatientCarePlanActions(planIds, plans !== undefined);
+  const revisionsQuery = usePatientCarePlanRevisions(patientId);
+  const acting = useActingFor();
+  const queryClient = useQueryClient();
   const { data: tasks, isLoading, isError } = useCareTasks(patientId);
   const { data: goals } = useCarePlanGoals(patientId);
 
@@ -246,7 +287,26 @@ export function MyCarePlanTasks({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <ConditionsOverview plans={plans ?? []} />
+        {/* PD-06: a failed read of the plan or its versions says so, never "you do not have a care plan". */}
+        {plansFailed || revisionsQuery.isError ? (
+          <p className="text-sm text-red-600 dark:text-red-300">{CARE_PLAN_COPY.loadFailed}</p>
+        ) : (
+          <>
+            <CarePlanChangeNotice
+              revisions={revisionsQuery.data ?? []}
+              actingForName={acting ? acting.fullName : undefined}
+              onAcknowledged={() => queryClient.invalidateQueries({ queryKey: carePlanRevisionKeys.patientRevisions(patientId) })}
+            />
+            {plans !== undefined && (
+              <ConditionsOverview
+                plans={plans}
+                actions={actionsQuery.data ?? []}
+                actionsFailed={actionsQuery.isError}
+                revisions={revisionsQuery.data ?? []}
+              />
+            )}
+          </>
+        )}
 
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600 dark:text-red-300">Could not load your care plan tasks.</p>}

@@ -92,15 +92,15 @@ describe("DataTable", () => {
     expect((screen.getByLabelText("Note for a") as HTMLInputElement).value).toBe("half typed");
   });
 
-  it("announces the count only once typing pauses", () => {
+  it("announces nothing on load, and the count only once typing pauses", () => {
     jest.useFakeTimers();
     render(<DataTable caption="Patients" columns={columns} rows={rows} searchLabel="Search patients" />);
     act(() => jest.advanceTimersByTime(800));
     const live = document.querySelector("[aria-live=polite]") as HTMLElement;
-    expect(live.textContent).toBe("3 rows.");
+    expect(live.textContent).toBe("");
     fireEvent.change(screen.getByLabelText("Search patients"), { target: { value: "l" } });
     fireEvent.change(screen.getByLabelText("Search patients"), { target: { value: "lagos" } });
-    expect(live.textContent).toBe("3 rows.");
+    expect(live.textContent).toBe("");
     act(() => jest.advanceTimersByTime(800));
     expect(live.textContent).toBe("2 rows match your search.");
     jest.useRealTimers();
