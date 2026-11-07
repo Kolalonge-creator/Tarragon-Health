@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { COUNTERS, type WorklistCountKey } from "./worklist-counts";
+import { COUNTERS, FINANCE_COUNT_KEYS, type ClinicalWorklistCountKey, type WorklistCountKey } from "./worklist-counts";
 import {
   LAUNCH_WORKLIST_BUCKET,
   WORKLIST_HREF,
@@ -7,7 +7,10 @@ import {
   worklistKeysInBucket,
 } from "./launch-worklist";
 
-const ALL_KEYS = Object.keys(COUNTERS) as WorklistCountKey[];
+// Every counter except the finance console badges, which are not clinical worklists (see FINANCE_COUNT_KEYS).
+const ALL_KEYS = (Object.keys(COUNTERS) as WorklistCountKey[]).filter(
+  (k): k is ClinicalWorklistCountKey => !(FINANCE_COUNT_KEYS as readonly string[]).includes(k)
+);
 
 describe("LAUNCH_WORKLIST_BUCKET", () => {
   it("classifies every real worklist counter into exactly one bucket", () => {
@@ -25,10 +28,17 @@ describe("LAUNCH_WORKLIST_BUCKET", () => {
   });
 
   it("gives every classified key a real href and label", () => {
-    for (const key of Object.keys(LAUNCH_WORKLIST_BUCKET) as WorklistCountKey[]) {
+    for (const key of Object.keys(LAUNCH_WORKLIST_BUCKET) as ClinicalWorklistCountKey[]) {
       expect(WORKLIST_HREF[key]).toMatch(/^\/clinician\//);
       expect(WORKLIST_LABEL[key]).toBeTruthy();
     }
+  });
+});
+
+describe("finance badges", () => {
+  it("never reach the clinician launch summary", () => {
+    const launchKeys = Object.keys(LAUNCH_WORKLIST_BUCKET);
+    for (const key of FINANCE_COUNT_KEYS) expect(launchKeys).not.toContain(key);
   });
 });
 
