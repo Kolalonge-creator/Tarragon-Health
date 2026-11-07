@@ -2,7 +2,7 @@ import { isCronAuthorised } from "@/lib/cron-auth";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { retryUnreadLabReports } from "@/lib/clinical-documents/retry";
 import { retryStuckClassifications } from "@/lib/clinical-documents/classify-run";
-import { rescanHeldUploads, startReadersForClearedUploads } from "@/lib/upload-scan/sweep";
+import { rescanHeldCredentialDocuments, rescanHeldUploads, startReadersForClearedUploads } from "@/lib/upload-scan/sweep";
 
 /**
  * Daily retry of uploaded lab reports the automatic reader could not read (clinical document engine step 1). See
@@ -13,7 +13,8 @@ import { rescanHeldUploads, startReadersForClearedUploads } from "@/lib/upload-s
  *
  * T2-08 runs first: documents held for the malware scan (the scanner was down when they arrived) are rescanned, newly clean ones
  * get their reader started, and the ops incident for held documents is refreshed (lib/upload-scan/sweep.ts). Every reader skips
- * a held document, so the order only decides whether a cleared document is read in this run or the next.
+ * a held document, so the order only decides whether a cleared document is read in this run or the next. Clinician credential
+ * documents held the same way are rescanned too (they need no reader; a cleared one becomes openable and verifiable).
  *
  * Verifies the Vercel-attached CRON_SECRET bearer, same as the other cron routes.
  */
@@ -25,7 +26,8 @@ export async function GET(request: Request): Promise<Response> {
   const service = createServiceRoleClient();
   const scanned = await rescanHeldUploads(service);
   const readersStarted = await startReadersForClearedUploads(service, scanned.cleared);
-  const scan = { ...scanned, cleared: scanned.cleared.length, readersStarted };
+  const credentialScan = await rescanHeldCredentialDocuments(service);
+  const scan = { ...scanned, cleared: scanned.cleared.length, readersStarted, credentialDocuments: credentialScan };
   // Step 4: uploads interrupted while being sorted first, so a document sorted into the lab path here is read in the same run.
   const sorting = await retryStuckClassifications(service);
   const result = await retryUnreadLabReports(service);

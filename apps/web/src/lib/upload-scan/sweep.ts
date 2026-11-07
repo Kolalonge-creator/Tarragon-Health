@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { z } from "zod";
 import { createScannerClientFromEnv, type Database, type ScannerClient } from "@tarragon/shared";
 import { fileSha256 } from "@/lib/clinical-documents/fingerprint";
 import { scanBytes } from "./screen";
@@ -82,6 +83,78 @@ export async function rescanHeldUploads(
     summary.held = typeof data === "number" ? data : null;
   } catch (err) {
     console.error("upload-scan: backlog check failed", err);
+  }
+  return summary;
+}
+
+export type CredentialRescanSummary = {
+  skipped?: "scanner_off";
+  considered: number;
+  clean: number;
+  infected: number;
+  stillHeld: number;
+  errors: number;
+};
+
+type LooseRpc = {
+  rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+};
+
+const dueCredentialSchema = z.array(
+  z.object({ document_id: z.string().uuid(), scan_status: z.string(), storage_path: z.string(), scan_attempts: z.number() }),
+);
+
+/**
+ * The same rescan for clinician credential documents (migration *_credentialing_upload_malware_scan.sql): held ones first, then
+ * a backfill of 'unscanned' ones once the scanner is configured. A cleared document needs no reader; it simply becomes
+ * openable and verifiable again. An infected one is deleted from the bucket. Never throws.
+ */
+export async function rescanHeldCredentialDocuments(
+  service: SupabaseClient<Database>,
+  client: ScannerClient | null = createScannerClientFromEnv(),
+  limit = 50,
+): Promise<CredentialRescanSummary> {
+  const summary: CredentialRescanSummary = { considered: 0, clean: 0, infected: 0, stillHeld: 0, errors: 0 };
+  if (!client) return { ...summary, skipped: "scanner_off" };
+  const loose = service as unknown as LooseRpc;
+  const { data, error } = await loose.rpc("clinician_document_scan_due", { p_limit: limit, p_include_unscanned: true });
+  const due = dueCredentialSchema.safeParse(data ?? []);
+  if (error || !due.success) {
+    console.error("upload-scan: could not list credential documents to scan", error?.message ?? "unexpected shape");
+    summary.errors += 1;
+    return summary;
+  }
+  for (const doc of due.data) {
+    summary.considered += 1;
+    try {
+      const { data: file, error: downloadError } = await service.storage.from("clinician-documents").download(doc.storage_path);
+      const facts =
+        downloadError || !file
+          ? { verdict: "unavailable" as const, signature: null, engineVersion: null, dbVersion: null, detail: "stored file could not be read" }
+          : await scanBytes(client, file, await fileSha256(file));
+      const { data: status, error: applyError } = await loose.rpc("apply_clinician_document_scan_verdict", {
+        p_document: doc.document_id,
+        p_verdict: facts.verdict,
+        p_signature: facts.signature,
+        p_engine_version: facts.engineVersion,
+        p_db_version: facts.dbVersion,
+        p_error: facts.detail,
+      });
+      if (applyError) throw applyError;
+      if (status === "clean") summary.clean += 1;
+      else if (status === "infected") {
+        summary.infected += 1;
+        // Confirmed malware does not stay in storage. The row (flagged, never openable) remains as the record.
+        const { error: removeError } = await service.storage.from("clinician-documents").remove([doc.storage_path]);
+        if (removeError) {
+          console.error("upload-scan: could not delete an infected credential document", removeError.message);
+          summary.errors += 1;
+        }
+      } else if (doc.scan_status === "pending_scan") summary.stillHeld += 1;
+    } catch (err) {
+      console.error("upload-scan: rescan failed for a credential document", err);
+      summary.errors += 1;
+    }
   }
   return summary;
 }
