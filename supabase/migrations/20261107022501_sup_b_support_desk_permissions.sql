@@ -8,8 +8,11 @@
 -- checked it until now. Its label and description are updated to say what it now gates.
 --
 -- private.is_support_staff() is the one gate the desk's own tables, view and RPCs use. It admits:
---   * anyone holding support.agent or support.manage (the super admin holds every key, via has_permission);
---   * an active Care Coordinator, because MSG-2/MSG-3 already make the coordinator the first owner of the support queue.
+--   * the super admin;
+--   * an active Care Coordinator, because MSG-2/MSG-3 already make the coordinator the first owner of the support queue;
+--   * a clinician holding support.agent or support.manage.
+-- A key on any other account role (analyst, finance) does not open the desk: the support tables it works over are
+-- org-staff tables those roles cannot read, so the gate would open onto an empty queue (review finding, 2026-11-07).
 -- It deliberately does NOT admit a clinician by role: doctors keep their existing pages, and support work is not
 -- clinical work. A clinician who also works the desk can be granted support.agent.
 --
@@ -39,7 +42,8 @@ stable
 security definer
 set search_path to ''
 as $$
-  select private.has_permission('support.manage');
+  select private.has_permission('support.manage')
+     and exists (select 1 from public.profiles p where p.id = (select auth.uid()) and p.role in ('admin', 'care_coordinator', 'clinician'));
 $$;
 
 create or replace function private.is_support_staff()
@@ -49,19 +53,22 @@ stable
 security definer
 set search_path to ''
 as $$
-  select private.has_permission('support.agent')
-      or private.has_permission('support.manage')
+  -- Key holders must sit on a staff account that can reach the desk and its org-staff tables (coordinator or clinician);
+  -- the super admin holds every key. A key on an analyst or finance account would open a gate onto an empty queue.
+  select private.is_admin()
       or (
         exists (
           select 1 from public.profiles p
-           where p.id = (select auth.uid()) and p.role = 'care_coordinator' and p.is_active
+           where p.id = (select auth.uid()) and p.is_active
+             and (p.role = 'care_coordinator'
+                  or (p.role = 'clinician' and (private.has_permission('support.agent') or private.has_permission('support.manage'))))
         )
         and private.mfa_requirement_met()
       );
 $$;
 
 comment on function private.is_support_staff() is
-  'Support desk gate (SUP-2): support.agent, support.manage (super admin holds both), or an active Care Coordinator. Never a clinician by role.';
+  'Support desk gate (SUP-2): the super admin, an active Care Coordinator, or a clinician holding support.agent or support.manage. Never a clinician by role alone.';
 comment on function private.is_support_lead() is
   'Support lead gate (SUP-2): support.manage. Reassignment, bulk assignment and desk settings.';
 

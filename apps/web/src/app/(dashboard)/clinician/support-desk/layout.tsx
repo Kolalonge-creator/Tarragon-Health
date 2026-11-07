@@ -21,7 +21,7 @@ export default async function SupportDeskLayout({ children }: { children: React.
           Technical tickets, help requests, support messages and complaints in one place. Clinical concerns stay on the clinical route.
         </p>
       </div>
-      <DeskNav isLead={access.isLead} />
+      <DeskNav />
       {children}
     </div>
   );

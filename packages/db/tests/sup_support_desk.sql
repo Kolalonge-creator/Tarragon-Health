@@ -57,18 +57,19 @@ $$ insert into sup_results values (p_name, p_actual, p_expected, case when p_act
 do $$
 declare
   v_org uuid := (select id from public.organisations order by created_at limit 1);
-  admin uuid; clin uuid; coord uuid; lead uuid; agent uuid; fin uuid; pat uuid;
-  v_ticket uuid; v_old uuid; v_complaint uuid; v_handoff uuid; v_tpl uuid; v_att uuid;
+  admin uuid; clin uuid; coord uuid; lead uuid; agent uuid; analyst uuid; fin uuid; pat uuid;
+  v_ticket uuid; v_old uuid; v_complaint uuid; v_handoff uuid; v_tpl uuid; v_att uuid; v_help uuid; v_thread uuid;
 begin
   admin := pg_temp.mkuser('admin', 'SUP Admin');
   clin  := pg_temp.mkuser('clinician', 'SUP Clinician');
   coord := pg_temp.mkuser('care_coordinator', 'SUP Coordinator');
   lead  := pg_temp.mkuser('care_coordinator', 'SUP Lead');
-  agent := pg_temp.mkuser('analyst', 'SUP Analyst Agent');
+  agent := pg_temp.mkuser('clinician', 'SUP Clinician Agent');
+  analyst := pg_temp.mkuser('analyst', 'SUP Analyst With Key');
   fin   := pg_temp.mkuser('finance', 'SUP Finance');
   pat   := pg_temp.mkuser('patient', 'SUP Patient');
   insert into public.user_permission_grants (profile_id, permission_key, granted_by) values
-    (lead, 'support.manage', admin), (agent, 'support.agent', admin), (fin, 'finance.view', admin);
+    (lead, 'support.manage', admin), (agent, 'support.agent', admin), (analyst, 'support.agent', admin), (fin, 'finance.view', admin);
 
   -- Fixtures: a fresh ticket, a ticket logged two weeks ago and never answered, a complaint, clinical data.
   perform pg_temp.as_user(pat);
@@ -78,6 +79,9 @@ begin
   values (v_org, pat, 'technical', 'high', 'Cannot upload', 'Upload spins forever', pat) returning id into v_old;
   insert into public.complaints (organisation_id, patient_id, category, description, created_by)
   values (v_org, pat, 'communication', 'Nobody called me back about my booking', pat) returning id into v_complaint;
+  insert into public.navigation_requests (organisation_id, patient_id, category, description)
+  values (v_org, pat, 'payment', 'I paid but my Membership is not showing') returning id into v_help;
+  v_thread := public.start_care_thread('Billing question', 'Why was I charged twice?', pat, null, null, 'billing');
   perform set_config('request.jwt.claims', '', true);
   alter table public.support_tickets disable trigger user;
   update public.support_tickets set created_at = now() - interval '14 days' where id = v_old;
@@ -88,7 +92,8 @@ begin
   -- 1. Gate
   perform pg_temp.ck('1a clinician without a support key refused', '42501', pg_temp.try_as(clin, 'select public.support_desk_summary()'));
   perform pg_temp.ck('1b coordinator let in', 'ok', pg_temp.try_as(coord, 'select public.support_desk_summary()'));
-  perform pg_temp.ck('1c support.agent let in', 'ok', pg_temp.try_as(agent, 'select public.support_desk_summary()'));
+  perform pg_temp.ck('1c clinician holding support.agent let in', 'ok', pg_temp.try_as(agent, 'select public.support_desk_summary()'));
+  perform pg_temp.ck('1d support.agent on an analyst account refused', '42501', pg_temp.try_as(analyst, 'select public.support_desk_summary()'));
 
   -- 2. The view
   perform pg_temp.ck('2a coordinator sees the ticket', '1',
@@ -119,6 +124,27 @@ begin
     pg_temp.try_as(lead, format('select public.assign_support_work_item(%L, %L, %L)', 'complaint', v_complaint, coord)));
   perform pg_temp.ck('4f ticket now owned by coordinator', coord::text,
     (select assigned_to::text from public.support_tickets where id = v_old));
+  perform pg_temp.ck('4g coordinator takes a help request', 'ok',
+    pg_temp.try_as(coord, format('select public.assign_support_work_item(%L, %L, %L)', 'help_request', v_help, coord)));
+  perform pg_temp.ck('4h assignment does not count as acknowledging the customer', 'new|null',
+    pg_temp.val_as(coord, format('select status_group || ''|'' || coalesce(first_response_at::text, ''null'') from public.support_work_items where item_id = %L', v_help)));
+  perform pg_temp.ck('4i coordinator takes a support message', 'ok',
+    pg_temp.try_as(coord, format('select public.assign_support_work_item(%L, %L, %L)', 'care_thread', v_thread, coord)));
+  perform pg_temp.ck('4j support message owned by coordinator', coord::text,
+    (select owner_id::text from public.care_thread_owners where thread_id = v_thread));
+  -- A three-week-old conversation, answered long ago, in which the patient has just written again: timed from now.
+  alter table public.care_message_threads disable trigger user;
+  update public.care_message_threads
+     set created_at = now() - interval '21 days', awaiting_reply_since = now(), last_care_team_reply_at = now() - interval '20 days'
+   where id = v_thread;
+  alter table public.care_message_threads enable trigger user;
+  perform pg_temp.ck('4k old conversation with a fresh message is not late', 'false',
+    pg_temp.val_as(coord, format('select (sla_state = ''breached'')::text from public.support_work_items where item_id = %L', v_thread)));
+  alter table public.care_message_threads disable trigger user;
+  update public.care_message_threads set needs_doctor = true where id = v_thread;
+  alter table public.care_message_threads enable trigger user;
+  perform pg_temp.ck('4l a message waiting for a doctor stays on the doctor route', '22023',
+    pg_temp.try_as(lead, format('select public.assign_support_work_item(%L, %L, %L)', 'care_thread', v_thread, lead)));
 
   -- 5. Hand-offs
   perform pg_temp.ck('5a coordinator raises a finance hand-off', 'ok',
@@ -140,6 +166,9 @@ begin
   perform pg_temp.ck('5g finance records the outcome', 'ok',
     pg_temp.try_as(fin, format('select public.record_support_handoff_outcome(%L, %L, %L)', v_handoff,
       'Second charge found and refunded through the finance console', 'We found the second charge and have refunded it.')));
+  perform pg_temp.ck('5i insert helper refuses a mismatched patient', '42501',
+    pg_temp.try_as(coord, format('select private.support_handoff_insert(%L, %L, %L, %L, %L, %L)', v_org, 'support_ticket', v_old, clin, 'finance',
+      'Trying to name a different patient')));
   perform pg_temp.ck('5h finance sees the hand-off but not the ticket', '1|0',
     pg_temp.val_as(fin, format('select (select count(*) from public.support_handoffs where id = %L)::text || ''|'' || (select count(*) from public.support_tickets where id = %L)::text', v_handoff, v_ticket)));
 

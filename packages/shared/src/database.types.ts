@@ -53067,6 +53067,8 @@ export type Database = {
           assigned_to_name: string | null
           category: string | null
           channel: string | null
+          clock_answered_at: string | null
+          clock_from: string | null
           customer_name: string | null
           detail_href: string | null
           first_response_at: string | null

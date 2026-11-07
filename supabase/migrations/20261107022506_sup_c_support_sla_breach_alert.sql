@@ -27,7 +27,8 @@ as $$
       from public.navigation_requests n
      where n.status not in ('resolved', 'waiting_on_patient') and n.classification::text <> 'clinical'
     union all
-    select 'care_thread', c.created_at, c.last_care_team_reply_at, 'normal', c.patient_id
+    -- per wait: the clock starts when the patient last wrote and stops at the next care-team reply; no resolution target
+    select 'care_thread', c.awaiting_reply_since, null::timestamptz, 'normal', c.patient_id
       from public.care_message_threads c
      where c.queue = 'support' and c.status = 'open' and c.awaiting_reply_since is not null and not coalesce(c.needs_doctor, false)
   ),

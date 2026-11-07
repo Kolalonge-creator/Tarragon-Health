@@ -13,7 +13,8 @@ import { screenUpload } from "@/lib/upload-scan/screen";
  * or held file never gets a link.
  */
 
-const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+// 9 MB, not the bucket's 10: the server action body limit is 10mb and the multipart wrapper needs room.
+const MAX_ATTACHMENT_BYTES = 9 * 1024 * 1024;
 const MIME_EXT: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -37,7 +38,7 @@ export async function uploadSupportAttachment(formData: FormData): Promise<Attac
   });
   const file = formData.get("file");
   if (!parsed.success || !(file instanceof Blob)) return { ok: false, error: "Choose a file to attach." };
-  if (file.size === 0 || file.size > MAX_ATTACHMENT_BYTES) return { ok: false, error: "Files must be under 10 MB." };
+  if (file.size === 0 || file.size > MAX_ATTACHMENT_BYTES) return { ok: false, error: "Files must be under 9 MB." };
   const ext = MIME_EXT[file.type];
   if (!ext) return { ok: false, error: "Attach a photo (PNG, JPEG, WebP), a PDF or a text file." };
 
@@ -58,6 +59,12 @@ export async function uploadSupportAttachment(formData: FormData): Promise<Attac
 
   const isPatient = ticket.patient_id === user.id;
   if (isPatient && parsed.data.internal) return { ok: false, error: "Only staff can add internal files." };
+  if (!isPatient) {
+    // Anyone else who can read the ticket must be staff of its organisation (or the super admin), never a supporter or proxy.
+    const { data: me } = await supabase.from("profiles").select("role, organisation_id").eq("id", user.id).maybeSingle();
+    const isStaff = !!me && me.role !== "patient" && (me.role === "admin" || me.organisation_id === ticket.organisation_id);
+    if (!isStaff) return { ok: false, error: "Only the person who sent this ticket or the support team can add files." };
+  }
 
   const service = createServiceRoleClient();
   const screened = await screenUpload(service, file, { patientId: ticket.patient_id, uploadedBy: user.id });

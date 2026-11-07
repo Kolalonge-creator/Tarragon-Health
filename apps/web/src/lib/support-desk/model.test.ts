@@ -7,7 +7,7 @@ function item(p: Partial<WorkItem>): WorkItem {
     customer_name: "Ada", is_test: false, category: "technical", priority: "normal", status_group: "new", raw_status: "new",
     subject: "App will not load", assigned_to: null, assigned_to_name: null, received_at: "2026-11-01T08:00:00Z", first_response_at: null,
     resolved_at: null, last_activity_at: null, is_clinical: false, is_escalated: false, open_handoffs: 0, handoff_destinations: [],
-    satisfaction: null, channel: "in_app", detail_href: "/x", first_response_due_at: null, resolution_due_at: null, next_due_at: null,
+    satisfaction: null, channel: "in_app", detail_href: "/x", first_response_due_at: null, resolution_due_at: null, next_due_at: null, clock_from: null, clock_answered_at: null,
     sla_state: "on_track", ...p,
   };
 }

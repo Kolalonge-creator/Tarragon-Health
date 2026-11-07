@@ -5,18 +5,18 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "/clinician/support-desk", label: "Overview", lead: false },
-  { href: "/clinician/support-desk/queue", label: "Queue", lead: false },
-  { href: "/clinician/support-desk/handoffs", label: "Hand-offs", lead: false },
-  { href: "/clinician/support-desk/templates", label: "Reply templates", lead: false },
-  { href: "/clinician/support-desk/settings", label: "Targets and hours", lead: false },
+  { href: "/clinician/support-desk", label: "Overview" },
+  { href: "/clinician/support-desk/queue", label: "Queue" },
+  { href: "/clinician/support-desk/handoffs", label: "Hand-offs" },
+  { href: "/clinician/support-desk/templates", label: "Reply templates" },
+  { href: "/clinician/support-desk/settings", label: "Targets and hours" },
 ];
 
-export function DeskNav({ isLead }: { isLead: boolean }) {
+export function DeskNav() {
   const pathname = usePathname();
   return (
     <nav aria-label="Support desk" className="flex flex-wrap gap-2 border-b border-charcoal-ink/10 pb-2 dark:border-night-ink/15">
-      {LINKS.filter((l) => !l.lead || isLead).map((l) => {
+      {LINKS.map((l) => {
         const active = l.href === "/clinician/support-desk" ? pathname === l.href : pathname.startsWith(l.href);
         return (
           <Link

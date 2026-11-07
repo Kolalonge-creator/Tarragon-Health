@@ -129,8 +129,13 @@ first-response targets in staffed hours; an editable knowledge base later.
    is clinical-tier only (existing rule). The red-flag scan still pages on danger words, and the ticket page tells a
    coordinator to ask the doctor on duty. Whether coordinators should get a "send to a doctor" route on tickets (as they
    have on messages, `flag_care_thread_for_doctor`) is a CMO question.
-5. **Receiving teams reach `/admin/support/handoffs` through a custom role or a grant** (the existing `/admin` door rule).
+5. **Review fixes in the same PR**: a support conversation is timed per wait (from the patient's latest message to the
+   next care-team reply, no resolution target) and is left out of the first-reply compliance figure; assigning a help
+   request no longer stamps `acknowledged_at` (`20261107022507`); `support.agent` opens the desk only on a coordinator or
+   clinician account; the hand-off insert helper re-reads its source; attachments check the uploader is the patient or
+   staff of the ticket's organisation, and are capped at 9 MB.
+6. **Receiving teams reach `/admin/support/handoffs` through a custom role or a grant** (the existing `/admin` door rule).
    A finance account with neither cannot open it.
-6. **Not built in this PR**: the knowledge base (SUP-4), AI assistance (needs `ai_systems` registration and
+7. **Not built in this PR**: the knowledge base (SUP-4), AI assistance (needs `ai_systems` registration and
    `runGovernedAi`), a customer directory page (view-as already covers account lookup), CSV export, and charts of volume
    over time. The overview shows volume by type, category and priority for the chosen period.

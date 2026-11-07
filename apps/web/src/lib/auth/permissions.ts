@@ -166,15 +166,16 @@ export async function canStartSupportViewAs(): Promise<boolean> {
 export type SupportDeskAccess = { canWork: boolean; isLead: boolean };
 
 /**
- * The support desk gate (SUP-2), mirroring private.is_support_staff / private.is_support_lead: support.agent or
- * support.manage (the super admin holds both), or an active Care Coordinator (the first owner of the support queue under
- * MSG-2). A clinician is NOT let in by role; they keep their own pages unless granted support.agent.
+ * The support desk gate (SUP-2), mirroring private.is_support_staff / private.is_support_lead: the super admin, an active
+ * Care Coordinator (the first owner of the support queue under MSG-2), or a clinician holding support.agent or
+ * support.manage. A key on any other account role does not open the desk: the queues are org-staff tables it cannot read.
  */
 export async function getSupportDeskAccess(): Promise<SupportDeskAccess> {
   const profile = await getCurrentProfile();
   if (!profile) return { canWork: false, isLead: false };
   const { isSuperAdmin, keys } = await getCallerPermissions();
-  const isLead = isSuperAdmin || keys.has("support.manage");
-  const canWork = isLead || keys.has("support.agent") || profile.role === "care_coordinator";
+  const staffRole = profile.role === "care_coordinator" || profile.role === "clinician";
+  const isLead = isSuperAdmin || (staffRole && keys.has("support.manage"));
+  const canWork = isLead || profile.role === "care_coordinator" || (profile.role === "clinician" && keys.has("support.agent"));
   return { canWork, isLead };
 }

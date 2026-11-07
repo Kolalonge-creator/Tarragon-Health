@@ -17,6 +17,10 @@
 -- Priority mapping into the desk's four levels (SUP-3): ticket critical -> urgent; help request urgent or marked as a
 -- complaint -> high, otherwise normal; support messages normal; complaints high.
 --
+-- The clock: tickets, help requests and complaints time a first reply from receipt, then resolution. A support
+-- conversation is timed per wait: from awaiting_reply_since to the next care-team reply, with no resolution target, so
+-- an old thread is never late the moment its patient writes again (review finding, 2026-11-07).
+--
 -- sla_state: 'clinical' (clinical items run on the clinical escalation SLA, not support targets), 'paused' (waiting on
 -- the customer), 'met' (resolved or closed), 'breached', 'at_risk' (the last quarter of the time to the next due
 -- point), 'on_track', or 'none' (no target applies).
@@ -52,7 +56,10 @@ with base as (
     (t.escalated_alert_id is not null or coalesce(t.technical_tier, 1) > 1) as is_escalated,
     t.satisfaction_score::integer                                  as satisfaction,
     t.channel::text                                                as channel,
-    '/clinician/support-tickets/' || t.id::text                    as detail_href
+    '/clinician/support-tickets/' || t.id::text                    as detail_href,
+    t.created_at                                                   as clock_from,
+    t.first_response_at                                            as clock_answered_at,
+    true                                                           as has_resolution_target
   from public.support_tickets t
 
   union all
@@ -84,7 +91,10 @@ with base as (
     n.care_message_thread_id is not null,
     n.satisfaction_rating::integer,
     'in_app',
-    '/dashboard/care-coordinator/support-requests'
+    '/dashboard/care-coordinator/support-requests',
+    n.created_at,
+    n.acknowledged_at,
+    true
   from public.navigation_requests n
 
   union all
@@ -115,7 +125,11 @@ with base as (
     coalesce(c.needs_doctor, false),
     null::integer,
     'in_app',
-    '/clinician/messages'
+    '/clinician/messages',
+    -- A support conversation never "resolves": each time the patient writes, a new reply is due, timed from that wait.
+    coalesce(c.awaiting_reply_since, c.created_at),
+    case when c.awaiting_reply_since is null then coalesce(c.last_care_team_reply_at, fr.first_reply_at) end,
+    false
   from public.care_message_threads c
   left join public.care_thread_owners o on o.thread_id = c.id
   left join lateral (
@@ -154,7 +168,10 @@ with base as (
     k.incident_report_id is not null,
     null::integer,
     'in_app',
-    '/clinician/complaints/' || k.id::text
+    '/clinician/complaints/' || k.id::text,
+    k.created_at,
+    k.acknowledged_at,
+    true
   from public.complaints k
 ),
 with_handoffs as (
@@ -171,8 +188,8 @@ with_handoffs as (
 ),
 with_due as (
   select w.*,
-         private.support_due(w.priority, w.received_at, 'first_response') as first_response_due_at,
-         private.support_due(w.priority, w.received_at, 'resolution')     as resolution_due_at
+         private.support_due(w.priority, w.clock_from, 'first_response') as first_response_due_at,
+         case when w.has_resolution_target then private.support_due(w.priority, w.received_at, 'resolution') end as resolution_due_at
     from with_handoffs w
 )
 select
@@ -206,6 +223,8 @@ select
   d.detail_href,
   d.first_response_due_at,
   d.resolution_due_at,
+  d.clock_from,
+  d.clock_answered_at,
   s.next_due_at,
   case
     when d.status_group in ('resolved', 'closed') then 'met'
@@ -213,14 +232,14 @@ select
     when d.status_group = 'awaiting_customer' then 'paused'
     when s.next_due_at is null then 'none'
     when now() > s.next_due_at then 'breached'
-    when now() > s.next_due_at - (s.next_due_at - d.received_at) * 0.25 then 'at_risk'
+    when now() > s.next_due_at - (s.next_due_at - case when d.clock_answered_at is null then d.clock_from else d.received_at end) * 0.25 then 'at_risk'
     else 'on_track'
   end                                                           as sla_state
 from with_due d
 left join public.profiles p on p.id = d.patient_id
 left join public.profiles a on a.id = d.assigned_to
 cross join lateral (
-  select case when d.first_response_at is null then d.first_response_due_at else d.resolution_due_at end as next_due_at
+  select case when d.clock_answered_at is null then d.first_response_due_at else d.resolution_due_at end as next_due_at
 ) s;
 
 comment on view public.support_work_items is
@@ -245,10 +264,11 @@ as $$
      where p.id = p_profile and p.is_active
        and (
          p.role in ('admin', 'care_coordinator')
-         or exists (select 1 from public.user_permission_grants g
-                     where g.profile_id = p.id and g.revoked_at is null and g.permission_key in ('support.agent', 'support.manage'))
-         or exists (select 1 from public.role_permissions rp
-                     where rp.custom_role_id = p.custom_role_id and rp.permission_key in ('support.agent', 'support.manage'))
+         or (p.role = 'clinician' and (
+               exists (select 1 from public.user_permission_grants g
+                        where g.profile_id = p.id and g.revoked_at is null and g.permission_key in ('support.agent', 'support.manage'))
+            or exists (select 1 from public.role_permissions rp
+                        where rp.custom_role_id = p.custom_role_id and rp.permission_key in ('support.agent', 'support.manage'))))
        )
   );
 $$;
@@ -374,9 +394,11 @@ begin
         filter (where received_at >= v_from and first_response_at is not null)                   as median_first_response_min,
       percentile_cont(0.5) within group (order by extract(epoch from resolved_at - received_at) / 60)
         filter (where received_at >= v_from and resolved_at is not null)                         as median_resolution_min,
-      count(*) filter (where received_at >= v_from and not is_clinical and first_response_due_at is not null
+      -- First-reply compliance counts one-off first replies only (tickets, help requests, complaints). Support messages
+      -- are timed per wait and follow the message reply target on care operations instead.
+      count(*) filter (where received_at >= v_from and not is_clinical and source <> 'care_thread' and first_response_due_at is not null
                         and (first_response_at is not null or now() > first_response_due_at))   as sla_measured,
-      count(*) filter (where received_at >= v_from and not is_clinical and first_response_due_at is not null
+      count(*) filter (where received_at >= v_from and not is_clinical and source <> 'care_thread' and first_response_due_at is not null
                         and first_response_at is not null and first_response_at <= first_response_due_at) as sla_met,
       count(satisfaction) filter (where resolved_at >= v_from)                                   as csat_count,
       avg(satisfaction) filter (where resolved_at >= v_from)                                     as csat_avg

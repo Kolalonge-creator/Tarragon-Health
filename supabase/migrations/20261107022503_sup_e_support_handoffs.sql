@@ -167,12 +167,27 @@ set search_path to ''
 as $$
 declare
   v_id uuid;
+  v_org uuid;
+  v_patient uuid;
 begin
   if not private.is_support_staff() then
     raise exception 'not authorised' using errcode = '42501';
   end if;
+  -- Never trust the caller's ids: read the source as definer and require the caller to be staff of its organisation.
+  if p_source = 'support_ticket' then
+    select organisation_id, patient_id into v_org, v_patient from public.support_tickets where id = p_source_id;
+  elsif p_source = 'help_request' then
+    select organisation_id, patient_id into v_org, v_patient from public.navigation_requests where id = p_source_id;
+  elsif p_source = 'care_thread' then
+    select organisation_id, patient_id into v_org, v_patient from public.care_message_threads where id = p_source_id and queue = 'support';
+  elsif p_source = 'complaint' then
+    select organisation_id, patient_id into v_org, v_patient from public.complaints where id = p_source_id;
+  end if;
+  if v_org is null or v_org is distinct from p_org or v_patient is distinct from p_patient or not private.is_org_staff(v_org) then
+    raise exception 'not authorised' using errcode = '42501';
+  end if;
   insert into public.support_handoffs (organisation_id, source, source_id, patient_id, destination, reason, raised_by)
-  values (p_org, p_source, p_source_id, p_patient, p_destination, p_reason, (select auth.uid()))
+  values (v_org, p_source, p_source_id, v_patient, p_destination, p_reason, (select auth.uid()))
   returning id into v_id;
   return v_id;
 end;

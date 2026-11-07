@@ -99,15 +99,12 @@ export function useAssignWorkItems() {
   return useMutation({
     mutationFn: async (input: { items: { source: string; itemId: string }[]; assignee: string | null }) => {
       const supabase = createClient();
-      const failures: string[] = [];
-      for (const it of input.items) {
-        const { error } = await supabase.rpc("assign_support_work_item", {
-          p_source: it.source,
-          p_item_id: it.itemId,
-          p_assignee: input.assignee,
-        });
-        if (error) failures.push(error.message);
-      }
+      const results = await Promise.all(
+        input.items.map((it) =>
+          supabase.rpc("assign_support_work_item", { p_source: it.source, p_item_id: it.itemId, p_assignee: input.assignee }),
+        ),
+      );
+      const failures = results.flatMap((r) => (r.error ? [r.error.message] : []));
       if (failures.length > 0) {
         throw new Error(
           failures.length === input.items.length
