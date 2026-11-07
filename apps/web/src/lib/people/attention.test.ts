@@ -112,8 +112,8 @@ describe("buildAttention", () => {
   });
 
   it("reads its warning windows from the registry", () => {
-    expect(attentionWindows()).toEqual({ licence_warn_days: 90, indemnity_warn_days: 60, contract_warn_days: 60 });
-    expect(buildAttention([row({ contract_end_date: "2026-11-20" })], TODAY, { licence_warn_days: 90, indemnity_warn_days: 60, contract_warn_days: 7 })).toEqual([]);
+    expect(attentionWindows()).toEqual({ licence_warn_days: 90, indemnity_warn_days: 60, contract_warn_days: 60, training_warn_days: 30 });
+    expect(buildAttention([row({ contract_end_date: "2026-11-20" })], TODAY, { licence_warn_days: 90, indemnity_warn_days: 60, contract_warn_days: 7, training_warn_days: 30 })).toEqual([]);
   });
 
   it("does not flag the person at the top for having no manager, but flags someone with neither", () => {

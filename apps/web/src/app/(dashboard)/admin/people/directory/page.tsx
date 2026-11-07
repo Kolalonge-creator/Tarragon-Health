@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
-import { buildAttention, CREDENTIAL_KINDS, filterDirectory, lagosToday, type DirectoryFilter } from "@/lib/people/attention";
+import { attentionWindows, buildAttention, CREDENTIAL_KINDS, filterDirectory, lagosToday, type DirectoryFilter } from "@/lib/people/attention";
+import { loadTrainingRecords, TRAINING_STATUS_BADGE, TRAINING_STATUS_LABEL, trainingStatus, worstStatus, type TrainingStatus } from "@/lib/people/training";
 import { loadDepartments, loadDirectory, ROLE_LABEL, STATUS_LABEL, type DirectoryRow } from "@/lib/people/directory";
 import { formatDate, PeopleNav } from "../people-nav";
 
@@ -31,7 +32,7 @@ export default async function StaffDirectoryPage({ searchParams }: { searchParam
   if (profile?.role !== "admin") redirect("/admin");
   const sp = await searchParams;
   const supabase = await createClient();
-  const [directory, departments] = await Promise.all([loadDirectory(supabase), loadDepartments(supabase)]);
+  const [directory, departments, training] = await Promise.all([loadDirectory(supabase), loadDepartments(supabase), loadTrainingRecords(supabase)]);
   if (!directory.ok) return <p className="text-sm text-red-700">{directory.message}</p>;
 
   const filter: DirectoryFilter = {
@@ -43,6 +44,12 @@ export default async function StaffDirectoryPage({ searchParams }: { searchParam
     includeTest: sp.test === "1",
   };
   const rows = filterDirectory(directory.value, filter);
+  const warn = attentionWindows().training_warn_days;
+  const today = lagosToday();
+  const trainingByPerson = new Map<string, TrainingStatus[]>();
+  for (const r of training.ok ? training.value : []) {
+    trainingByPerson.set(r.profile_id, [...(trainingByPerson.get(r.profile_id) ?? []), trainingStatus(r, today, warn)]);
+  }
   const flagged = new Set(
     buildAttention(directory.value, lagosToday())
       .filter((a) => CREDENTIAL_KINDS.has(a.kind))
@@ -105,7 +112,7 @@ export default async function StaffDirectoryPage({ searchParams }: { searchParam
             <p className="text-sm text-charcoal-ink/70">Nobody matches these filters.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-left text-sm">
+              <table className="w-full min-w-[920px] text-left text-sm">
                 <thead className="text-charcoal-ink/60">
                   <tr>
                     <th scope="col" className="py-2 pr-3 font-medium">Name</th>
@@ -114,7 +121,8 @@ export default async function StaffDirectoryPage({ searchParams }: { searchParam
                     <th scope="col" className="py-2 pr-3 font-medium">Line manager</th>
                     <th scope="col" className="py-2 pr-3 font-medium">Status</th>
                     <th scope="col" className="py-2 pr-3 font-medium">Started</th>
-                    <th scope="col" className="py-2 font-medium">Credentials</th>
+                    <th scope="col" className="py-2 pr-3 font-medium">Credentials</th>
+                    <th scope="col" className="py-2 font-medium">Training</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -136,7 +144,14 @@ export default async function StaffDirectoryPage({ searchParams }: { searchParam
                         <td className="py-2 pr-3">{r.line_manager_name ?? "None"}</td>
                         <td className="py-2 pr-3">{r.employment_status ? STATUS_LABEL[r.employment_status] : "No record"}</td>
                         <td className="py-2 pr-3">{r.start_date ? formatDate(r.start_date) : "Not recorded"}</td>
-                        <td className="py-2"><Badge variant={cred.variant}>{cred.label}</Badge></td>
+                        <td className="py-2 pr-3"><Badge variant={cred.variant}>{cred.label}</Badge></td>
+                        <td className="py-2">
+                          {(() => {
+                            if (!training.ok) return <span className="text-charcoal-ink/60">Could not load</span>;
+                            const worst = worstStatus(trainingByPerson.get(r.profile_id) ?? []);
+                            return worst ? <Badge variant={TRAINING_STATUS_BADGE[worst]}>{TRAINING_STATUS_LABEL[worst]}</Badge> : <span className="text-charcoal-ink/60">None required</span>;
+                          })()}
+                        </td>
                       </tr>
                     );
                   })}

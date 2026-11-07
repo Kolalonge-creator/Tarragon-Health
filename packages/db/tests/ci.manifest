@@ -1969,3 +1969,5 @@ dw_followups_monitoring_notice_and_no_escalation_delete.sql
 finance_money_overview.sql
 # HR Phase A (2026-11-07, HR-01..HR-04): employment history append-only and admin-written, readable by admin/self/line manager only; personal details only via RPC, admin reads audited, ID number admin-only, audit never holds values. Sabotage: open read policy, no admin check on write.
 hr_people_phase_a_employment_records.sql
+# HR Phase B training (2026-11-07): requirements reach everyone/role/department with the right due date; completions recorded, verified only by a different admin, voided not edited or deleted; person reads own, colleague none. Sabotage: no-op guard, open read policy.
+hr_people_phase_b_training.sql

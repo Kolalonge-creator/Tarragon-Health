@@ -6,7 +6,17 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
-import { buildAttention, isCurrentStaff, lagosToday } from "@/lib/people/attention";
+import { attentionWindows, buildAttention, isCurrentStaff, lagosToday } from "@/lib/people/attention";
+import {
+  loadCompletions,
+  loadCourses,
+  loadTrainingRecords,
+  TRAINING_STATUS_BADGE,
+  TRAINING_STATUS_LABEL,
+  trainingDueDate,
+  trainingStatus,
+} from "@/lib/people/training";
+import { CompletionForm, VerifyButton, VoidForm } from "../training-forms";
 import {
   CHANGE_KIND_LABEL,
   loadDepartments,
@@ -27,6 +37,7 @@ export const dynamic = "force-dynamic";
 
 const TABS = [
   { key: "employment", label: "Employment" },
+  { key: "training", label: "Training" },
   { key: "personal", label: "Personal details" },
   { key: "credentials", label: "Credentials" },
   { key: "access", label: "Platform access" },
@@ -86,6 +97,12 @@ export default async function StaffProfilePage({
     ? [...history.value].sort((a, b) => b.effective_from.localeCompare(a.effective_from) || b.recorded_at.localeCompare(a.recorded_at))
     : [];
   const personal = tab === "personal" ? await loadPersonalDetails(supabase, profileId) : null;
+  const [courses, completions, trainingRecords] =
+    tab === "training"
+      ? await Promise.all([loadCourses(supabase), loadCompletions(supabase, profileId), loadTrainingRecords(supabase, profileId)])
+      : [null, null, null];
+  const myTraining = trainingRecords?.ok ? trainingRecords.value.filter((r) => r.profile_id === profileId) : [];
+  const trainingWarn = attentionWindows().training_warn_days;
 
   return (
     <div className="space-y-6">
@@ -217,6 +234,88 @@ export default async function StaffProfilePage({
             )}
           </CardContent>
         </Card>
+      )}
+
+      {tab === "training" && courses && completions && trainingRecords && (
+        <>
+          <Card>
+            <CardHeader><CardTitle>Required training</CardTitle></CardHeader>
+            <CardContent>
+              {!trainingRecords.ok ? (
+                <p className="text-sm text-red-700">{trainingRecords.message}</p>
+              ) : person.is_test ? (
+                <p className="text-sm text-charcoal-ink/70">Test accounts are left out of training requirements and figures.</p>
+              ) : myTraining.length === 0 ? (
+                <p className="text-sm text-charcoal-ink/70">
+                  No training is required of this person. Requirements are set on the <Link href="/admin/people/training" className="text-brand-green underline-offset-4 hover:underline">training page</Link>.
+                </p>
+              ) : (
+                <ul className="divide-y text-sm">
+                  {myTraining.map((r) => {
+                    const status = trainingStatus(r, today, trainingWarn);
+                    return (
+                      <li key={r.course_id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                        <span>
+                          <span className="font-medium">{r.course_name}</span>
+                          <span className="text-charcoal-ink/60">
+                            {r.completion_id && r.verified && r.expires_on ? `, renews ${formatDate(r.expires_on)}` : `, due ${formatDate(trainingDueDate(r))}`}
+                          </span>
+                        </span>
+                        <Badge variant={TRAINING_STATUS_BADGE[status]}>{TRAINING_STATUS_LABEL[status]}</Badge>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Record a completion</CardTitle></CardHeader>
+            <CardContent>
+              {!courses.ok ? (
+                <p className="text-sm text-red-700">{courses.message}</p>
+              ) : courses.value.some((c) => c.is_active) ? (
+                <CompletionForm profileId={profileId} courses={courses.value} isSelf={profileId === me.id} today={today} />
+              ) : (
+                <p className="text-sm text-charcoal-ink/70">Add a course on the <Link href="/admin/people/training" className="text-brand-green underline-offset-4 hover:underline">training page</Link> first.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Training history</CardTitle></CardHeader>
+            <CardContent>
+              {!completions.ok ? (
+                <p className="text-sm text-red-700">{completions.message}</p>
+              ) : completions.value.length === 0 ? (
+                <p className="text-sm text-charcoal-ink/70">Nothing recorded yet.</p>
+              ) : (
+                <ul className="divide-y text-sm">
+                  {completions.value.map((c) => (
+                    <li key={c.id} className="space-y-1 py-3">
+                      <p className={c.voided_at ? "text-charcoal-ink/50 line-through" : "font-medium"}>
+                        {(courses.ok ? courses.value.find((x) => x.id === c.course_id)?.name : undefined) ?? "Course"}, completed {formatDate(c.completed_on)}
+                        {c.expires_on ? `, renews ${formatDate(c.expires_on)}` : ""}
+                      </p>
+                      <p className="text-charcoal-ink/70">
+                        {c.voided_at ? `Voided: ${c.void_reason ?? ""}` : c.verified_at ? `Verified ${formatDate(c.verified_at)}` : "Waiting for verification by an admin"}
+                        {c.evidence_reference ? ` · Reference ${c.evidence_reference}` : ""}
+                      </p>
+                      {c.note && <p className="text-charcoal-ink/70">{c.note}</p>}
+                      {!c.voided_at && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {!c.verified_at && profileId !== me.id && <VerifyButton completionId={c.id} />}
+                          <VoidForm completionId={c.id} />
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {tab === "credentials" && (

@@ -22,7 +22,9 @@ export type AttentionKind =
   | "indemnity_expiring"
   | "indemnity_not_recorded"
   | "no_line_manager"
-  | "no_emergency_contact";
+  | "no_emergency_contact"
+  | "training_overdue"
+  | "training_pending_verification";
 
 export interface AttentionItem {
   kind: AttentionKind;
@@ -41,6 +43,7 @@ export interface AttentionWindows {
   licence_warn_days: number;
   indemnity_warn_days: number;
   contract_warn_days: number;
+  training_warn_days: number;
 }
 
 /** The warning windows (registry key hr.attention_windows). */
@@ -155,7 +158,12 @@ export function buildAttention(rows: DirectoryRow[], today: string, windows: Att
     }
   }
 
-  return items.sort(
+  return sortAttention(items);
+}
+
+/** High before medium before low, then soonest due, then name. Used for every attention list, merged or not. */
+export function sortAttention(items: AttentionItem[]): AttentionItem[] {
+  return [...items].sort(
     (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || (a.due ?? "9999").localeCompare(b.due ?? "9999") || a.name.localeCompare(b.name)
   );
 }

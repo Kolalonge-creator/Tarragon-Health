@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
-import { buildAttention, buildKpis, countBy, isCurrentStaff, lagosToday, type Priority } from "@/lib/people/attention";
+import { attentionWindows, buildAttention, buildKpis, countBy, isCurrentStaff, lagosToday, sortAttention, type Priority } from "@/lib/people/attention";
+import { loadTrainingRecords, summarise, trainingAttention } from "@/lib/people/training";
 import { loadDirectory, loadRecentActivity, PATTERN_LABEL, ROLE_LABEL, STATUS_LABEL } from "@/lib/people/directory";
 import { formatDate, PeopleNav } from "./people-nav";
 
@@ -32,6 +33,14 @@ const ACTIVITY_LABEL: Record<string, string> = {
   "staff_employment.resignation": "Resignation recorded",
   "staff_employment.retirement": "Retirement recorded",
   "staff_employment.correction": "Employment record corrected",
+  "staff_training_course.created": "Training course added",
+  "staff_training_course.updated": "Training course changed",
+  "staff_training_requirement.added": "Training requirement added",
+  "staff_training_requirement.removed": "Training requirement removed",
+  "staff_training_requirement.due_changed": "Training due period changed",
+  "staff_training_completion.recorded": "Training completion recorded",
+  "staff_training_completion.verified": "Training completion verified",
+  "staff_training_completion.voided": "Training record voided",
 };
 
 /**
@@ -43,15 +52,19 @@ export default async function PeopleOverviewPage() {
   const profile = await getCurrentProfile();
   if (profile?.role !== "admin") redirect("/admin");
   const supabase = await createClient();
-  const [directory, activity] = await Promise.all([loadDirectory(supabase), loadRecentActivity(supabase)]);
+  const [directory, activity, training] = await Promise.all([loadDirectory(supabase), loadRecentActivity(supabase), loadTrainingRecords(supabase)]);
 
   if (!directory.ok) {
     return <p className="text-sm text-red-700">{directory.message}</p>;
   }
   const today = lagosToday();
   const rows = directory.value.filter((r) => !r.is_test);
-  const attention = buildAttention(rows, today);
+  const windows = attentionWindows();
+  const people = new Map(rows.map((r) => [r.profile_id, { name: r.full_name ?? "Unnamed account", department: r.department_name }]));
+  const trainingItems = training.ok ? trainingAttention(training.value, people, today, windows.training_warn_days) : [];
+  const attention = sortAttention([...buildAttention(rows, today, windows), ...trainingItems]);
   const kpis = buildKpis(rows, attention);
+  const trainingSummary = training.ok ? summarise(training.value, today, windows.training_warn_days) : null;
   const current = rows.filter((r) => isCurrentStaff(r) && r.account_active);
   const testCount = directory.value.length - rows.length;
 
@@ -61,7 +74,12 @@ export default async function PeopleOverviewPage() {
     { label: "Active non-clinical staff", value: String(kpis.activeNonClinical), href: "/admin/people/directory?clinical=non_clinical" },
     { label: "Onboarding", value: String(kpis.onboarding), href: "/admin/people/directory?status=onboarding" },
     { label: "Credentials needing attention", value: String(kpis.credentialsNeedingAttention), href: "/admin/credentialing/expiry" },
-    { label: "Mandatory training", value: "Not tracked yet", note: "Comes with the training records (Phase B)." },
+    trainingSummary === null
+      ? { label: "Mandatory training", value: "Could not load", href: "/admin/people/training" }
+      : trainingSummary.required === 0
+        ? { label: "Mandatory training", value: "None required yet", href: "/admin/people/training", note: "Add courses and who must do them." }
+        : { label: "Mandatory training met", value: `${trainingSummary.compliant} of ${trainingSummary.required}`, href: "/admin/people/training",
+            note: trainingSummary.overdue > 0 ? `${trainingSummary.overdue} overdue` : undefined },
     { label: "Outstanding supervision", value: "Not tracked yet", note: "Comes with supervision records (Phase D)." },
     { label: "Leave awaiting approval", value: "Not tracked yet", note: "Comes with leave requests (Phase C)." },
   ];
@@ -186,6 +204,8 @@ export default async function PeopleOverviewPage() {
           )}
         </CardContent>
       </Card>
+
+      {!training.ok && <p className="text-sm text-red-700">{training.message} Training items are missing from the list above.</p>}
 
       {testCount > 0 && (
         <p className="text-xs text-charcoal-ink/60">{testCount} test {testCount === 1 ? "account is" : "accounts are"} left out of these figures.</p>
