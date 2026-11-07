@@ -32,5 +32,13 @@ export async function GET(request: Request): Promise<Response> {
   const sorting = await retryStuckClassifications(service);
   const result = await retryUnreadLabReports(service);
   if ("error" in result) return Response.json({ error: result.error, sorting, scan }, { status: 500 });
+  // A rescan step that errored (could not list, apply a verdict or delete an infected file; NOT "scanner unavailable", which
+  // is a verdict) fails the run, so cron monitoring sees it instead of a 200 with the count buried in the body. Every step
+  // above still ran.
+  const scanErrors = scanned.errors + credentialScan.errors;
+  if (scanErrors > 0) {
+    console.error("clinical-document-retry: malware rescan had errors", { uploads: scanned.errors, credentialDocuments: credentialScan.errors });
+    return Response.json({ ...result, sorting, scan, error: `malware rescan had ${scanErrors} error(s)` }, { status: 500 });
+  }
   return Response.json({ ...result, sorting, scan });
 }
