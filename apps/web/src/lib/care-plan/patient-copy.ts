@@ -2,7 +2,8 @@ import type { Enums } from "@tarragon/shared";
 
 /**
  * PD-06 / P13: every new patient-facing string on the Care Plan page, kept in one place so the CMO can read and sign the
- * wording in one go. NOT SIGNED: this is draft wording until the CMO approves it. Change it here only; the components read
+ * wording in one go. SIGNED by the CMO (the founder) from chat on 2026-11-07, as written; any change here needs a fresh CMO
+ * sign-off. Change it here only; the components read
  * these constants and never carry their own copy for this feature.
  */
 export const CARE_PLAN_COPY = {
