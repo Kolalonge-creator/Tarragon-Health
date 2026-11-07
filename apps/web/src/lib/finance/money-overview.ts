@@ -230,7 +230,7 @@ export function buildKpis(data: MoneyOverview): KpiTile[] {
       term: "refunds",
       value: money(c.refunds_minor),
       delta: compareDelta(c.refunds_minor, p?.refunds_minor, false),
-      href: null, // Phase C: /finance/refunds
+      href: "/finance/refunds",
       spark: spark((s) => s.refunds_minor),
     },
     {

@@ -6,8 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { checkDependencies, type DependencyReport } from "@/lib/status/check-dependencies";
 import { businessSummarySchema, financialSummarySchema } from "@/lib/analytics/schemas";
 import { formatMinor, formatNumber } from "@/lib/analytics/format";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { anyQueryFailed, failedQueryLabels, joinLabels } from "@/lib/queries/server-query-state";
@@ -17,6 +15,8 @@ import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { OpenAdminSearchBar } from "@/components/shell/open-admin-search-bar";
 import { attentionView, dependenciesDown, figure, type AttentionItem } from "@tarragon/shared";
 import { AttentionHero } from "./attention-hero";
+import { CommercialSplit, OverviewHeader, OverviewKpis, SystemHealth } from "./_overview/overview-sections";
+import { healthLine, overviewSchema, parsePeriodKey, resolvePeriod } from "@/lib/admin-overview/model";
 
 export const metadata = { title: "Dashboard" };
 
@@ -33,14 +33,6 @@ type AdminTileGroup = {
   tiles: AdminTile[];
 };
 
-/** "up"/"configured" reads as healthy, "down" as a real problem, "unconfigured"
- * and "not_deployed" as neutral — a provider nobody's set up yet isn't a fault. */
-function statusBadgeVariant(status: string): "green" | "red" | "grey" {
-  if (status === "down") return "red";
-  if (status === "unconfigured" || status === "not_deployed") return "grey";
-  return "green";
-}
-
 const DEPENDENCY_LABELS: Record<keyof Omit<DependencyReport, "checked_at">, string> = {
   supabase: "Supabase",
   ml_service: "ML service",
@@ -49,8 +41,10 @@ const DEPENDENCY_LABELS: Record<keyof Omit<DependencyReport, "checked_at">, stri
   resend: "Resend (email)",
 };
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ period?: string | string[] }> }) {
   const profile = await getCurrentProfile();
+  const loadedAt = new Date();
+  const period = resolvePeriod(parsePeriodKey((await searchParams).period), loadedAt);
 
   const { isSuperAdmin, keys } = await getCallerPermissions();
   const canManageUsers =
@@ -98,6 +92,7 @@ export default async function AdminPage() {
     aiGovernanceSignoff,
     frontDeskSignoff,
     incidentsRes,
+    overviewRes,
   ] = await Promise.all([
     supabase.rpc("analytics_business_summary"),
     supabase.rpc("analytics_financial_summary"),
@@ -139,7 +134,20 @@ export default async function AdminPage() {
           .in("status", ["open", "investigating"])
           .in("severity", ["sev1", "sev2"])
       : Promise.resolve(null),
+    // The period's figures and the period before (phase 2b). Analyst/admin only in the database; anyone else gets
+    // 42501, which the page reads as "not for this account", never as zeros.
+    supabase.rpc("analytics_platform_overview", { p_from: period.from.toISOString(), p_to: period.to.toISOString() }),
   ]);
+
+  const overviewParsed = overviewRes.error ? null : overviewSchema.safeParse(overviewRes.data);
+  const overview = overviewParsed?.success ? overviewParsed.data : null;
+  const overviewRefused = overviewRes.error?.code === "42501";
+  const healthLines = (Object.keys(DEPENDENCY_LABELS) as Array<keyof typeof DEPENDENCY_LABELS>).map((key) => ({
+    name: DEPENDENCY_LABELS[key],
+    line: healthLine(dependencyReport[key], (iso) =>
+      new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+    ),
+  }));
 
   const business = businessSummarySchema.parse(businessRes.data ?? {});
   const financial = financialSummarySchema.parse(financialRes.data ?? {});
@@ -425,7 +433,7 @@ export default async function AdminPage() {
           visible: isSuperAdmin,
         },
         {
-          href: "/admin/refund-requests",
+          href: "/finance/refunds",
           label: "Refund requests",
           blurb: "First-purchase money-back guarantee claims awaiting a decision",
           icon: SEMANTIC_ICON.billing,
@@ -555,31 +563,34 @@ export default async function AdminPage() {
   return (
     <div className="space-y-6">
       <OpenAdminSearchBar />
-      <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-clinical-navy to-brand-green p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold sm:text-3xl">
-            Welcome back{profile?.full_name ? `, ${profile.full_name.split(" ")[0]}` : ""}
-          </h1>
-          <p className="mt-1 max-w-xl text-sm text-white/80">Here is what needs you, most urgent first.</p>
-        </div>
-        {canViewAnalytics && (
-          <Link
-            href="/analytics"
-            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-clinical-navy transition-colors hover:bg-white/90"
-          >
-            View analytics
-          </Link>
-        )}
-      </div>
+      <OverviewHeader firstName={profile?.full_name ? profile.full_name.split(" ")[0] : null} period={period} loadedAt={loadedAt} />
 
       {downDependencies.length > 0 && (
         <LoadFailure>
           {downDependencies.map((k) => DEPENDENCY_LABELS[k as keyof typeof DEPENDENCY_LABELS] ?? k).join(", ")}{" "}
-          {downDependencies.length === 1 ? "is" : "are"} reporting down. See System status at the bottom of this page.
+          {downDependencies.length === 1 ? "is" : "are"} reporting down. See System health at the bottom of this page.
         </LoadFailure>
       )}
 
       <AttentionHero view={attention} />
+
+      {overview ? (
+        <>
+          <OverviewKpis overview={overview} period={period} />
+          <CommercialSplit overview={overview} />
+        </>
+      ) : overviewRefused ? (
+        <p className="rounded-xl border border-charcoal-ink/10 bg-white p-4 text-sm text-charcoal-ink/70">
+          The platform figures are for analyst and admin accounts. Everything below is still yours to use.
+        </p>
+      ) : (
+        <LoadFailure>
+          The figures for {period.label.toLowerCase()} could not be loaded. Nothing is shown in their place rather than zeros, so
+          nothing here should be read as a platform total. Reload to try again.
+        </LoadFailure>
+      )}
+
+      <h2 className="font-heading text-lg font-semibold text-charcoal-ink">Right now</h2>
 
       {/* Unlike the clinician worklist strip, this one degrades per tile
           rather than replacing the whole row: these four figures come from
@@ -689,30 +700,7 @@ export default async function AdminPage() {
         ))}
       </section>
 
-      <Card variant="soft">
-        <CardHeader>
-          <CardTitle>System status</CardTitle>
-          <CardDescription>
-            Live dependency checks, also reachable unauthenticated at{" "}
-            <code className="text-xs">/api/status</code>, see{" "}
-            <code className="text-xs">docs/BUSINESS_CONTINUITY_DR_SPEC.md</code>.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ul className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
-            {(Object.keys(DEPENDENCY_LABELS) as Array<keyof typeof DEPENDENCY_LABELS>).map(
-              (key) => (
-                <li key={key} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-charcoal-ink/80">{DEPENDENCY_LABELS[key]}</span>
-                  <Badge variant={statusBadgeVariant(dependencyReport[key].status)}>
-                    {dependencyReport[key].status}
-                  </Badge>
-                </li>
-              )
-            )}
-          </ul>
-        </CardContent>
-      </Card>
+      <SystemHealth lines={healthLines} checkedAt={new Date(dependencyReport.checked_at)} />
     </div>
   );
 }

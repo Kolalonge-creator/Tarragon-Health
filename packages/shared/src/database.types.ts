@@ -9154,12 +9154,14 @@ export type Database = {
         Row: {
           care_plan_id: string | null
           case_id: string | null
+          category: Database["public"]["Enums"]["care_plan_action_category"] | null
           created_at: string
           created_by: string | null
           deadline: string | null
           description: string
           frequency: string | null
           goal_id: string | null
+          how_text: string | null
           id: string
           organisation_id: string
           outcome: string | null
@@ -9169,16 +9171,20 @@ export type Database = {
           removed_at: string | null
           removed_by: string | null
           status: Database["public"]["Enums"]["care_plan_intervention_status"]
+          when_text: string | null
+          why_text: string | null
         }
         Insert: {
           care_plan_id?: string | null
           case_id?: string | null
+          category?: Database["public"]["Enums"]["care_plan_action_category"] | null
           created_at?: string
           created_by?: string | null
           deadline?: string | null
           description: string
           frequency?: string | null
           goal_id?: string | null
+          how_text?: string | null
           id?: string
           organisation_id: string
           outcome?: string | null
@@ -9188,16 +9194,20 @@ export type Database = {
           removed_at?: string | null
           removed_by?: string | null
           status?: Database["public"]["Enums"]["care_plan_intervention_status"]
+          when_text?: string | null
+          why_text?: string | null
         }
         Update: {
           care_plan_id?: string | null
           case_id?: string | null
+          category?: Database["public"]["Enums"]["care_plan_action_category"] | null
           created_at?: string
           created_by?: string | null
           deadline?: string | null
           description?: string
           frequency?: string | null
           goal_id?: string | null
+          how_text?: string | null
           id?: string
           organisation_id?: string
           outcome?: string | null
@@ -9207,6 +9217,8 @@ export type Database = {
           removed_at?: string | null
           removed_by?: string | null
           status?: Database["public"]["Enums"]["care_plan_intervention_status"]
+          when_text?: string | null
+          why_text?: string | null
         }
         Relationships: [
           {
@@ -9415,6 +9427,87 @@ export type Database = {
           },
         ]
       }
+      care_plan_revisions: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          care_plan_id: string
+          change_summary: string
+          id: string
+          needs_acknowledgement: boolean
+          organisation_id: string
+          patient_id: string
+          plan_snapshot: Json
+          published_at: string
+          published_by: string
+          version_number: number
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          care_plan_id: string
+          change_summary: string
+          id?: string
+          needs_acknowledgement?: boolean
+          organisation_id: string
+          patient_id: string
+          plan_snapshot: Json
+          published_at?: string
+          published_by: string
+          version_number: number
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          care_plan_id?: string
+          change_summary?: string
+          id?: string
+          needs_acknowledgement?: boolean
+          organisation_id?: string
+          patient_id?: string
+          plan_snapshot?: Json
+          published_at?: string
+          published_by?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_plan_revisions_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_revisions_care_plan_id_fkey"
+            columns: ["care_plan_id"]
+            isOneToOne: false
+            referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_revisions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_revisions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_revisions_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       care_plan_status_history: {
         Row: {
           care_plan_id: string
@@ -9525,7 +9618,9 @@ export type Database = {
           condition: Database["public"]["Enums"]["care_plan_condition"]
           created_at: string
           id: string
+          last_reviewed_at: string | null
           multi_condition_notified_at: string | null
+          next_review_at: string | null
           notes: string | null
           organisation_id: string
           patient_condition_id: string | null
@@ -9540,7 +9635,9 @@ export type Database = {
           condition: Database["public"]["Enums"]["care_plan_condition"]
           created_at?: string
           id?: string
+          last_reviewed_at?: string | null
           multi_condition_notified_at?: string | null
+          next_review_at?: string | null
           notes?: string | null
           organisation_id: string
           patient_condition_id?: string | null
@@ -9555,7 +9652,9 @@ export type Database = {
           condition?: Database["public"]["Enums"]["care_plan_condition"]
           created_at?: string
           id?: string
+          last_reviewed_at?: string | null
           multi_condition_notified_at?: string | null
+          next_review_at?: string | null
           notes?: string | null
           organisation_id?: string
           patient_condition_id?: string | null
@@ -54387,6 +54486,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      acknowledge_care_plan_revision: { Args: { p_revision: string }; Returns: boolean }
       acknowledge_lab_order: {
         Args: { p_order_id: string; p_partner_reference: string }
         Returns: Json
@@ -55415,6 +55515,10 @@ export type Database = {
         Returns: Json
       }
       analytics_patient_search: { Args: { p_query: string }; Returns: Json }
+      analytics_platform_overview: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       analytics_population_dataset_preview: { Args: never; Returns: Json }
       analytics_population_summary: { Args: never; Returns: Json }
       analytics_programme_funnel: { Args: never; Returns: Json }
@@ -57041,6 +57145,8 @@ export type Database = {
         Returns: Json
       }
       finance_reconciliation_summary: { Args: never; Returns: Json }
+      finance_refund_queue: { Args: never; Returns: Json }
+      finance_refund_settings_get: { Args: never; Returns: Json }
       finance_reject_request: {
         Args: { p_id: string; p_note: string }
         Returns: undefined
@@ -57070,6 +57176,10 @@ export type Database = {
       finance_run_revenue_recognition: { Args: never; Returns: number }
       finance_set_period_status: {
         Args: { p_month: string; p_status: string }
+        Returns: Json
+      }
+      finance_set_refund_second_approval_threshold: {
+        Args: { p_reason: string; p_threshold_minor: number }
         Returns: Json
       }
       finance_tax_rates_list: { Args: never; Returns: Json }
@@ -58454,6 +58564,10 @@ export type Database = {
       }
       public_response_commitments: { Args: never; Returns: Json }
       public_service_coverage: { Args: never; Returns: Json }
+      publish_care_plan_revision: {
+        Args: { p_care_plan: string; p_change_summary: string; p_needs_acknowledgement?: boolean }
+        Returns: string
+      }
       publish_consultation_summary: {
         Args: {
           p_clinical_encounter_note_id: string
@@ -60610,6 +60724,15 @@ export type Database = {
         | "hospital_discharge"
         | "repeated_alerts"
         | "care_coordinator_escalation"
+      care_plan_action_category:
+        | "goals"
+        | "tests"
+        | "monitoring"
+        | "medicines"
+        | "lifestyle"
+        | "screening"
+        | "consultations"
+        | "follow_up"
       care_plan_condition:
         | "hypertension"
         | "diabetes"
@@ -62946,6 +63069,16 @@ export const Constants = {
         "hospital_discharge",
         "repeated_alerts",
         "care_coordinator_escalation",
+      ],
+      care_plan_action_category: [
+        "goals",
+        "tests",
+        "monitoring",
+        "medicines",
+        "lifestyle",
+        "screening",
+        "consultations",
+        "follow_up",
       ],
       care_plan_condition: [
         "hypertension",

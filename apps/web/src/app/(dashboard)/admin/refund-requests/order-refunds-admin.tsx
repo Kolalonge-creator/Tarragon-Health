@@ -54,7 +54,11 @@ function OpsRow({ refund, detail }: { refund: OpsRefund; detail: string }) {
  * Same Approve/Deny → ConfirmDialog pattern as RefundRequestsAdmin — a real
  * money decision, so neither action is a bare button onClick.
  */
-export function OrderRefundsAdmin() {
+/**
+ * `decisions` false shows only the admin-only failed/stuck operations: the shared finance refunds
+ * workspace (/finance/refunds) owns approve/reject there, so the pending list is not shown twice.
+ */
+export function OrderRefundsAdmin({ decisions = true }: { decisions?: boolean } = {}) {
   const refunds = useAdminOrderRefunds();
   const ops = useAdminRefundOps();
   const retry = useRetryFailedRefund();
@@ -81,9 +85,11 @@ export function OrderRefundsAdmin() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pending order refunds</CardTitle>
+        <CardTitle>{decisions ? "Pending order refunds" : "Failed and stuck refunds (admin)"}</CardTitle>
       </CardHeader>
       <CardContent>
+        {decisions && (
+          <>
         {refunds.isLoading && <p className="text-sm text-charcoal-ink/60">Loading...</p>}
         {refunds.isError && <p className="text-sm text-red-600">Could not load order refunds.</p>}
         {!refunds.isLoading && !refunds.isError && refunds.data?.length === 0 && (
@@ -155,6 +161,8 @@ export function OrderRefundsAdmin() {
           <p className="mt-2 text-sm text-red-600">
             {(decide.error as Error)?.message ?? "Could not record that decision."}
           </p>
+        )}
+          </>
         )}
         {ops.isError && <p className="mt-4 text-sm text-red-600">Could not load the failed and stuck refunds.</p>}
         {ops.data && ops.data.failed.length > 0 && (

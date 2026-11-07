@@ -156,7 +156,7 @@ export function AdminSearch({ entries, kind = "admin" }: { entries: AdminSearchE
                 aria-expanded="true"
                 aria-controls="admin-search-results"
                 aria-activedescendant={rows[activeIndex] ? `admin-search-row-${activeIndex}` : undefined}
-                placeholder={isPatient ? "Search, for example blood pressure, tablets or results" : "Search pages, settings, clinicians, applicants"}
+                placeholder={isPatient ? "Search, for example blood pressure, tablets or results" : "Search pages, people, employers, orders, incidents"}
                 className="h-12 w-full bg-transparent text-sm text-charcoal-ink outline-none placeholder:text-charcoal-ink/45 dark:text-night-ink"
                 autoComplete="off"
               />
@@ -199,7 +199,9 @@ export function AdminSearch({ entries, kind = "admin" }: { entries: AdminSearchE
                       className={`cursor-pointer px-4 py-2 text-sm ${i === activeIndex ? "bg-brand-green/10" : ""}`}
                     >
                       <div className="flex items-baseline justify-between gap-3">
-                        <span className="font-medium text-charcoal-ink dark:text-night-ink">{row.label}</span>
+                        <span className="font-medium text-charcoal-ink dark:text-night-ink">
+                          <Highlight text={row.label} query={query} />
+                        </span>
                         {!isPerson ? <span className="shrink-0 text-xs text-charcoal-ink/50">{row.group}</span> : null}
                       </div>
                       {row.hint ? <div className="truncate text-xs text-charcoal-ink/60 dark:text-night-ink/60">{row.hint}</div> : null}
@@ -211,7 +213,7 @@ export function AdminSearch({ entries, kind = "admin" }: { entries: AdminSearchE
                 <li role="alert" className="px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
                   {isPatient
                     ? "We couldn't search your results, medicines and messages just now, so some matches may be missing."
-                    : "The people lookup is not available right now, so only pages are shown."}
+                    : "Part of the people and records search is not available right now, so this list may be missing results."}
                 </li>
               ) : null}
             </ul>
@@ -222,6 +224,20 @@ export function AdminSearch({ entries, kind = "admin" }: { entries: AdminSearchE
           </div>
         </div>
       ) : null}
+    </>
+  );
+}
+
+/** Marks the first place the typed words appear in a result's title, so it is clear why it matched. */
+export function Highlight({ text, query }: { text: string; query: string }) {
+  const q = query.trim().toLowerCase();
+  const at = q.length >= 2 ? text.toLowerCase().indexOf(q) : -1;
+  if (at < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, at)}
+      <mark className="rounded bg-sprout-gold/30 px-0.5 text-inherit">{text.slice(at, at + q.length)}</mark>
+      {text.slice(at + q.length)}
     </>
   );
 }
