@@ -3,8 +3,7 @@
  * optional short note, and the "not an emergency service" line shown on both sides (`circlehelp.`). English only.
  *
  * CMO signed from chat 2026-11-07: the not-an-emergency line, the five labels, the note hint, "They asked for: {type}" and "They asked
- * you to get in touch." (CIRCLE_HELP_REQUESTS_COPY_REVIEW.signedKeys). The remaining keys (pendingKeys) are interface wording not named in
- * that sign-off. The prefix sits outside the reviewed-strings ledger's `circle.` namespace (whose baseline can only shrink), the same way
+ * you to get in touch." (CIRCLE_HELP_REQUESTS_COPY_REVIEW.signedKeys), then the five interface prompts the same day, so every key is signed. The prefix sits outside the reviewed-strings ledger's `circle.` namespace (whose baseline can only shrink), the same way
  * `circlep1.` to `circlep5.` do; the marker below is the record and nobody but the CMO marks anything reviewed.
  *
  * Rules held by tests: no em dashes; never "doctor-led" or "your doctor"; no WhatsApp; no condition, reading or medicine named; the
@@ -46,8 +45,14 @@ export const CIRCLE_HELP_REQUESTS_COPY_REVIEW = {
     "circlehelp.note.hint",
     "circlehelp.view.asked_for",
     "circlehelp.view.general",
+    // The five interface prompts, signed later the same day (PR #1808 comment).
+    "circlehelp.type.label",
+    "circlehelp.type.required",
+    "circlehelp.note.label",
+    "circlehelp.invalid",
+    "circlehelp.view.note",
   ],
-  pendingKeys: ["circlehelp.type.label", "circlehelp.type.required", "circlehelp.note.label", "circlehelp.invalid", "circlehelp.view.note"],
+  pendingKeys: [],
   source: "supabase/migrations/20261107011314_care_circle_typed_help_requests.sql",
   prefixes: ["circlehelp."],
 } as const;
