@@ -1960,5 +1960,12 @@ dw03_escalation_working_states.sql
 dw07_dw08_audited_onboarding_and_care_circle_reads.sql
 # DW follow-ups (2026-11-07): a returned monitoring case tells its doctor in-app (only the escalation id), an unheld one tells the CMO, a not-yet-due one tells nobody; no staff account (doctor or coordinator) can delete an escalation. Sabotage: the old org-staff delete policy lets a coordinator delete.
 dw_followups_monitoring_notice_and_no_escalation_delete.sql
+
+# Finance dashboard v2, Phase A (20261107015736): finance_money_overview keeps
+# gross payment volume, refunds, net collections and recognised revenue apart,
+# excludes failed orders, unconfirmed refunds, wallet rows and test accounts,
+# splits member / family sponsor / employer, refuses non-finance callers, and
+# a sabotage step proves the gross-volume check discriminates.
+finance_money_overview.sql
 # Credentialing uploads join the T2-08 malware scan (2026-11-07): scan_status derived from the server verdict, held documents cannot be opened or verified by any path, sweep clears or holds for good. Sabotage: no verified_at guard, no hold in open_clinician_document.
 credentialing_upload_malware_scan.sql
