@@ -46506,6 +46506,264 @@ export type Database = {
           },
         ]
       }
+      support_business_hours: {
+        Row: {
+          closes: string
+          opens: string
+          updated_at: string
+          updated_by: string | null
+          weekday: number
+        }
+        Insert: {
+          closes: string
+          opens: string
+          updated_at?: string
+          updated_by?: string | null
+          weekday: number
+        }
+        Update: {
+          closes?: string
+          opens?: string
+          updated_at?: string
+          updated_by?: string | null
+          weekday?: number
+        }
+        Relationships: []
+      }
+      support_handoffs: {
+        Row: {
+          acknowledged_at: string | null
+          customer_message: string | null
+          destination: string
+          id: string
+          ops_incident_id: string | null
+          organisation_id: string
+          outcome: string | null
+          outcome_at: string | null
+          outcome_by: string | null
+          owner_id: string | null
+          patient_id: string | null
+          raised_at: string
+          raised_by: string
+          reason: string
+          refund_id: string | null
+          source: string
+          source_id: string
+          status: string
+          updated_at: string
+          withdrawn_by: string | null
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          customer_message?: string | null
+          destination: string
+          id?: string
+          ops_incident_id?: string | null
+          organisation_id: string
+          outcome?: string | null
+          outcome_at?: string | null
+          outcome_by?: string | null
+          owner_id?: string | null
+          patient_id?: string | null
+          raised_at?: string
+          raised_by: string
+          reason: string
+          refund_id?: string | null
+          source: string
+          source_id: string
+          status?: string
+          updated_at?: string
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          customer_message?: string | null
+          destination?: string
+          id?: string
+          ops_incident_id?: string | null
+          organisation_id?: string
+          outcome?: string | null
+          outcome_at?: string | null
+          outcome_by?: string | null
+          owner_id?: string | null
+          patient_id?: string | null
+          raised_at?: string
+          raised_by?: string
+          reason?: string
+          refund_id?: string | null
+          source?: string
+          source_id?: string
+          status?: string
+          updated_at?: string
+          withdrawn_by?: string | null
+          withdrawn_reason?: string | null
+        }
+        Relationships: []
+      }
+      support_public_holidays: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          holiday_date: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          holiday_date: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          holiday_date?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      support_response_templates: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          body: string
+          category: string | null
+          created_at: string
+          created_by: string
+          id: string
+          status: string
+          title: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          body: string
+          category?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          body?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      support_sla_policies: {
+        Row: {
+          change_note: string
+          clock: string
+          created_at: string
+          created_by: string | null
+          deactivated_at: string | null
+          first_response_minutes: number
+          id: string
+          is_active: boolean
+          priority: string
+          resolution_minutes: number | null
+          version: number
+        }
+        Insert: {
+          change_note: string
+          clock: string
+          created_at?: string
+          created_by?: string | null
+          deactivated_at?: string | null
+          first_response_minutes: number
+          id?: string
+          is_active?: boolean
+          priority: string
+          resolution_minutes?: number | null
+          version: number
+        }
+        Update: {
+          change_note?: string
+          clock?: string
+          created_at?: string
+          created_by?: string | null
+          deactivated_at?: string | null
+          first_response_minutes?: number
+          id?: string
+          is_active?: boolean
+          priority?: string
+          resolution_minutes?: number | null
+          version?: number
+        }
+        Relationships: []
+      }
+      support_ticket_attachments: {
+        Row: {
+          content_sha256: string
+          created_at: string
+          file_name: string
+          id: string
+          is_internal: boolean
+          mime_type: string
+          organisation_id: string
+          restricted_at: string | null
+          restricted_by: string | null
+          restricted_reason: string | null
+          scan_status: string
+          size_bytes: number
+          storage_path: string
+          ticket_id: string
+          uploaded_by: string
+          uploader_role: string
+        }
+        Insert: {
+          content_sha256: string
+          created_at?: string
+          file_name: string
+          id?: string
+          is_internal?: boolean
+          mime_type: string
+          organisation_id: string
+          restricted_at?: string | null
+          restricted_by?: string | null
+          restricted_reason?: string | null
+          scan_status: string
+          size_bytes: number
+          storage_path: string
+          ticket_id: string
+          uploaded_by: string
+          uploader_role: string
+        }
+        Update: {
+          content_sha256?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          is_internal?: boolean
+          mime_type?: string
+          organisation_id?: string
+          restricted_at?: string | null
+          restricted_by?: string | null
+          restricted_reason?: string | null
+          scan_status?: string
+          size_bytes?: number
+          storage_path?: string
+          ticket_id?: string
+          uploaded_by?: string
+          uploader_role?: string
+        }
+        Relationships: []
+      }
       support_ticket_comments: {
         Row: {
           author_profile_id: string | null
@@ -52803,6 +53061,42 @@ export type Database = {
         }
         Relationships: []
       }
+      support_work_items: {
+        Row: {
+          assigned_to: string | null
+          assigned_to_name: string | null
+          category: string | null
+          channel: string | null
+          clock_answered_at: string | null
+          clock_from: string | null
+          customer_name: string | null
+          detail_href: string | null
+          first_response_at: string | null
+          first_response_due_at: string | null
+          handoff_destinations: string[] | null
+          is_clinical: boolean | null
+          is_escalated: boolean | null
+          is_test: boolean | null
+          item_id: string | null
+          last_activity_at: string | null
+          next_due_at: string | null
+          open_handoffs: number | null
+          organisation_id: string | null
+          patient_id: string | null
+          priority: string | null
+          raw_status: string | null
+          received_at: string | null
+          reference: string | null
+          resolution_due_at: string | null
+          resolved_at: string | null
+          satisfaction: number | null
+          sla_state: string | null
+          source: string | null
+          status_group: string | null
+          subject: string | null
+        }
+        Relationships: []
+      }
       symptom_reports: {
         Row: {
           client_id: string | null
@@ -53953,6 +54247,10 @@ export type Database = {
       record_lab_disclosure: { Args: { p_attested: boolean; p_method: string; p_note?: string; p_result: string }; Returns: Json };
       release_lab_result: { Args: { p_note?: string; p_result: string }; Returns: Json };
       team_submit_lab_result: { Args: { p_file?: Json; p_items: Json; p_order: string; p_panel: string; p_patient: string }; Returns: Json };
+      withdraw_support_handoff: {
+        Args: { p_handoff_id: string; p_reason: string }
+        Returns: undefined
+      }
       withdraw_visit_summary: { Args: { p_reason: string; p_summary: string }; Returns: undefined }
       withhold_lab_result: { Args: { p_reason: string; p_result: string }; Returns: Json };
       // Testing days, employer visits and point-of-care results (20261013004659_testing_days_employer_visits_point_of_care.sql)
@@ -53965,13 +54263,35 @@ export type Database = {
         Returns: string;
       };
       set_testing_event_team: { Args: { p_event: string; p_team: Json }; Returns: undefined };
+      approve_support_response_template: {
+        Args: { p_template_id: string }
+        Returns: undefined
+      }
       approve_testing_event_venue: { Args: { p_event: string }; Returns: undefined };
       update_testing_event: {
         Args: { p_capacity: number; p_ends_at: string | null; p_event: string; p_lab_provider: string | null; p_starts_at: string | null; p_venue_name: string };
         Returns: undefined;
       };
       set_testing_event_status: { Args: { p_event: string; p_status: string }; Returns: undefined };
+      set_support_sla_policy: {
+        Args: {
+          p_change_note: string
+          p_clock: string
+          p_first_response_minutes: number
+          p_priority: string
+          p_resolution_minutes: number | null
+        }
+        Returns: string
+      }
       set_testing_event_directions: { Args: { p_event: string; p_directions: string }; Returns: undefined };
+      list_support_desk_staff: {
+        Args: never
+        Returns: {
+          full_name: string
+          is_lead: boolean
+          profile_id: string
+        }[]
+      }
       list_testing_days: { Args: { p_city?: string }; Returns: Json };
       book_testing_day: { Args: { p_event: string }; Returns: Json };
       cancel_testing_booking: { Args: { p_booking: string; p_reason?: string }; Returns: undefined };
@@ -54065,6 +54385,10 @@ export type Database = {
       }
       assistant_review_read: { Args: { p_reason: string; p_sample: string }; Returns: Json }
       assistant_review_record: { Args: { p_category: string; p_note?: string; p_sample: string; p_verdict: string }; Returns: Json }
+      assign_support_work_item: {
+        Args: { p_assignee: string | null; p_item_id: string; p_source: string }
+        Returns: undefined
+      }
       assistant_knowledge_sources: { Args: { p_ids: string[] }; Returns: Json }
       assistant_protocol_limits: { Args: Record<PropertyKey, never>; Returns: Json }
       go_live_guard_is_open: { Args: { p_key: string }; Returns: boolean }
@@ -54385,6 +54709,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      acknowledge_support_handoff: {
+        Args: { p_handoff_id: string }
+        Returns: undefined
       }
       action_consultation_follow_up: {
         Args: {
@@ -59354,10 +59682,23 @@ export type Database = {
       }
       set_medication_nafdac_number: { Args: { p_medication: string; p_number: string }; Returns: undefined }
       set_dose_reason_sharing: { Args: { p_code: string; p_share: boolean; p_patient?: string }; Returns: undefined }
+      raise_support_handoff: {
+        Args: {
+          p_destination: string
+          p_reason: string
+          p_source: string
+          p_source_id: string
+        }
+        Returns: string
+      }
       read_dose_reasons_audited: { Args: { p_patient: string; p_reason: string; p_before?: string; p_limit?: number }; Returns: Json }
       sign_medicine_interaction_rule_sets: {
         Args: { p_rules_id: string }
         Returns: Database["public"]["Tables"]["medicine_interaction_rule_sets"]["Row"]
+      }
+      support_desk_summary: {
+        Args: { p_days?: number; p_min_csat_sample?: number }
+        Returns: Json
       }
       supporter_todays_doses: { Args: { p_patient: string }; Returns: Json }
       set_medication_prn_limits: {
@@ -59791,6 +60132,16 @@ export type Database = {
         Args: { p_band: string; p_lesson_code: string; p_source: string; p_source_ids: string[] }
         Returns: string
       }
+      record_support_handoff_outcome: {
+        Args: {
+          p_customer_message: string | null
+          p_handoff_id: string
+          p_ops_incident_id?: string | null
+          p_outcome: string
+          p_refund_id?: string | null
+        }
+        Returns: undefined
+      }
       record_teachback_result: { Args: { p_code: string; p_picks: number[] }; Returns: Json }
       retire_glossary_term: { Args: { p_id: string }; Returns: boolean }
       save_glossary_draft: {
@@ -60047,6 +60398,10 @@ export type Database = {
       circle_preview_permissions: { Args: { p_permissions: string[]; p_relationship?: string }; Returns: Json };
       pause_care_circle: { Args: { p_pause_alerts?: boolean }; Returns: Json };
       renew_care_circle_member: { Args: { p_member: string }; Returns: Json };
+      restrict_support_attachment: {
+        Args: { p_attachment_id: string; p_reason: string }
+        Returns: undefined
+      }
       resume_care_circle: { Args: never; Returns: boolean };
       set_circle_alert_mode: { Args: { p_mode: string; p_patient: string }; Returns: boolean };
       circle_supporter_view: { Args: { p_patient: string }; Returns: Json };

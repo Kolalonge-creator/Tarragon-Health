@@ -221,6 +221,10 @@ export const ADMIN_EXTRA_PAGES: AdminSearchEntry[] = [
   { label: "Providers", href: "/admin/ops/providers", group: "Operations", hint: "Whether Paystack, Zoom and Resend are answering, settlement breaks against the ledger, and the webhook inbox with replay." },
   { label: "Event bus", href: "/admin/ops/event-bus", group: "Operations", hint: "Every event the platform recorded, who handled it, what is stuck, and replay." },
   { label: "Partner webhooks", href: "/admin/ops/partner-webhooks", group: "Operations", hint: "Partner webhook endpoints, rotate a signing key, switch an auto-disabled endpoint back on, and which events go to partners." },
+  { label: "Support desk", href: "/clinician/support-desk", group: "Support", hint: "Technical tickets, help requests, support messages and complaints in one queue: past target, no owner, workload, hand-offs (support_work_items, SUP-1)." },
+  { label: "Support hand-offs to your team", href: "/admin/support/handoffs", group: "Support", hint: "Questions the support desk needs Finance, Technical Operations, Provider Operations or Membership Operations to decide (support_handoffs)." },
+  { label: "Support targets and hours", href: "/clinician/support-desk/settings", group: "Support", hint: "Support reply and resolution targets by priority, staffed hours and public holidays (support_sla_policies, SUP-3)." },
+  { label: "Support reply templates", href: "/clinician/support-desk/templates", group: "Support", hint: "Approved starting points for support replies; drafts until a support lead approves the words (support_response_templates)." },
   { label: "Chain health", href: "/admin/ops/chain-health", group: "Operations", hint: "Whether readings become grades, tasks, pages and notices, the test run, timings, and the new grading against the old alerts." },
 ];
 

@@ -7,6 +7,7 @@ import { StaffAttributionLine } from "@/components/staff-attribution-line";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { TicketAttachments } from "@/components/support-desk/ticket-attachments";
 
 export function TicketDetail({ ticketId }: { ticketId: string }) {
   const { data: ticket, isLoading } = useSupportTicket(ticketId);
@@ -123,6 +124,12 @@ export function TicketDetail({ ticketId }: { ticketId: string }) {
       {ticket.satisfaction_score !== null && (
         <p className="text-sm text-charcoal-ink/60">You rated this {ticket.satisfaction_score}/5. Thank you.</p>
       )}
+      <Card>
+        <CardContent className="space-y-2 pt-6">
+          <p className="text-sm font-medium text-charcoal-ink">Screenshots and files</p>
+          <TicketAttachments ticketId={ticketId} mode="patient" />
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -68,6 +68,8 @@ describe("Care Coordinator navigation reachability", () => {
     // because they share the prefix, so the allow-list must stay explicit.
     const allowed = coordinatorAllowList();
     expect(allowed).not.toContain("/clinician");
-    expect(allowed.length).toBeLessThan(12);
+    // 12 since SUP-1 (2026-11-07) added /clinician/support-desk, the support workspace a coordinator runs (MSG-2).
+    // Each entry is still named one by one; raise this only for a reviewed page, never to make room for a prefix.
+    expect(allowed.length).toBeLessThan(13);
   });
 });

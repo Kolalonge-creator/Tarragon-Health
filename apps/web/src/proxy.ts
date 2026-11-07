@@ -467,6 +467,7 @@ async function proxyInner(request: NextRequest) {
         "/clinician/escalations",
         "/clinician/orders",
         "/clinician/support-tickets",
+        "/clinician/support-desk",
         "/clinician/complaints",
         "/clinician/safety-incidents",
         // Added 2026-09-05. Both were in the Coordinator's sidebar and not on

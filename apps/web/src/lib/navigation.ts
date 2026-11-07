@@ -353,6 +353,8 @@ export function getNavSections(
                   icon: "medication",
                 },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
+                // SUP-1: one workspace over tickets, help requests, support messages and complaints.
+                { label: "Support desk", href: "/clinician/support-desk", icon: "helpCenter" },
                 { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
                 { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
                 {
@@ -705,6 +707,8 @@ export function getNavSections(
             // New clinician applications, document and licence checks, licence and indemnity expiry (S15).
             { label: "Clinician credentialing", href: "/admin/credentialing", icon: "review" },
             { label: "Sign-up invites", href: "/admin/settings/signup-invites", icon: "members" },
+            { label: "Support desk", href: "/clinician/support-desk", icon: "helpCenter" },
+            { label: "Support hand-offs", href: "/admin/support/handoffs", icon: "helpCenter" },
             { label: "Support view-as", href: "/admin/support/view-as", icon: "patientActivity" },
             { label: "Assisted account recovery", href: "/admin/account-recovery", icon: "privacy", more: true },
             { label: "Leads", href: "/admin/leads", icon: "members", more: true },

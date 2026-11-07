@@ -3,6 +3,17 @@
 Append-only log of decisions that shape the v5 build. Newest section first. A change to a
 spec invariant (INV-01 to INV-16) needs a written founder decision here.
 
+## Customer Support Dashboard, 2026-11-07 (founder, chosen in a chat prompt)
+
+Source: "Tarragon Health: Customer Support Dashboard, Enterprise UI/UX and Implementation Specification", reconciled against the live platform first. Design record: `docs/design/SUPPORT-DASHBOARD.md`.
+
+| ID | Decision | Rationale | Where it lands |
+|----|----------|-----------|----------------|
+| **SUP-1** | The dashboard is one workspace over the stores that already exist (`support_tickets`, `navigation_requests`, the MSG-3 support queue on `care_message_threads`, `complaints`), read through one security-invoker view. No unified ticket table is built. Front Desk and `provider_complaints` stay admin-only and outside the shared queue. | Keeps the 2026-09-03 reconciliation (help requests are the get-help surface, tickets are technical-only; previously recorded only in a migration header) and MSG-3 ("nothing duplicated"). All four stores had 0 rows on 2026-11-07, so this was a free choice, not a data constraint. | `support_work_items` view, `/support`. |
+| **SUP-2** | The first build covers workspace and permissions, SLA with business hours, response templates with reply notices and attachments, and hand-offs to Finance, Technical Ops and Provider Ops. Support agents get permissions (`support.agent`, `support.lead`), never a new account role. | Founder choice of phases A to E. CLAUDE.md "never re-split the account role". | `docs/design/SUPPORT-DASHBOARD.md` §5. |
+| **SUP-3** | First-response targets: Urgent 1 hour, High 4 business hours, Normal 1 business day, Low 2 business days; resolution High 1, Normal 3, Low 5 business days, Urgent assessed individually. Counted in staffed hours (Mon to Fri, 08:00 to 18:00 Lagos, Nigerian public holidays off). Internal targets, not a public promise; an operational setting (versioned, change note, no CMO signature). Clinical items keep the clinical escalation SLA. | Replaces the unconfirmed PROPOSED `support.sla_targets` (30m/2h/8h/24h calendar). | `support_sla_policies`, `support_business_hours`, `support_public_holidays`. |
+| **SUP-4** | An editable support knowledge base (versions, approval, review dates; clinical articles need CMO approval) is wanted, in a later phase. Until then the in-code staff guide and patient FAQ stay. | Reverses the 2026-08-29 "KB as content-as-code" choice, deliberately and later. | Later PR. |
+
 ## Front Desk build, 2026-11-01 (founder, chosen in a chat prompt)
 
 Source: "Tarragon Front Desk: Build Specification v1.0", reconciled against this file and CLAUDE.md before any code. Design record: `docs/FRONT-DESK.md`.

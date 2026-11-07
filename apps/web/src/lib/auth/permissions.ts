@@ -67,7 +67,10 @@ export const PERMISSION_KEYS = [
   "incidents.manage",
   "feature_flags.manage",
   "ops.console.view",
+  // support.manage gates the support lead's actions (reassign, bulk assign, desk settings) since SUP-2 (2026-11-07);
+  // support.agent works the desk. Seeded by 20261107022501_sup_b_support_desk_permissions.sql.
   "support.manage",
+  "support.agent",
   // Seeded by 20260922175144_support_view_as.sql — a time-boxed, read-only,
   // audited shadow view of a specific patient's or clinician's account
   // summary, to debug a reported issue. Distinct from support.manage (which
@@ -158,4 +161,21 @@ export async function canViewOpsConsole(): Promise<boolean> {
  */
 export async function canStartSupportViewAs(): Promise<boolean> {
   return hasPermission("support.view_as");
+}
+
+export type SupportDeskAccess = { canWork: boolean; isLead: boolean };
+
+/**
+ * The support desk gate (SUP-2), mirroring private.is_support_staff / private.is_support_lead: the super admin, an active
+ * Care Coordinator (the first owner of the support queue under MSG-2), or a clinician holding support.agent or
+ * support.manage. A key on any other account role does not open the desk: the queues are org-staff tables it cannot read.
+ */
+export async function getSupportDeskAccess(): Promise<SupportDeskAccess> {
+  const profile = await getCurrentProfile();
+  if (!profile) return { canWork: false, isLead: false };
+  const { isSuperAdmin, keys } = await getCallerPermissions();
+  const staffRole = profile.role === "care_coordinator" || profile.role === "clinician";
+  const isLead = isSuperAdmin || (staffRole && keys.has("support.manage"));
+  const canWork = isLead || profile.role === "care_coordinator" || (profile.role === "clinician" && keys.has("support.agent"));
+  return { canWork, isLead };
 }
