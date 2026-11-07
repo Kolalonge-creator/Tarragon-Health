@@ -14,8 +14,8 @@ import { ownIp } from "./helpers/own-ip";
 // B. Vitals empty state: exactly one "Log a reading" control.
 // C. Appointments: the four chips; cancel asks first and "Keep it" keeps it booked; a seeded cancelled visit is under Cancelled.
 // D. Notifications: the bell's "See all notifications" opens the centre; a category narrows the list; mark as read writes the row.
-// F. Care Circle typed help (PD-08): the patient sends a type and a note; a supporter sees both and the "not an emergency" line;
-//    the supporter's notification is routine.
+// F. Care Circle typed help (PD-08): the patient sends a type and a note; a support-only supporter opens the person from their
+//    own home and sees both and the "not an emergency" line; the supporters' notification is routine.
 // I. A 390px and 1280px crawl of the main patient pages: no horizontal page scroll, no uncaught errors.
 //
 // Local stack only (global-setup refuses anything else). Every account and row is is_test and prefixed [e2e-test] or [s85]. Seeding goes
@@ -32,20 +32,6 @@ const HELP_NOTE = "Please can you drive me to the lab on Thursday morning";
 function seedBp(patient: TestPatient, systolic: number, diastolic: number, ago: string): void {
   sql(`insert into public.vitals_readings (organisation_id, patient_id, vital_type, systolic, diastolic, taken_at, source, position, arm)
        values (${lit(patient.organisationId)}, ${lit(patient.userId)}, 'blood_pressure', ${systolic}, ${diastolic}, now() - interval '${ago}', 'device', 'seated', 'left');`);
-}
-
-/**
- * Overflows found by this crawl and reported, not fixed (this slice is tests only). Each is tolerated ONLY at the named path, below the
- * named width and with a culprit carrying the named text, so a new overflow anywhere still fails. Each has a test.fail twin below that
- * flips when it is fixed; delete the entry then.
- *   - Profile, 390px: the "Request a change to your name or date of birth" button (PR #1808, identity-change-card.tsx) does not wrap.
- */
-const KNOWN_OVERFLOWS: { path: string; maxWidth: number; text: string }[] = [
-  { path: "/patient/profile", maxWidth: 480, text: "Request a change to your name or date of" },
-];
-
-function isKnownOverflow(path: string, width: number, culprit: string): boolean {
-  return KNOWN_OVERFLOWS.some((k) => k.path === path && width <= k.maxWidth && culprit.includes(k.text));
 }
 
 /**
@@ -161,22 +147,10 @@ test.describe("Patient dashboard 2.0: the shipped journeys", () => {
     await expect(tile.first()).toContainText(/Today, \d{2}:\d{2}/);
   });
 
-  test("A. Vitals: a failed read of the history says it could not load", async ({ page }) => {
+  // Slice H found the empty line shown under the error on a failed read; fixed in vitals-history.tsx (and its Jest test).
+  test("A. Vitals: a failed read of the history says it could not load, and never that there are no readings", async ({ page }) => {
     await login(page, patient, /\/patient/);
     // The history is read in the browser through the audited RPC; failing it is the cleanest way to force a failed read.
-    await page.route("**/rest/v1/rpc/read_patient_vitals_audited*", (route) =>
-      route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "forced by e2e", code: "XX000" }) }),
-    );
-    await gotoRoute(page, "/patient/vitals");
-    await expect(page.getByText("Could not load your readings.")).toBeVisible({ timeout: 60_000 });
-  });
-
-  // Found while writing slice H: on a failed read VitalsHistory shows "No readings logged yet." UNDER the error line, because its empty
-  // branch tests only !isLoading && no rows (vitals-history.tsx). That is the silent-failure shape the dashboard rules forbid. Marked
-  // test.fail so the suite stays green while it is reported; the day the component is fixed, this flips and must be turned into a test().
-  test("A. Vitals: a failed read never also says there are no readings (known bug, expected to fail)", async ({ page }) => {
-    test.fail(true, "VitalsHistory shows its empty line beside the error on a failed read; reported in slice H, not fixed here (tests only).");
-    await login(page, patient, /\/patient/);
     await page.route("**/rest/v1/rpc/read_patient_vitals_audited*", (route) =>
       route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "forced by e2e", code: "XX000" }) }),
     );
@@ -286,31 +260,24 @@ test.describe("Patient dashboard 2.0: the shipped journeys", () => {
       ),
     ).toBe("routine");
 
+    // A support-only account (receives_care false, made only to support someone) starts on its own home and opens the person from
+    // there, the way a relative would. Slice H found every supporter page redirecting such an account to itself; fixed in
+    // dashboard-gate.ts. What it may see is still decided by circle_help_alert_view's Care Circle membership check.
     const supporterContext = await browser.newContext({ extraHTTPHeaders: ownIp() });
     const supporterPage = await supporterContext.newPage();
-    await login(supporterPage, supporter!);
+    await login(supporterPage, supportOnly!);
+    await gotoRoute(supporterPage, "/patient/supporting");
+    await expect(supporterPage.getByRole("heading", { name: "People who share their care with you" })).toBeVisible({ timeout: 60_000 });
     await gotoRoute(supporterPage, `/patient/supporting/circle/${patient.userId}`);
     await expect(supporterPage.getByText("They asked for: Transport to get somewhere")).toBeVisible({ timeout: 60_000 });
     await expect(supporterPage.getByText(`Their note: ${HELP_NOTE}`)).toBeVisible();
     await expect(supporterPage.getByText(NOT_EMERGENCY).first()).toBeVisible();
+    // Still not a patient here: a page about their own health sends them back to their supporter home.
+    await supporterPage.goto("/patient/vitals");
+    await supporterPage.waitForURL(/\/patient\/supporting$/, { timeout: 30_000 });
 
     await supporterContext.close();
     await patientContext.close();
-  });
-
-  // Found while writing slice H: a support-only account (receives_care false, the account a relative makes only to support someone)
-  // cannot open the person page at all. supporting/circle/[patientId]/page.tsx calls getPatientDashboardContext(), which sends every
-  // support-only login to /patient/supporting, so the "Open" link on that very page leads straight back (the browser reported too many
-  // redirects) and the help request is never shown to that supporter. Marked test.fail so the suite stays green while it is reported;
-  // once fixed this flips and must become a test(). Runs after F, so the help request it looks for already exists.
-  test("F. A support-only supporter can open the person page and see the help request (known bug, expected to fail)", async ({ browser }) => {
-    test.fail(true, "Support-only supporters are redirected away from /patient/supporting/circle/[patientId]; reported in slice H, not fixed here.");
-    const context = await browser.newContext({ extraHTTPHeaders: ownIp() });
-    const page = await context.newPage();
-    await login(page, supportOnly!);
-    await gotoRoute(page, `/patient/supporting/circle/${patient.userId}`);
-    await expect(page.getByText("They asked for: Transport to get somewhere")).toBeVisible({ timeout: 30_000 });
-    await context.close();
   });
 
   for (const viewport of [
@@ -352,12 +319,7 @@ test.describe("Patient dashboard 2.0: the shipped journeys", () => {
         await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
         await expect(page.getByText(/We couldn.t find that page/)).toHaveCount(0);
         const { extra, culprits } = await horizontalOverflow(page);
-        if (extra <= 1) continue;
-        // Tolerate only an overflow whose every culprit is a known, reported one (KNOWN_OVERFLOWS); anything else fails the crawl.
-        const unknown = culprits.filter((c) => !isKnownOverflow(path, viewport.width, c));
-        if (unknown.length > 0 || culprits.length === 0) {
-          overflowing.push(`${path} is ${extra}px wider than the ${viewport.name} viewport: ${culprits.join("; ")}`);
-        }
+        if (extra > 1) overflowing.push(`${path} is ${extra}px wider than the ${viewport.name} viewport: ${culprits.join("; ")}`);
       }
       expect(overflowing, overflowing.join("\n")).toEqual([]);
       expect(uncaught, uncaught.join("\n")).toEqual([]);
@@ -365,17 +327,4 @@ test.describe("Patient dashboard 2.0: the shipped journeys", () => {
       await context.close();
     });
   }
-
-  // The known overflow above, as its own check: expected to fail until the button wraps on a phone, then it flips and must become a test().
-  test("I. Profile at 390px has no horizontal scroll (known bug, expected to fail)", async ({ browser }) => {
-    test.fail(true, "The identity change button on Profile is wider than a 390px phone; reported in slice H, not fixed here (tests only).");
-    const context = await browser.newContext({ extraHTTPHeaders: ownIp(), viewport: { width: 390, height: 844 } });
-    const page = await context.newPage();
-    await login(page, patient, /\/patient/);
-    await gotoRoute(page, "/patient/profile");
-    await page.waitForLoadState("networkidle", { timeout: 30_000 }).catch(() => undefined);
-    const { extra } = await horizontalOverflow(page);
-    expect(extra).toBeLessThanOrEqual(1);
-    await context.close();
-  });
 });

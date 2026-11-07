@@ -124,7 +124,8 @@ export function VitalsHistory({ patientId, viewerId }: { patientId: string; view
         {isError && (
           <p className="text-sm text-red-600 dark:text-red-300">Could not load your readings.</p>
         )}
-        {!isLoading && readings.length === 0 && (
+        {/* A failed read shows only the error above: "no readings" would claim something we could not check. */}
+        {!isLoading && !isError && readings.length === 0 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No readings logged yet.</p>
         )}
         {readings.length > 0 && (

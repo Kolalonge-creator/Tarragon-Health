@@ -97,7 +97,10 @@ export function IdentityChangeCard({
             </div>
           </form>
         ) : (
-          <Button variant="outline" onClick={() => setOpen(true)}>Request a change to your name or date of birth</Button>
+          // The label wraps on a narrow phone instead of pushing the page sideways (390px crawl, slice H); unchanged on wider screens.
+          <Button variant="outline" className="h-auto min-h-10 max-w-full whitespace-normal text-left" onClick={() => setOpen(true)}>
+            Request a change to your name or date of birth
+          </Button>
         )}
       </CardContent>
     </Card>

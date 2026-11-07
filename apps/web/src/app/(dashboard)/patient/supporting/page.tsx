@@ -39,7 +39,7 @@ export default async function SupportingPage({
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (profile.role !== "patient") redirect("/");
-  const { uiLanguage } = await getPatientDashboardContext();
+  const { uiLanguage } = await getPatientDashboardContext({ area: "supporter" });
 
   return (
     <div className="space-y-6">

@@ -29,7 +29,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   if (profile && profile.role === "patient" && !profile.onboarding_completed_at && isJoinToken(token)) {
     redirect(`/onboarding?redirect=${encodeURIComponent(joinPath(token))}`);
   }
-  const { uiLanguage } = await getPatientDashboardContext();
+  const { uiLanguage } = await getPatientDashboardContext({ area: "supporter" });
   return (
     <div className="mx-auto w-full max-w-lg py-2">
       <JoinCard token={token} locale={uiLanguage} />

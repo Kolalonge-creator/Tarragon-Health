@@ -59,9 +59,9 @@ own comment) rather than failing the run.
   (docs/design/PATIENT-DASHBOARD-2.md): Home big numbers, the Vitals failed-read and empty states, appointment chips and
   cancel-confirm, the notification centre, Care Circle typed help, and a 390px/1280px crawl of eight patient pages (no horizontal
   scroll, no uncaught errors); the pending file covers the care plan "what changed" acknowledgement, medicine "Not sure" and record
-  search, and skips each journey with a named reason until its PR (#1806, #1807) is in the build. Three `test.fail` cases record
-  bugs this suite found and did not fix (tests only): the Vitals history shows its empty line beside the error, a support-only
-  supporter cannot open the person page, and the Profile identity-change button overflows a 390px phone. Each flips when fixed.
+  search, and skips each journey with a named reason until its PR (#1806, #1807) is in the build. It found three
+  bugs, fixed on the same branch and now asserted: the Vitals history showed its empty line beside the error, a support-only
+  supporter could not open any supporter page (each redirected to itself), and the Profile identity-change button overflowed a 390px phone.
 
 - **`events-care-message-round-trip.spec.ts`** and **`events-booking-round-trip.spec.ts`** —
   events harness E5 to E7: a care message from patient to doctor and back, and a

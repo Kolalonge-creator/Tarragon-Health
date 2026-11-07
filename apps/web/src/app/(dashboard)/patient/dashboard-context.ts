@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getActingFor as getActingForUncached } from "@/lib/acting/acting-for";
 import { createClient } from "@/lib/supabase/server";
+import { dashboardGateRedirect, type DashboardArea } from "./dashboard-gate";
 import {
   DEFAULT_UI_LANGUAGE,
   DEFAULT_GLUCOSE_DISPLAY_UNIT,
@@ -29,7 +30,7 @@ export const getActingFor = cache(getActingForUncached);
  * away anything ineligible, so the checks below are re-confirmations, not new
  * gates.
  */
-export async function getPatientDashboardContext() {
+export async function getPatientDashboardContext(options: { area?: DashboardArea } = {}) {
   const profile = await getCurrentProfile();
   if (!profile) {
     redirect("/login");
@@ -40,16 +41,20 @@ export async function getPatientDashboardContext() {
   // this ends the moment it is revoked.
   const acting = await getActingFor();
 
-  if (!acting && !profile.onboarding_completed_at) {
-    redirect("/onboarding");
-  }
-  // Somebody here only to fund a parent's care has no vitals, no screenings and
-  // no plan of their own, so this dashboard would be a page of empty prompts
-  // about a body we are not looking after. Their home is the people they
-  // support — unless they have opened somebody's account, which is the whole
-  // point of being here.
-  if (!acting && profile.receives_care === false) {
-    redirect("/patient/supporting");
+  // Onboarding first. Then: somebody here only to fund a parent's care has no
+  // vitals, no screenings and no plan of their own, so a patient page would be
+  // a page of empty prompts about a body we are not looking after. Their home
+  // is the people they support (the supporter pages pass area "supporter" and
+  // are let through) — unless they have opened somebody's account, which is
+  // the whole point of being here. See dashboard-gate.ts.
+  const gate = dashboardGateRedirect({
+    acting: !!acting,
+    onboardingCompleted: !!profile.onboarding_completed_at,
+    receivesCare: profile.receives_care ?? null,
+    area: options.area ?? "patient",
+  });
+  if (gate) {
+    redirect(gate);
   }
 
   // From here on, "whose dashboard is this" is the subject, not the caller.
