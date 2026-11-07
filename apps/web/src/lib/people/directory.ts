@@ -71,6 +71,9 @@ export const PATTERN_LABEL: Record<(typeof WORK_PATTERNS)[number], string> = {
   sessional: "Sessional",
 };
 
+/** Tarragon's own staff account roles (the same list as private.is_internal_staff_role in the database). */
+export const INTERNAL_STAFF_ROLES = ["clinician", "admin", "care_coordinator", "analyst", "finance", "lab_liaison"] as const;
+
 export const ROLE_LABEL: Record<string, string> = {
   clinician: "Clinician",
   admin: "Admin",

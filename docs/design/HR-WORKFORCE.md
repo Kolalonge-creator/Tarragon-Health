@@ -130,3 +130,22 @@ separate PR (#1823).
 - Nothing is seeded: which courses are mandatory, and for whom, is entered on the page.
 - Not in Phase B: certificate file upload (a new storage path that must go through the malware scan), staff recording their
   own training, reminders before a course is due.
+
+## 9. Phase C as built (2026-11-07): leave
+
+- Migration `20261107071754_hr_people_phase_c_leave.sql`: `staff_leave_requests` (never edited directly or deleted; changed
+  only by the leave functions) and `staff_leave_sickness_reasons` (no table access). Proof:
+  `packages/db/tests/hr_people_phase_c_leave.sql`.
+- Who decides (HR-03): the current line manager, told in-app; with no manager, every active admin is told. An admin may
+  decide any request. Nobody decides their own. Declining needs a reason.
+- One routing system: approving a clinician's leave writes the existing `provider_time_off` row ('leave') in the same
+  transaction. That insert cancels their booked appointments in the period (`private.cascade_provider_time_off`), so the
+  approver is shown the count first and must confirm the same number; if bookings changed, approval is refused. The row's
+  reason is NULL, so the patient's notice reads the neutral default and never the leave type. Cancelling approved leave
+  before it starts removes the row (already-cancelled appointments stay cancelled).
+- Sickness reason (HR-04): only the person and admins (an admin's read is audited); the manager sees only "Sick leave".
+- Pages: `/account/leave` for every staff member (ask, follow, withdraw or cancel; and decide, for line managers),
+  `/admin/people/leave` (waiting, away in the next eight weeks, every request, sickness reason on demand), the overview
+  figure and attention items, in-app notifications on request and on decision.
+- Not in Phase C: balances and entitlements, a public-holiday calendar (days are Monday to Friday), half days, and the
+  existing direct "time off" entry clinicians use in the availability manager, which still bypasses approval.

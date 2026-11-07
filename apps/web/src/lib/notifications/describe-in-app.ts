@@ -932,6 +932,16 @@ export function describe(n: InAppNotificationInput): { text: string; href: strin
     // From private.ops_alert_notify (SR5): fixed wording, no detail, no patient reference.
     return { text: "An operations alert needs attention", href: "/admin/ops/wall" };
   }
+  if (n.template === "staff_leave_requested") {
+    // HR Phase C (private.leave_approvers): to the line manager, or the admins when there is none. No name, dates or type.
+    return { text: "A leave request is waiting for your decision", href: "/account/leave" };
+  }
+  if (n.template === "staff_leave_decided") {
+    // HR Phase C (decide_leave): to the person who asked. Only the outcome; the details are on the page.
+    const decision = (n.payload as { decision?: unknown } | null)?.decision;
+    const text = decision === "approved" ? "Your leave request was approved" : decision === "rejected" ? "Your leave request was not approved" : "Your leave request was decided";
+    return { text, href: "/account/leave" };
+  }
   if (n.template === "staff_access_review_due") {
     // From private.staff_access_review_reminder (security audit 2026-11-05): fixed wording, to admins only.
     return { text: "The quarterly staff access review is due", href: "/admin/staff-access-review" };

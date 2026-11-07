@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { attentionWindows, buildAttention, buildKpis, countBy, isCurrentStaff, lagosToday, sortAttention, type Priority } from "@/lib/people/attention";
 import { loadTrainingRecords, summarise, trainingAttention } from "@/lib/people/training";
+import { daysBefore, leaveAttention, loadAllLeave } from "@/lib/people/leave";
 import { loadDirectory, loadRecentActivity, PATTERN_LABEL, ROLE_LABEL, STATUS_LABEL } from "@/lib/people/directory";
 import { formatDate, PeopleNav } from "./people-nav";
 
@@ -41,6 +42,10 @@ const ACTIVITY_LABEL: Record<string, string> = {
   "staff_training_completion.recorded": "Training completion recorded",
   "staff_training_completion.verified": "Training completion verified",
   "staff_training_completion.voided": "Training record voided",
+  "staff_leave.requested": "Leave requested",
+  "staff_leave.approved": "Leave approved",
+  "staff_leave.rejected": "Leave not approved",
+  "staff_leave.cancelled": "Leave cancelled",
 };
 
 /**
@@ -52,7 +57,13 @@ export default async function PeopleOverviewPage() {
   const profile = await getCurrentProfile();
   if (profile?.role !== "admin") redirect("/admin");
   const supabase = await createClient();
-  const [directory, activity, training] = await Promise.all([loadDirectory(supabase), loadRecentActivity(supabase), loadTrainingRecords(supabase)]);
+  const [directory, activity, training, leave] = await Promise.all([
+    loadDirectory(supabase),
+    loadRecentActivity(supabase),
+    loadTrainingRecords(supabase),
+    // requests whose leave ended more than 30 days ago cannot need a decision any more
+    loadAllLeave(supabase, daysBefore(lagosToday(), 30)),
+  ]);
 
   if (!directory.ok) {
     return <p className="text-sm text-red-700">{directory.message}</p>;
@@ -62,7 +73,10 @@ export default async function PeopleOverviewPage() {
   const windows = attentionWindows();
   const people = new Map(rows.map((r) => [r.profile_id, { name: r.full_name ?? "Unnamed account", department: r.department_name }]));
   const trainingItems = training.ok ? trainingAttention(training.value, people, today, windows.training_warn_days) : [];
-  const attention = sortAttention([...buildAttention(rows, today, windows), ...trainingItems]);
+  const testIds = new Set(directory.value.filter((r) => r.is_test).map((r) => r.profile_id));
+  const leaveItems = leave.ok ? leaveAttention(leave.value.filter((l) => !testIds.has(l.profile_id)), today) : [];
+  const attention = sortAttention([...buildAttention(rows, today, windows), ...trainingItems, ...leaveItems]);
+  const leavePending = leave.ok ? leave.value.filter((l) => l.status === "pending" && !testIds.has(l.profile_id)).length : null;
   const kpis = buildKpis(rows, attention);
   const trainingSummary = training.ok ? summarise(training.value, today, windows.training_warn_days) : null;
   const current = rows.filter((r) => isCurrentStaff(r) && r.account_active);
@@ -81,7 +95,7 @@ export default async function PeopleOverviewPage() {
         : { label: "Mandatory training met", value: `${trainingSummary.compliant} of ${trainingSummary.required}`, href: "/admin/people/training",
             note: trainingSummary.overdue > 0 ? `${trainingSummary.overdue} overdue` : undefined },
     { label: "Outstanding supervision", value: "Not tracked yet", note: "Comes with supervision records (Phase D)." },
-    { label: "Leave awaiting approval", value: "Not tracked yet", note: "Comes with leave requests (Phase C)." },
+    { label: "Leave awaiting a decision", value: leavePending === null ? "Could not load" : String(leavePending), href: "/admin/people/leave" },
   ];
 
   const composition = [
@@ -206,6 +220,7 @@ export default async function PeopleOverviewPage() {
       </Card>
 
       {!training.ok && <p className="text-sm text-red-700">{training.message} Training items are missing from the list above.</p>}
+      {!leave.ok && <p className="text-sm text-red-700">{leave.message} Leave items are missing from the list above.</p>}
 
       {testCount > 0 && (
         <p className="text-xs text-charcoal-ink/60">{testCount} test {testCount === 1 ? "account is" : "accounts are"} left out of these figures.</p>
