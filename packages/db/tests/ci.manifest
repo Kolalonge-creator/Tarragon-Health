@@ -1960,3 +1960,5 @@ dw03_escalation_working_states.sql
 dw07_dw08_audited_onboarding_and_care_circle_reads.sql
 # P14 (2026-11-07): risk_assessment_drafts (save and resume for the patient health assessment) is owner-only: the patient saves, reads, replaces and deletes their own draft; another patient, a supporter with a 'manage' grant and an org admin read none and cannot save under the patient's id; a foreign organisation, step 6 and non-object answers are refused; anon is refused. Sabotage: SELECT opened to org staff and INSERT opened to any patient_id must flip checks.
 p14_risk_assessment_drafts.sql
+# P16 (2026-11-07, CMO decision from chat): a patient's "Not sure" answer is a routine medication_dispense_flags patient_query row, one per patient per Lagos day (medication_dispense_flags_not_sure_one_per_day): a second the same day is refused, a free-text concern and another patient are not limited, yesterday's row does not block today's, a supporter cannot raise one for the patient. Sabotage: dropping the index lets the second row in.
+p16_not_sure_task_one_per_day.sql
