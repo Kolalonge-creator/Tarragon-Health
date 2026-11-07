@@ -71,7 +71,7 @@ type AlertRow = {
   patient_id: string;
   responsible_clinician_id: string | null;
   patient: { full_name: string | null; patient_number: string | null } | null;
-  responsible_clinician: { full_name: string | null } | null;
+  responsible_clinician: { full_name: string | null; profile_id: string | null } | null;
 };
 
 const shorten = (text: string, max = 140) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
@@ -129,6 +129,7 @@ export function alertToRow(a: AlertRow, staffId: string | null): DoctorWorklistR
     receivedAt: a.created_at,
     dueAt: a.sla_due_at,
     assignedName: a.responsible_clinician?.full_name ?? null,
+    assignedProfileId: a.responsible_clinician?.profile_id ?? null,
     assignedToMe: staffId !== null && a.responsible_clinician_id === staffId,
     unassigned: a.responsible_clinician_id === null,
     status:
@@ -166,7 +167,7 @@ export async function loadDoctorWorklist(
       supabase
         .from("clinician_alerts")
         .select(
-          "id, title, status, snoozed_until, level, override_level, sla_due_at, created_at, patient_id, responsible_clinician_id, patient:profiles!clinician_alerts_patient_id_fkey(full_name, patient_number), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name)",
+          "id, title, status, snoozed_until, level, override_level, sla_due_at, created_at, patient_id, responsible_clinician_id, patient:profiles!clinician_alerts_patient_id_fkey(full_name, patient_number), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name, profile_id)",
         )
         // Snoozed alerts are listed too (marked, with the time), so a snoozed critical alert never disappears.
         .in("status", ["open", "acknowledged", "snoozed"])
