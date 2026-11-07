@@ -39,7 +39,7 @@
 --                    beneficiary). Sponsorship grants no clinical access.
 -- Wallet / voucher / employer provider rows in payment_transactions are
 -- internal settlements, not cash in, and are excluded. Test data is excluded
--- the same way analytics_clean does (is_test rows and test profiles).
+-- (is_test rows and test profiles), without depending on any analytics_clean view.
 --
 -- SECURITY. The view is in `private`, owned by postgres, and every role but
 -- the owner is revoked. Only SECURITY DEFINER finance RPCs that check
@@ -100,7 +100,7 @@ create or replace view private.finance_money_events as
 
   union all
 
-  -- 3. legacy Paystack charges (test rows already removed by analytics_clean)
+  -- 3. legacy Paystack charges
   select
     'ptx:' || pt.id::text, pt.created_at, 'payment',
     case
@@ -119,18 +119,21 @@ create or replace view private.finance_money_events as
     coalesce(pt.raw_payload #>> '{data,reference}', pt.provider_event_id),
     'payment_transaction', pt.id, private.resolve_payment_payer(pt),
     cv.beneficiary_profile_id, pt.organisation_id, false, (pt.error is not null)
-  from analytics_clean.payment_transactions clean
-  join public.payment_transactions pt on pt.id = clean.id
+  -- Reads the base table, not analytics_clean.payment_transactions: a view that depended on an
+  -- analytics_clean view would block private.drop_analytics_clean_views() / rebuild (the OQ-39 recipe
+  -- every column change on payment_transactions relies on). Test data is excluded below instead.
+  from public.payment_transactions pt
   left join lateral (select s.id from public.screening_day_payments s
                       where s.payment_transaction_id = pt.id limit 1) sdp on true
   left join lateral (select c.id, c.voucher_id from public.care_voucher_payments c
                       where c.payment_transaction_id = pt.id limit 1) cvp on true
   left join public.care_vouchers cv on cv.id = cvp.voucher_id
-  where pt.event_type = 'charge.success'
+  where not pt.is_test
+    and pt.event_type = 'charge.success'
     and pt.provider in ('paystack', 'stripe')
     and coalesce(pt.amount_minor, 0) > 0
-    -- analytics_clean only checks the patient for booking-typed rows; doctor services, vouchers,
-    -- screening days and subscriptions are matched to their payer here instead.
+    -- Every charge is matched to its payer (and a voucher to its beneficiary): a test account's
+    -- charge never counts, whatever kind of purchase it was.
     and not exists (select 1 from public.profiles tp
                      where tp.id in (private.resolve_payment_payer(pt), cv.beneficiary_profile_id) and tp.is_test)
 
@@ -526,6 +529,13 @@ grant execute on function public.finance_open_item_counts() to authenticated;
 -- ---------------------------------------------------------------------------
 do $$
 begin
+  -- OQ-39: nothing may depend on an analytics_clean view, or its drop/rebuild recipe breaks.
+  if exists (select 1 from pg_depend d join pg_rewrite rw on rw.oid = d.objid
+              join pg_class c on c.oid = d.refobjid
+             where rw.ev_class = 'private.finance_money_events'::regclass
+               and c.relnamespace = 'analytics_clean'::regnamespace) then
+    raise exception 'private.finance_money_events must not depend on an analytics_clean view';
+  end if;
   if has_table_privilege('authenticated', 'private.finance_money_events', 'SELECT')
      or has_table_privilege('anon', 'private.finance_money_events', 'SELECT') then
     raise exception 'finance_money_events must not be readable by anon or authenticated';
