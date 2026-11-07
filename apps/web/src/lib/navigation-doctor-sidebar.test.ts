@@ -99,3 +99,15 @@ describe("Chief Medical Officer menu (CMO command centre, 2026-11-07)", () => {
     expect(clinicianSearchSections().flatMap((s) => s.items).some((i) => i.href === "/clinician/leadership")).toBe(true);
   });
 });
+
+describe("CMO Clinical operations group (2026-11-07)", () => {
+  it("gives the CMO an operations group with the overview and patient journey, after the top group", () => {
+    const sections = getNavSections("clinician", null, { cmo: true });
+    expect(sections[1]?.label).toBe("Clinical operations");
+    expect(sections[1]?.items.map((i) => i.href)).toEqual(["/clinician/operations", "/clinician/operations/journey"]);
+  });
+
+  it("is not shown to other doctors", () => {
+    expect(sidebarItems.some((i) => i.href === "/clinician/operations" || i.href.startsWith("/clinician/operations/"))).toBe(false);
+  });
+});

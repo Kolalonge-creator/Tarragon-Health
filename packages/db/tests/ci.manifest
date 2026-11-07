@@ -1964,6 +1964,8 @@ care_circle_typed_help_requests.sql
 dw_followups_monitoring_notice_and_no_escalation_delete.sql
 # Superadmin homepage (2026-11-07): analytics_platform_overview counts a window and the one before it from fixtures measured as differences (test patient, test member, test/errored/USD payments left out; refunds and failed charges apart; snapshot by source, Free, ending in 30 days); a patient is refused with 42501, a backwards range with 22023. Sabotage: an ungated copy lets the patient in.
 analytics_platform_overview.sql
+# CMO Clinical Operations slice 1 (2026-11-07): the CMO's org-wide patient journey summary counts patients they are not tied to, moves by exactly the fixture (test patient excluded), carries no patient identity, and refuses an administrator, an ordinary clinician, a patient and anon. Sabotage: an ungated cmo_of lets the ordinary clinician read it.
+cmo_patient_journey_summary.sql
 # CC-1..CC-4 (2026-11-07): one shared coordination workspace. Employed doctors and the CMO pass the coordinator gates, a partner specialist does not; outreach, support and programme work routes coordinator-first with doctor fallback and hands over in a sweep; coordinator-level queue tasks push to a coordinator first; the worklist/activity/roster read models are staff-only. Sabotage: old upload gate, no-op sweep, dropped routing trigger.
 cc1_coordination_shared_workspace.sql
 # Finance dashboard v2, Phase A (20261107015736): finance_money_overview keeps
