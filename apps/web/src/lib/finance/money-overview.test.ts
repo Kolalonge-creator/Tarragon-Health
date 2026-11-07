@@ -143,8 +143,10 @@ describe("chart and quiet periods", () => {
     expect(isQuietPeriod(overview({ current: totals({ successful_payments: 0, refund_count: 0, failed_payments: 0, recognised_revenue_minor: 0 }) }))).toBe(true);
   });
 
-  it("links no activity row until its page exists", () => {
-    expect(recordHref("order", "x")).toBeNull();
+  it("links every activity row to its transaction page", () => {
+    expect(recordHref("order", "x")).toBe("/finance/transactions/order/x");
+    expect(recordHref("voucher_refund", "x")).toBe("/finance/transactions/voucher_refund/x");
+    expect(recordHref("unknown", "x")).toBeNull();
   });
 });
 

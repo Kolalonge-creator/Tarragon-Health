@@ -1967,3 +1967,5 @@ dw_followups_monitoring_notice_and_no_escalation_delete.sql
 # splits member / family sponsor / employer, refuses non-finance callers, and
 # a sabotage step proves the gross-volume check discriminates.
 finance_money_overview.sql
+# Finance dashboard v2, Phase B (20261107023339): the transaction directory returns the window's payments, failures and refunds with totals, settlement status (settled / exception / awaiting / not applicable) and refunded amount; filters, search, sort and paging work; a finance.view-only member browses but cannot export, finance exports and each export is audited; the detail returns refunds, refundable balance, webhook status (never the raw body), settlement and a timeline and audits the read against the member; a patient is refused both. Sabotage: removing the export check lets the view-only member export.
+finance_transactions_directory.sql

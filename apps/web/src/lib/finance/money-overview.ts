@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatMinor, formatNumber, formatPercent } from "@/lib/analytics/format";
 import type { FinanceTermKey } from "./definitions";
 import type { ResolvedPeriod } from "./periods";
+import { transactionHref } from "./transactions";
 
 /**
  * Finance v2 overview: the data behind the homepage KPIs, revenue chart,
@@ -289,11 +290,7 @@ export function isQuietPeriod(data: MoneyOverview): boolean {
 }
 
 /** A link to the record behind an activity-feed event, or null when no finance page shows that record yet. */
-// Phase B adds the transaction detail page and Phase C the refunds workspace;
-// each wires its record types in here when it lands.
-const RECORD_PAGES: Record<string, (id: string) => string> = {};
-
+/** Every money event opens on the transaction detail page (Phase B). */
 export function recordHref(recordType: string, recordId: string): string | null {
-  const page = RECORD_PAGES[recordType];
-  return page ? page(recordId) : null;
+  return transactionHref(recordType, recordId);
 }
