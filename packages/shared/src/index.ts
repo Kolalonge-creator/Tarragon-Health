@@ -356,3 +356,4 @@ export * from "./escalation-states";
 export * from "./trend-ranges";
 export * from "./cmo-oversight";
 export * from "./cmo-leadership";
+export * from "./clinical-operations";

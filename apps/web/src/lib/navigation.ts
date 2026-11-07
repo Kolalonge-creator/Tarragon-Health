@@ -405,6 +405,19 @@ export function getNavSections(
                 { label: options?.cmo ? "My clinical day" : "Today", href: "/clinician", icon: "dashboard", exact: true },
               ],
             },
+            // CMO Clinical Operations (2026-11-07): the operations hub and the patient journey, CMO only. Workload, capacity and SLA
+            // pages already exist and are linked from the hub rather than repeated here.
+            ...(options?.cmo
+              ? [
+                  {
+                    label: "Clinical operations",
+                    items: [
+                      { label: "Operations overview", href: "/clinician/operations", icon: "operations" as const, exact: true },
+                      { label: "Patient journey", href: "/clinician/operations/journey", icon: "carePlan" as const },
+                    ],
+                  },
+                ]
+              : []),
             {
               // DW-02 (2026-11-06): daily clinical work first. Inboxes and queues where a patient or colleague
               // is waiting on this doctor; every item that can block someone keeps its live countKey badge.

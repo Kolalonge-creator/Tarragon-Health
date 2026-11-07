@@ -13,6 +13,7 @@ export function KpiCard({
   trend,
   definition,
   href,
+  target,
 }: {
   label: string;
   value: number | string | null;
@@ -20,6 +21,8 @@ export function KpiCard({
   trend?: PeriodTrend | null;
   definition: string;
   href: string;
+  /** The approved target in words, or "No approved target". Never a colour without an approved target behind it. */
+  target?: string;
 }) {
   const unknown = value === null;
   return (
@@ -38,6 +41,7 @@ export function KpiCard({
           {trend.text}
         </span>
       )}
+      {target && <span className="mt-1 text-xs font-medium text-charcoal-ink/55">{target}</span>}
       <span className="mt-auto pt-3 text-xs leading-snug text-charcoal-ink/50">{definition}</span>
     </Link>
   );
