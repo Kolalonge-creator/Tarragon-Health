@@ -1960,3 +1960,5 @@ dw03_escalation_working_states.sql
 dw07_dw08_audited_onboarding_and_care_circle_reads.sql
 # DW follow-ups (2026-11-07): a returned monitoring case tells its doctor in-app (only the escalation id), an unheld one tells the CMO, a not-yet-due one tells nobody; no staff account (doctor or coordinator) can delete an escalation. Sabotage: the old org-staff delete policy lets a coordinator delete.
 dw_followups_monitoring_notice_and_no_escalation_delete.sql
+# HR Phase A (2026-11-07, HR-01..HR-04): employment history append-only and admin-written, readable by admin/self/line manager only; personal details only via RPC, admin reads audited, ID number admin-only, audit never holds values. Sabotage: open read policy, no admin check on write.
+hr_people_phase_a_employment_records.sql

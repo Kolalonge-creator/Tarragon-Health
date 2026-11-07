@@ -950,3 +950,12 @@ Design record: `docs/design/MESSAGING-2.md` (audit of the live system against th
 | **PD-14** | A border with no colour of its own is a soft ink tint by default, never near-black. | Founder, 2026-11-06, prompt. | `packages/ui/src/theme.css`. |
 | **PD-15** | Phone bottom bar: My Health stays highlighted on vitals, medicines, labs, timeline and health summary; More is highlighted on pages no tab covers. | Founder, 2026-11-06, prompt; follows PD-01. | `lib/navigation.ts` (`tabAlsoActiveFor`, `tabIsActive`). |
 | **PD-16** | Any change to an existing design or layout guide, pattern or brand rule is put to the founder in a selectable prompt before it is made. | Founder, 2026-11-06. | Standing rule for all sessions. |
+
+## Founder decisions, 2026-11-07 (HR and Workforce dashboard, docs/design/HR-WORKFORCE.md, chosen in chat prompts)
+
+| ID | Decision | Rationale | Where it lands |
+|----|----------|-----------|----------------|
+| **HR-01** | The HR dashboard lives at `/admin/people` inside `apps/web`, next to Rota, Credentialing and Members. It can move to `apps/console` later with the S01d recipe. | Founder, 2026-11-07 (recommended option): reuses the admin shell and search; about nine staff today. | `apps/web/src/app/(dashboard)/admin/people`. |
+| **HR-02** | Admins run HR for now. No HR account role is added until Tarragon hires an HR person. | Founder, 2026-11-07 (recommended option). | HR RPCs and RLS gate on `private.is_admin()`; no `user_role` change. |
+| **HR-03** | Each staff member has a recorded line manager. Leave is approved by the line manager, or by an admin when none is set. An approved request writes the existing `provider_time_off` row, so routing and the rota stay one system. | Founder, 2026-11-07 (recommended option). | `staff_employment.line_manager_id` (Phase A); leave requests (Phase C). |
+| **HR-04** | HR stores emergency contact, home address, national ID number (number only, no document image) and a sickness reason, each in a separately locked table readable only by admins and the person themself. Salary and bank details stay out of HR. | Founder, 2026-11-07, chose all four. | `staff_sensitive_details` (Phase A); sickness reason on leave requests (Phase C). |

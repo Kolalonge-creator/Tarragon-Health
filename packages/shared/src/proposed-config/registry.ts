@@ -1580,6 +1580,19 @@ export const PROPOSED_CONFIG: readonly ProposedConfigEntry[] = [
     source: "supabase/migrations/20261105113829_security_dashboard_and_staff_access_review.sql; security audit 2026-11-05 Phase 3",
   },
   {
+    key: "hr.attention_windows",
+    // HR Phase A (2026-11-07, docs/design/HR-WORKFORCE.md): how far ahead /admin/people warns before a practising licence,
+    // indemnity cover or an employment contract ends. App-only display windows (the database sweeps that suspend or notify
+    // keep their own credentialing_config values). PROPOSED, owner Founder: licence 90 days (matches the first credential
+    // expiry notice), indemnity 60 days, contract 60 days.
+    value: { licence_warn_days: 90, indemnity_warn_days: 60, contract_warn_days: 60 },
+    owner: "Founder",
+    status: "proposed",
+    version: 1,
+    effectiveFrom: "2026-11-07",
+    source: "apps/web/src/lib/people/attention.ts; HR Phase A 2026-11-07",
+  },
+  {
     key: "security.rules",
     // Security thresholds (S39). Live values are the active row of `security_config`; this entry mirrors it and a test fails if the
     // migration seed and this value drift. PROPOSED, owned by the security owner (CMO until one is named): how many failed lookups on a

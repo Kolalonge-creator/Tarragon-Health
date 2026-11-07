@@ -687,6 +687,8 @@ export function getNavSections(
             { label: "Clinician credentialing", href: "/admin/credentialing", icon: "review" },
             // Who is on call, who is declared to work, who leads each care pack patient (S18).
             { label: "Rota and lead clinicians", href: "/admin/rota", icon: "caseload" },
+            // Employment records, departments, line managers and the workforce attention list (HR Phase A, HR-01).
+            { label: "People and HR", href: "/admin/people", icon: "members" },
             // The go-live guards and the proposed values the founder owns (S37).
             { label: "Go-live guards", href: "/admin/go-live", icon: "governance" },
             // The symptom checker's regulatory position, accuracy audit and safety settings (S60).
