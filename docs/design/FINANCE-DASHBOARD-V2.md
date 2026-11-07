@@ -93,3 +93,14 @@ Nothing in A to D writes to a payment, membership or ledger row. Every new RPC i
 - **Refunds against legacy payments are not linked to their payment.** The directory's "refunded" amount and the detail page's refund list cover v5 checkout orders only. Lab, pharmacy, doctor-service and Care Voucher refunds appear as their own rows but are not tied back to the original Paystack charge. Fix with the shared refunds workspace (Phase C), which needs that link anyway.
 - **The detail reads the whole money-events view to find one record.** Fine at today's volume; read the source table for the record type directly before volume grows (same work as section 8's query-cost item).
 - **Decision taken (FIN-V2-4, for the founder to confirm):** every directory read that returns named rows is written to audit_log (`finance.transactions.listed`), not only exports, so a view-only member paging through the list is as traceable as an export.
+
+## 10. Phase C1 decisions and follow-ups
+
+Decisions taken in C1 (for the founder to confirm):
+- **FIN-V2-5.** Only an admin can set or clear the second-approver threshold, with a reason that is logged. The finance staff the rule binds cannot switch it off themselves.
+- **FIN-V2-6.** A patient's own free-text refund reason is shown only to people who can decide refunds, because patients often explain a refund with health details. View-only finance staff see amounts, names and states.
+- **FIN-V2-7.** With no threshold set, one approval is enough, exactly as before. The founder is the only approver today, and a missing setting must never leave a patient's refund stuck. Once a refund holds a first approval, it always needs a different second approver, even if the threshold is later cleared.
+
+Follow-ups:
+- Nobody is notified when a refund is waiting for a second approver; the workspace highlights it and the sidebar badge counts it. A notification to other approvers is worth adding once there is more than one.
+- The admin-only retry/settle panel still loads the old pending list it no longer shows (one wasted query per admin visit).

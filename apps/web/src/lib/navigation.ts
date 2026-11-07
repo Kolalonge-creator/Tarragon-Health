@@ -959,6 +959,7 @@ export function getNavSections(
           label: "Payments",
           items: [
             { label: "Transactions", href: "/finance/transactions", icon: "billing" },
+            { label: "Refunds", href: "/finance/refunds", icon: "billing", countKey: "financeRefundsPending" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile", countKey: "financeReconciliationOpen" },
             { label: "Money reconciliation", href: "/finance/money-reconciliation", icon: "reconcile" },
             { label: "Settlement tie-out", href: "/finance/settlement-tieout", icon: "reconcile" },

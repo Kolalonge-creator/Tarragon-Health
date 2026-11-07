@@ -35,7 +35,7 @@ function stubClient(result: CountResult): Client {
         fn === "list_second_opinion_worklist" && result.count !== null
           ? Array.from({ length: result.count })
           : fn === "finance_open_item_counts" && result.count !== null
-            ? { reconciliation: result.count, fraud: result.count, approvals: result.count }
+            ? { reconciliation: result.count, fraud: result.count, approvals: result.count, refunds: result.count }
             : result.count,
       error: result.error,
     });
@@ -45,8 +45,8 @@ function stubClient(result: CountResult): Client {
 const KEYS = Object.keys(COUNTERS) as WorklistCountKey[];
 
 describe("worklist counters", () => {
-  it("covers every worklist the clinician dashboard counts, plus the three finance badges", () => {
-    expect(KEYS.length).toBe(40);
+  it("covers every worklist the clinician dashboard counts, plus the four finance badges", () => {
+    expect(KEYS.length).toBe(41);
   });
 
   it.each(KEYS)("%s returns the live count when the query succeeds", async (key) => {
